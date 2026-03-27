@@ -1,0 +1,711 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<title>Juno Listening</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --accent:  #7C6FFF;
+    --red:     #FF5F57;
+    --bg:      rgba(20, 20, 26, 0.92);
+    --surface: rgba(255,255,255,0.07);
+    --border:  rgba(255,255,255,0.11);
+    --text:    #F0F0F5;
+    --muted:   rgba(255,255,255,0.40);
+    --radius:  18px;
+    --font:    -apple-system, 'SF Pro Display', 'Segoe UI', system-ui, sans-serif;
+  }
+
+  [data-theme="light"] {
+    --bg:      rgba(244, 244, 248, 0.92);
+    --surface: rgba(0,0,0,0.05);
+    --border:  rgba(0,0,0,0.11);
+    --text:    #111114;
+    --muted:   rgba(0,0,0,0.5);
+  }
+
+  html, body {
+    width: 100%; height: 100%;
+    background: transparent;
+    overflow: hidden;
+    user-select: none;
+    -webkit-user-select: none;
+  }
+
+  /* Card — NO overflow:hidden so dropdown can escape */
+  #card {
+    position: absolute; inset: 0;
+    background: var(--bg);
+    backdrop-filter: blur(48px) saturate(1.9);
+    -webkit-backdrop-filter: blur(48px) saturate(1.9);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    box-shadow: 0 28px 72px rgba(0,0,0,0.6), 0 0 0 0.5px rgba(255,255,255,0.06) inset;
+    display: flex;
+    flex-direction: column;
+    font-family: var(--font);
+    color: var(--text);
+    /* overflow: visible — let dropdown escape */
+  }
+
+  /* ── Title bar ── */
+  #titlebar {
+    display: flex; align-items: center; gap: 8px;
+    padding: 10px 13px 7px;
+    flex-shrink: 0;
+    border-radius: var(--radius) var(--radius) 0 0;
+    -webkit-app-region: drag;
+  }
+
+  .dot {
+    width: 12px; height: 12px; border-radius: 50%;
+    cursor: pointer;
+    -webkit-app-region: no-drag;
+    flex-shrink: 0;
+    transition: filter 0.15s, transform 0.1s;
+  }
+  .dot:hover  { filter: brightness(1.4); transform: scale(1.15); }
+  .dot:active { transform: scale(0.9); }
+  #dot-close  { background: var(--red); box-shadow: 0 0 7px rgba(255,95,87,0.5); }
+
+  #pulse-dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: var(--accent);
+    box-shadow: 0 0 10px var(--accent);
+    animation: pulse 1.4s ease-in-out infinite;
+    flex-shrink: 0; margin-left: 2px;
+  }
+  @keyframes pulse {
+    0%,100% { opacity: 1; transform: scale(1);    }
+    50%      { opacity: 0.45; transform: scale(1.3); }
+  }
+
+  #status-label {
+    font-size: 12px; font-weight: 600; letter-spacing: 0.3px;
+    color: var(--muted);
+    flex: 1;
+    -webkit-app-region: drag;
+  }
+
+  /* ── Language pill ── */
+  #lang-wrapper { position: relative; -webkit-app-region: no-drag; flex-shrink: 0; }
+
+  #lang-btn {
+    display: flex; align-items: center; gap: 5px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 3px 10px 3px 7px;
+    font-size: 11.5px; font-weight: 500;
+    color: var(--text);
+    cursor: pointer;
+    transition: background 0.15s;
+    white-space: nowrap;
+    -webkit-app-region: no-drag;
+  }
+  #lang-btn:hover { background: rgba(255,255,255,0.13); }
+  #lang-flag    { font-size: 14px; line-height: 1; }
+  #lang-chevron { font-size: 9px; color: var(--muted); margin-left: 1px; }
+
+  /*
+   * DROPDOWN — Fixed position, placed by JS so it escapes
+   * the card boundary regardless of overflow settings.
+   */
+  #lang-dropdown {
+    position: fixed;   /* Escape any parent overflow/clip */
+    min-width: 210px;
+    max-height: 240px;
+    overflow-y: auto;
+    background: rgba(26, 26, 34, 0.98);
+    backdrop-filter: blur(40px);
+    -webkit-backdrop-filter: blur(40px);
+    border: 1px solid var(--border);
+    border-radius: 13px;
+    box-shadow: 0 20px 50px rgba(0,0,0,0.75), 0 0 0 0.5px rgba(255,255,255,0.07) inset;
+    z-index: 9999;
+    display: none;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(255,255,255,0.15) transparent;
+  }
+  #lang-dropdown::-webkit-scrollbar { width: 4px; }
+  #lang-dropdown::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.15); border-radius: 2px; }
+  #lang-dropdown.open { display: block; animation: dropAnim 0.15s ease both; }
+  @keyframes dropAnim {
+    from { opacity: 0; transform: scale(0.95); }
+    to   { opacity: 1; transform: scale(1); }
+  }
+
+  .lang-item {
+    display: flex; align-items: center; gap: 9px;
+    padding: 8px 12px;
+    font-size: 12.5px;
+    cursor: pointer;
+    transition: background 0.1s;
+  }
+  .lang-item:hover  { background: rgba(124,111,255,0.22); }
+  .lang-item.active { background: rgba(124,111,255,0.14); font-weight: 600; }
+  .lang-item .li-flag { font-size: 16px; flex-shrink: 0; }
+  .lang-item .li-name { flex: 1; color: var(--text); }
+  .lang-item .li-code { font-size: 10px; color: var(--muted); }
+  
+  [data-theme="light"] #lang-dropdown {
+    background: rgba(255, 255, 255, 0.96);
+    box-shadow: 0 20px 50px rgba(0,0,0,0.15), 0 0 0 0.5px rgba(0,0,0,0.05) inset;
+  }
+
+  /* ── Transcript (one phrase at a time, fixed height) ── */
+  #transcript-area {
+    flex: 0 0 auto;
+    height: 52px;
+    padding: 2px 14px 4px;
+    overflow: hidden;
+  }
+  #phrase-text {
+    font-size: 14.5px; font-weight: 400; line-height: 1.5;
+    color: var(--text);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    opacity: 1;
+    transition: opacity 0.3s ease;
+  }
+  #phrase-text.fading { opacity: 0; }
+  #interim-text {
+    font-size: 13px; font-style: italic;
+    color: var(--muted);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    min-height: 20px;
+  }
+
+  /* ── Waveform ── */
+  #waveform-wrap { flex: 0 0 32px; padding: 0 14px; }
+  #waveform { width: 100%; height: 32px; display: block; }
+
+  .divider { flex: 0 0 1px; background: var(--border); margin: 0 14px; }
+
+  /* ── Punctuation — always pinned at bottom ── */
+  #punct-panel {
+    flex: 0 0 auto;
+    padding: 7px 10px 9px;
+    display: flex; flex-direction: column; gap: 5px;
+    border-radius: 0 0 var(--radius) var(--radius);
+  }
+  .punct-row {
+    display: flex; gap: 4px; justify-content: center;
+  }
+  .punct-btn {
+    flex: 1; max-width: 44px; height: 28px;
+    display: flex; align-items: center; justify-content: center;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 7px;
+    font-size: 14px; font-weight: 500; color: var(--text);
+    cursor: pointer;
+    transition: background 0.1s, transform 0.07s, border-color 0.1s;
+    -webkit-app-region: no-drag;
+    user-select: none;
+    -webkit-user-select: none;
+  }
+  .punct-btn:hover  { background: rgba(124,111,255,0.3); border-color: var(--accent); }
+  .punct-btn:active { transform: scale(0.88); }
+  .punct-btn.flash  { background: rgba(124,111,255,0.5); border-color: var(--accent); }
+
+  /* Enter button — slightly wider, purple accent */
+  .punct-btn.enter-btn {
+    flex: 1.8;
+    max-width: 72px;
+    font-size: 16px;
+    background: rgba(124,111,255,0.12);
+    border-color: rgba(124,111,255,0.3);
+  }
+  .punct-btn.enter-btn:hover { background: rgba(124,111,255,0.35); }
+
+  /* Backspace button — red tone so it's clearly destructive */
+  .punct-btn.back-btn {
+    flex: 1.8;
+    max-width: 72px;
+    font-size: 16px;
+    background: rgba(255,95,87,0.08);
+    border-color: rgba(255,95,87,0.25);
+    color: #FF8A85;
+  }
+  .punct-btn.back-btn:hover { background: rgba(255,95,87,0.22); border-color: #FF5F57; color: #FF5F57; }
+  
+  [data-theme="light"] .punct-btn.back-btn {
+    background: rgba(229, 57, 53, 0.08);
+    border-color: rgba(229, 57, 53, 0.3);
+    color: #d32f2f;
+  }
+  [data-theme="light"] .punct-btn.back-btn:hover {
+    background: rgba(229, 57, 53, 0.15);
+    border-color: #c62828;
+    color: #b71c1c;
+  }
+
+  /* ── Shortcut row (⌘A / ⌘C / ⌘X / ⌘V / ⌘Z) ── */
+  .kbd-btn {
+    flex: 1;
+    height: 30px;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 1px;
+    background: rgba(0, 210, 200, 0.07);
+    border: 1px solid rgba(0, 210, 200, 0.22);
+    border-radius: 7px;
+    font-size: 10px; font-weight: 600;
+    color: rgba(0, 220, 210, 0.85);
+    cursor: pointer;
+    transition: background 0.12s, border-color 0.12s, transform 0.07s;
+    -webkit-app-region: no-drag;
+    user-select: none; -webkit-user-select: none;
+    letter-spacing: 0.2px;
+    line-height: 1.1;
+    white-space: nowrap;
+  }
+  .kbd-btn .kbd-key  { font-size: 13px; line-height: 1; }
+  .kbd-btn .kbd-label { font-size: 8.5px; color: rgba(0,220,210,0.55); letter-spacing: 0.3px; }
+  .kbd-btn:hover  { background: rgba(0,210,200,0.2); border-color: rgba(0,220,210,0.6); color: #00dcd6; }
+  .kbd-btn:hover .kbd-label { color: rgba(0,220,210,0.8); }
+  .kbd-btn:active { transform: scale(0.88); }
+  .kbd-btn.flash  { background: rgba(0,210,200,0.32); border-color: #00dcd6; }
+  
+  [data-theme="light"] .kbd-btn {
+    background: rgba(0, 160, 150, 0.08);
+    border-color: rgba(0, 160, 150, 0.3);
+    color: rgba(0, 140, 130, 0.95);
+  }
+  [data-theme="light"] .kbd-btn .kbd-label { color: rgba(0, 140, 130, 0.85); }
+  [data-theme="light"] .kbd-btn:hover {
+    background: rgba(0, 160, 150, 0.15);
+    border-color: rgba(0, 140, 130, 0.5);
+    color: rgba(0, 120, 110, 1);
+  }
+  [data-theme="light"] .kbd-btn:hover .kbd-label { color: rgba(0, 120, 110, 0.95); }
+  [data-theme="light"] .kbd-btn.flash { background: rgba(0, 160, 150, 0.25); border-color: rgba(0, 120, 110, 0.8); }
+
+  /* Separator label row */
+  .shortcut-sep {
+    display: flex; align-items: center; gap: 6px;
+    padding: 0 2px;
+    font-size: 9px; font-weight: 600; letter-spacing: 0.6px;
+    color: rgba(255,255,255,0.18);
+    text-transform: uppercase;
+  }
+  .shortcut-sep::before, .shortcut-sep::after {
+    content: ''; flex: 1; height: 1px;
+    background: rgba(255,255,255,0.08);
+  }
+  [data-theme="light"] .shortcut-sep { color: rgba(0,0,0,0.35); }
+  [data-theme="light"] .shortcut-sep::before,
+  [data-theme="light"] .shortcut-sep::after { background: rgba(0,0,0,0.12); }
+
+  /* ── Footer ── */
+  #footer {
+    display: flex; align-items: center; justify-content: center;
+    gap: 12px;
+    margin: 12px -16px -16px -16px;
+    padding: 8px 16px;
+    background: rgba(255,255,255,0.03);
+    border-top: 1px solid var(--border);
+    border-bottom-left-radius: 20px;
+    border-bottom-right-radius: 20px;
+    font-size: 10.5px;
+    color: var(--muted);
+    -webkit-app-region: no-drag;
+  }
+  #footer a {
+    color: var(--text);
+    opacity: 0.8;
+    text-decoration: none;
+    font-weight: 500;
+    transition: opacity 0.15s;
+    cursor: pointer;
+  }
+  #footer a:hover { opacity: 1; }
+  .footer-sep { color: var(--muted); opacity: 0.5; }
+  [data-theme="light"] #footer { background: rgba(0,0,0,0.02); }
+</style>
+</head>
+<body>
+<div id="card">
+  <div id="titlebar">
+    <div class="dot" id="dot-close" title="Stop"></div>
+    <div id="pulse-dot"></div>
+    <span id="status-label">Listening…</span>
+    <div id="lang-wrapper">
+      <button id="lang-btn">
+        <span id="lang-flag">🇺🇸</span>
+        <span id="lang-name">English (US)</span>
+        <span id="lang-chevron">▾</span>
+      </button>
+    </div>
+  </div>
+
+  <div id="transcript-area">
+    <div id="phrase-text"></div>
+    <div id="interim-text"></div>
+  </div>
+
+  <div id="waveform-wrap">
+    <canvas id="waveform"></canvas>
+  </div>
+
+  <div class="divider"></div>
+
+  <div id="punct-panel">
+    <div class="punct-row" id="prow1"></div>
+    <div class="punct-row" id="prow2"></div>
+    <div class="shortcut-sep">Shortcuts</div>
+    <div class="punct-row" id="prow3"></div>
+  </div>
+
+  <div id="footer">
+    <span>By Sayed Johon</span>
+    <span class="footer-sep">•</span>
+    <a onclick="window.junoAPI.openUrl('https://www.youtube.com/@junoverseai')">YouTube</a>
+    <span class="footer-sep">•</span>
+    <a onclick="window.junoAPI.openUrl('https://www.peeai.com')">PeeAI.com</a>
+  </div>
+</div>
+
+<!-- Dropdown is OUTSIDE the card so it's never clipped -->
+<div id="lang-dropdown"></div>
+
+<script>
+'use strict';
+
+const LANGUAGES = [
+  { code:'en-US', name:'English (US)',   flag:'🇺🇸', punct:['.','?','!',',','"',';',':','…','(',')','-',"'"] },
+  { code:'en-GB', name:'English (UK)',   flag:'🇬🇧', punct:['.','?','!',',','"',';',':','…','(',')','-',"'"] },
+  { code:'en-CA', name:'English (CA)',   flag:'🇨🇦', punct:['.','?','!',',','"',';',':','…','(',')','-',"'"] },
+  { code:'en-AU', name:'English (AU)',   flag:'🇦🇺', punct:['.','?','!',',','"',';',':','…','(',')','-',"'"] },
+  { code:'es-ES', name:'Español (ES)',   flag:'🇪🇸', punct:['.','?','!','¿','¡',',','"',';',':','—','(',')'  ] },
+  { code:'es-MX', name:'Español (MX)',   flag:'🇲🇽', punct:['.','?','!','¿','¡',',','"',';',':','—','(',')'  ] },
+  { code:'fr-FR', name:'Français (FR)',  flag:'🇫🇷', punct:['.','?','!',',','«','»',';',':','—','…','(',')'  ] },
+  { code:'de-DE', name:'Deutsch (DE)',   flag:'🇩🇪', punct:['.','?','!',',','„','"',';',':','—','…','(',')'  ] },
+  { code:'it-IT', name:'Italiano (IT)',  flag:'🇮🇹', punct:['.','?','!',',','"',';',':','—','…','(',')','-'  ] },
+  { code:'pt-BR', name:'Português (BR)', flag:'🇧🇷', punct:['.','?','!',',','"',';',':','—','…','(',')','-'  ] },
+  { code:'pt-PT', name:'Português (PT)', flag:'🇵🇹', punct:['.','?','!',',','"',';',':','—','…','(',')','-'  ] },
+  { code:'ja-JP', name:'Japanese (JP)',  flag:'🇯🇵', punct:['。','？','！','、','「','」','…','ー','～','・','（','）'] },
+  { code:'zh-CN', name:'Chinese (CN)',   flag:'🇨🇳', punct:['。','？','！','，','；','：','——','……','「','」','（','）'] },
+  { code:'ko-KR', name:'Korean (KR)',    flag:'🇰🇷', punct:['.','?','!',',','「','」',';',':','—','…','(',')'  ] },
+  { code:'ar-SA', name:'Arabic (SA)',    flag:'🇸🇦', punct:['.','؟','!','،','"','"',';',':','—','…','(',')'  ] },
+  { code:'bn-BD', name:'Bengali (BD)',   flag:'🇧🇩', punct:['।','?','!',',','"','"',';',':','—','…','(',')'  ] },
+  { code:'hi-IN', name:'Hindi (IN)',     flag:'🇮🇳', punct:['।','?','!',',','"','"',';',':','—','…','(',')'  ] },
+  { code:'ru-RU', name:'Русский (RU)',   flag:'🇷🇺', punct:['.','?','!',',','«','»',';',':','—','…','(',')'  ] },
+  { code:'tr-TR', name:'Türkçe (TR)',    flag:'🇹🇷', punct:['.','?','!',',','"','"',';',':','—','…','(',')'  ] },
+  { code:'nl-NL', name:'Nederlands (NL)',flag:'🇳🇱', punct:['.','?','!',',','"','"',';',':','—','…','(',')'  ] },
+  { code:'pl-PL', name:'Polski (PL)',    flag:'🇵🇱', punct:['.','?','!',',','"','„',';',':','—','…','(',')'  ] },
+];
+
+let currentLangCode = 'en-US';
+let currentLang     = LANGUAGES[0];
+let dropdownOpen    = false;
+let wavePhase       = 0;
+let isSpeaking      = false;
+let clearTimer      = null;
+
+const phraseEl   = document.getElementById('phrase-text');
+const interimEl  = document.getElementById('interim-text');
+const langBtn    = document.getElementById('lang-btn');
+const langFlagEl = document.getElementById('lang-flag');
+const langNameEl = document.getElementById('lang-name');
+const dropdown   = document.getElementById('lang-dropdown');
+const prow1      = document.getElementById('prow1');
+const prow2      = document.getElementById('prow2');
+const prow3      = document.getElementById('prow3');
+const canvas     = document.getElementById('waveform');
+const ctx        = canvas.getContext('2d');
+
+// ── Init ──────────────────────────────────────────────────────
+window.junoAPI.getConfig().then(cfg => setLanguage(cfg.language || 'en-US', false));
+
+// ── Language ──────────────────────────────────────────────────
+function setLanguage(code, notify=true) {
+  currentLangCode = code;
+  currentLang = LANGUAGES.find(l => l.code === code) || LANGUAGES[0];
+  langFlagEl.textContent = currentLang.flag;
+  langNameEl.textContent = currentLang.name;
+  buildPunctuation(currentLang.punct);
+  buildDropdown();
+  if (notify) window.junoAPI.changeLanguage(code);
+}
+
+// Detect OS for shortcut label (⌘ on Mac, Ctrl on Windows/Linux)
+const IS_MAC = navigator.platform.toUpperCase().includes('MAC');
+const MOD    = IS_MAC ? '⌘' : 'Ctrl';
+
+const SHORTCUTS = [
+  { key: 'A', label: 'Select All', fn: () => window.junoAPI.injectSelectAll() },
+  { key: 'C', label: 'Copy',       fn: () => window.junoAPI.injectCopy()      },
+  { key: 'X', label: 'Cut',        fn: () => window.junoAPI.injectCut()       },
+  { key: 'V', label: 'Paste',      fn: () => window.junoAPI.injectPaste()     },
+  { key: 'Z', label: 'Undo',       fn: () => window.junoAPI.injectUndo()      },
+];
+
+function buildPunctuation(chars) {
+  const mid = Math.ceil(chars.length / 2);
+  prow1.innerHTML = '';
+  prow2.innerHTML = '';
+  prow3.innerHTML = '';
+
+  // Row 1: first half of punct chars  +  ⌫ Backspace (destructive, red)
+  chars.slice(0, mid).forEach(c => prow1.appendChild(mkBtn(c)));
+  prow1.appendChild(mkBackspaceBtn());
+
+  // Row 2: second half of punct chars  +  ↵ Enter/Return (action, purple)
+  chars.slice(mid).forEach(c => prow2.appendChild(mkBtn(c)));
+  prow2.appendChild(mkEnterBtn());
+
+  // Row 3: keyboard shortcut buttons (same for every language)
+  SHORTCUTS.forEach(s => prow3.appendChild(mkKbdBtn(s)));
+}
+
+function mkBtn(char) {
+  const b = document.createElement('button');
+  b.className = 'punct-btn';
+  b.textContent = char;
+  b.addEventListener('mousedown', e => {
+    e.preventDefault(); e.stopPropagation();
+    window.junoAPI.injectPunct(char + ' ');
+    flash(b);
+  });
+  return b;
+}
+
+function mkEnterBtn() {
+  const b = document.createElement('button');
+  b.className = 'punct-btn enter-btn';
+  b.textContent = '↵';
+  b.title = 'Return / Enter — move to new line';
+  b.addEventListener('mousedown', e => {
+    e.preventDefault(); e.stopPropagation();
+    window.junoAPI.injectEnter();
+    flash(b);
+  });
+  return b;
+}
+
+function mkBackspaceBtn() {
+  const b = document.createElement('button');
+  b.className = 'punct-btn back-btn';
+  b.textContent = '⌫';
+  b.title = 'Backspace — hold to erase continuously';
+
+  let initialTimer = null;
+  let repeatTimer  = null;
+
+  function startRepeat() {
+    // Fire once immediately
+    window.junoAPI.injectBackspace();
+    flash(b);
+
+    // After OS-like initial delay (500ms), start rapid repeat
+    initialTimer = setTimeout(() => {
+      repeatTimer = setInterval(() => {
+        window.junoAPI.injectBackspace();
+      }, 40); // ~25 chars/sec — matches macOS/Windows repeat rate
+    }, 500);
+  }
+
+  function stopRepeat() {
+    clearTimeout(initialTimer);
+    clearInterval(repeatTimer);
+    initialTimer = null;
+    repeatTimer  = null;
+  }
+
+  b.addEventListener('mousedown', e => {
+    e.preventDefault(); e.stopPropagation();
+    startRepeat();
+  });
+
+  // Stop on release OR if cursor leaves the button
+  b.addEventListener('mouseup',    stopRepeat);
+  b.addEventListener('mouseleave', stopRepeat);
+
+  return b;
+}
+
+function mkKbdBtn({ key, label, fn }) {
+  const b = document.createElement('button');
+  b.className = 'kbd-btn';
+  b.title = `${MOD}+${key} — ${label}`;
+  b.innerHTML = `<span class="kbd-key">${MOD}${key}</span><span class="kbd-label">${label}</span>`;
+  b.addEventListener('mousedown', e => {
+    e.preventDefault(); e.stopPropagation();
+    fn();
+    flash(b);
+  });
+  return b;
+}
+
+function flash(btn) {
+  btn.classList.add('flash');
+  setTimeout(() => btn.classList.remove('flash'), 180);
+}
+
+// ── Dropdown — position: fixed, placed by JS ──────────────────
+function buildDropdown() {
+  dropdown.innerHTML = '';
+  LANGUAGES.forEach(lang => {
+    const d = document.createElement('div');
+    d.className = 'lang-item' + (lang.code === currentLangCode ? ' active' : '');
+    d.innerHTML = `
+      <span class="li-flag">${lang.flag}</span>
+      <span class="li-name">${lang.name}</span>
+      <span class="li-code">${lang.code}</span>`;
+    d.addEventListener('mousedown', e => {
+      e.preventDefault();
+      setLanguage(lang.code);
+      closeDD();
+    });
+    dropdown.appendChild(d);
+  });
+}
+
+function positionDropdown() {
+  const rect = langBtn.getBoundingClientRect();
+  const ddH  = Math.min(240, LANGUAGES.length * 37);  // estimated height
+  
+  // Try to open above first, otherwise below
+  const spaceAbove = rect.top;
+  const spaceBelow = window.innerHeight - rect.bottom;
+
+  if (spaceAbove > ddH || spaceAbove > spaceBelow) {
+    // Open above
+    dropdown.style.top    = (rect.top - ddH - 6) + 'px';
+  } else {
+    // Open below
+    dropdown.style.top    = (rect.bottom + 6) + 'px';
+  }
+  dropdown.style.right  = (window.innerWidth - rect.right) + 'px';
+  dropdown.style.left   = 'auto';
+}
+
+function openDD() {
+  dropdownOpen = true;
+  buildDropdown();        // rebuild to refresh active state
+  positionDropdown();
+  dropdown.classList.add('open');
+}
+function closeDD() {
+  dropdownOpen = false;
+  dropdown.classList.remove('open');
+}
+
+langBtn.addEventListener('mousedown', e => {
+  e.preventDefault();
+  dropdownOpen ? closeDD() : openDD();
+});
+
+document.addEventListener('mousedown', e => {
+  if (dropdownOpen && !dropdown.contains(e.target) && e.target !== langBtn && !langBtn.contains(e.target)) {
+    closeDD();
+  }
+});
+
+// ── Stop button ───────────────────────────────────────────────
+document.getElementById('dot-close').addEventListener('mousedown', e => {
+  e.preventDefault();
+  window.junoAPI.stopListening();
+});
+
+// ── IPC ───────────────────────────────────────────────────────
+window.junoAPI.onSessionStart((data) => {
+  window.junoAPI.getConfig().then(cfg => {
+    document.documentElement.setAttribute('data-theme', cfg.theme || 'dark');
+  });
+  
+  clearTimer && clearTimeout(clearTimer);
+  phraseEl.textContent  = '';
+  interimEl.textContent = '';
+  phraseEl.classList.remove('fading');
+  if (data && data.lang) setLanguage(data.lang, false);
+});
+
+window.junoAPI.onTranscript((data) => {
+  const text = (data.text || data).trim();
+  if (!text) return;
+
+  clearTimer && clearTimeout(clearTimer);
+  phraseEl.classList.remove('fading');
+  phraseEl.textContent  = text;
+  interimEl.textContent = '';
+  isSpeaking = false;
+
+  clearTimer = setTimeout(() => {
+    phraseEl.classList.add('fading');
+    setTimeout(() => {
+      phraseEl.textContent = '';
+      phraseEl.classList.remove('fading');
+    }, 320);
+  }, 1800);
+});
+
+window.junoAPI.onInterim((text) => {
+  interimEl.textContent = text || '';
+  isSpeaking = !!text;
+});
+
+window.junoAPI.onStatus((s) => {
+  document.getElementById('status-label').textContent =
+    s === 'silence-timeout' ? 'Stopped (silence)' : 'Listening…';
+});
+
+window.junoAPI.onLanguage((code) => setLanguage(code, false));
+
+// ── Audio playback ─────────────────────────────────────────────
+const clickSound = new Audio('../assets/computer-mouse-click.mp3');
+clickSound.volume = 0.8; // Set a reasonable volume
+window.junoAPI.onPlaySound(() => {
+  // Reset time to allow rapid re-triggers
+  clickSound.currentTime = 0;
+  clickSound.play().catch(err => console.log('Audio playback failed:', err));
+});
+
+// ── Waveform ──────────────────────────────────────────────────
+function resizeCanvas() {
+  const dpr = window.devicePixelRatio || 1;
+  canvas.width  = canvas.offsetWidth  * dpr;
+  canvas.height = canvas.offsetHeight * dpr;
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+}
+resizeCanvas();
+new ResizeObserver(resizeCanvas).observe(canvas);
+
+function drawWave() {
+  const W = canvas.offsetWidth;
+  const H = canvas.offsetHeight;
+  ctx.clearRect(0, 0, W, H);
+
+  wavePhase += isSpeaking ? 0.075 : 0.022;
+  const amp = isSpeaking ? 9 : 2.5;
+
+  ctx.beginPath();
+  const steps = Math.floor(W / 3);
+  for (let i = 0; i <= steps; i++) {
+    const x = (i / steps) * W;
+    const y = H/2
+      + Math.sin(i*0.45 + wavePhase) * amp
+      + Math.sin(i*0.9  + wavePhase * 1.3) * amp * 0.5
+      + Math.sin(i*0.2  + wavePhase * 0.7) * amp * 0.3;
+    i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+  }
+
+  const g = ctx.createLinearGradient(0, 0, W, 0);
+  g.addColorStop(0,    'rgba(124,111,255,0)');
+  g.addColorStop(0.15, 'rgba(124,111,255,0.85)');
+  g.addColorStop(0.85, 'rgba(124,111,255,0.85)');
+  g.addColorStop(1,    'rgba(124,111,255,0)');
+
+  ctx.strokeStyle = g;
+  ctx.lineWidth   = isSpeaking ? 2.2 : 1.4;
+  ctx.shadowBlur  = isSpeaking ? 10  : 3;
+  ctx.shadowColor = 'rgba(124,111,255,0.55)';
+  ctx.stroke();
+  requestAnimationFrame(drawWave);
+}
+drawWave();
+</script>
+</body>
+</html>

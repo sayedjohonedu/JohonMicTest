@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Juno Speech Bridge</title>
+</head>
+<body>
+    <script>
+        'use strict';
+
+        // --- State ---
+        let ws = null;
+        let recognition = null;
+        let currentLang = 'en-US';
+        let isActive = false;        // Are we supposed to be listening?
+        let isRestarting = false;    // Prevent double-starts during restart
+        let silenceTimer = null;
+        let SILENCE_TIMEOUT_MS = 15000;
+
+        // --- WebSocket ---
+        function setupWebSocket() {
+            const port = new URLSearchParams(window.location.search).get('port') || 9123;
+            ws = new WebSocket(`ws://localhost:${port}`);
+
+            ws.onopen = () => {
+                ws.send(JSON.stringify({ type: 'status', message: 'ready' }));
+            };
+
+            ws.onmessage = (event) => {
+                const data = JSON.parse(event.data);
+                if (data.command === 'start') {
+                    if (typeof data.timeout === 'number') {
+                        SILENCE_TIMEOUT_MS = data.timeout * 1000;
+                    }
+                    startListening(data.language || 'en-US');
+                } else if (data.command === 'stop') {
+                    stopListening();
+                }
+            };
+
+            ws.onclose = () => {
+                setTimeout(setupWebSocket, 2000);
+            };
+        }
+
+        // --- Silence timer ---
+        function armSilenceTimer() {
+            clearSilenceTimer();
+            if (SILENCE_TIMEOUT_MS <= 0) return; // 0 means infinity/never
+
+            silenceTimer = setTimeout(() => {
+                // Configured seconds of silence — stop completely
+                ws.send(JSON.stringify({ type: 'status', message: 'silence-timeout' }));
+                stopListening();
+            }, SILENCE_TIMEOUT_MS);
+        }
+
+        function clearSilenceTimer() {
+            if (silenceTimer) {
+                clearTimeout(silenceTimer);
+                silenceTimer = null;
+            }
+        }
+
+        // --- Recognition ---
+        function createRecognition() {
+            const r = new webkitSpeechRecognition();
+            r.continuous = true;
+            r.interimResults = true; // Send interim for live typing effect in overlay
+            r.lang = currentLang;
+            r.maxAlternatives = 1;
+
+            r.onresult = (event) => {
+                armSilenceTimer(); // Reset 15s clock every time we hear something
+
+                let finalTranscript   = '';
+                let interimTranscript = '';
+
+                for (let i = event.resultIndex; i < event.results.length; i++) {
+                    if (event.results[i].isFinal) {
+                        finalTranscript += event.results[i][0].transcript;
+                    } else {
+                        interimTranscript += event.results[i][0].transcript;
+                    }
+                }
+
+                // Always broadcast interim for live waveform/typing effect
+                ws.send(JSON.stringify({ type: 'interim-text', text: interimTranscript }));
+
+                if (finalTranscript.trim()) {
+                    ws.send(JSON.stringify({ type: 'final-text', text: finalTranscript.trim() }));
+                }
+            };
+
+            r.onerror = (event) => {
+                // 'no-speech' just means silence — not an error, keep counting towards 15s timeout
+                if (event.error === 'no-speech') return;
+                // All other errors, let onend handle the restart
+            };
+
+            r.onend = () => {
+                if (!isActive || isRestarting) return;
+
+                // Chrome stopped on its own (timeout, network blip, etc.)
+                // We want to be active — restart immediately.
+                isRestarting = true;
+                recognition = createRecognition();
+                try {
+                    recognition.start();
+                } catch (e) {
+                    // Small delay to allow Chrome's internal state to reset
+                    setTimeout(() => {
+                        if (isActive) {
+                            recognition = createRecognition();
+                            recognition.start();
+                        }
+                        isRestarting = false;
+                    }, 300);
+                    return;
+                }
+                isRestarting = false;
+            };
+
+            return r;
+        }
+
+        function startListening(lang) {
+            currentLang = lang || currentLang;
+            if (isActive) return; // Already listening
+            isActive = true;
+            isRestarting = false;
+            recognition = createRecognition();
+            recognition.start();
+            armSilenceTimer();
+        }
+
+        function stopListening() {
+            isActive = false;
+            isRestarting = false;
+            clearSilenceTimer();
+            if (recognition) {
+                try { recognition.stop(); } catch (e) {}
+                recognition = null;
+            }
+        }
+
+        // Expose for Puppeteer just in case
+        window.startRecognition = startListening;
+        window.stopRecognition = stopListening;
+
+        setupWebSocket();
+    </script>
+</body>
+</html>
