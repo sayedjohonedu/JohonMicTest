@@ -96,21 +96,29 @@ ipcMain.on('inject-punct', (event, char) => {
 
 // Overlay: simulate Enter/Return key press  (↵ — moves to next line)
 ipcMain.on('inject-enter', () => {
-  robot.keyTap('enter');
+  try { robot.keyTap('enter'); } catch(e){} 
 });
 
 // Overlay: simulate Backspace key press  (⌫ — deletes character to the LEFT of cursor)
 ipcMain.on('inject-backspace', () => {
-  robot.keyTap('backspace');
+  try { robot.keyTap('backspace'); } catch(e){} 
 });
 
 // Overlay: keyboard shortcut actions (Cmd/Ctrl + key)
 const KBD_MOD = process.platform === 'darwin' ? 'command' : 'control';
-ipcMain.on('inject-select-all', () => robot.keyTap('a', KBD_MOD));
-ipcMain.on('inject-copy',       () => robot.keyTap('c', KBD_MOD));
-ipcMain.on('inject-cut',        () => robot.keyTap('x', KBD_MOD));
-ipcMain.on('inject-paste',      () => robot.keyTap('v', KBD_MOD));
-ipcMain.on('inject-undo',       () => robot.keyTap('z', KBD_MOD));
+// Wrap in try-catch to prevent "Invalid key code" crash on non-Latin keyboard layouts
+ipcMain.on('inject-select-all', () => { try { robot.keyTap('a', KBD_MOD); } catch(e){} });
+ipcMain.on('inject-copy',       () => { try { robot.keyTap('c', KBD_MOD); } catch(e){} });
+ipcMain.on('inject-cut',        () => { try { robot.keyTap('x', KBD_MOD); } catch(e){} });
+ipcMain.on('inject-paste',      () => { 
+  try { 
+    if (process.platform === 'win32') robot.keyTap('insert', 'shift');
+    else robot.keyTap('v', KBD_MOD); 
+  } catch(e) { 
+    try { robot.keyTap('v', 'control'); } catch(e2) {}
+  } 
+});
+ipcMain.on('inject-undo',       () => { try { robot.keyTap('z', KBD_MOD); } catch(e){} });
 
 // Overlay: user changed language from the language picker
 ipcMain.on('overlay-change-language', (event, lang) => {
@@ -379,7 +387,17 @@ function injectText(text) {
   const modifier = process.platform === 'darwin' ? 'command' : 'control';
 
   setTimeout(() => {
-    robot.keyTap('v', modifier);
+    try {
+      if (process.platform === 'win32') {
+        robot.keyTap('insert', 'shift');
+      } else {
+        robot.keyTap('v', modifier);
+      }
+    } catch (e) {
+      safeLog('[injectText] Paste shortcut failed:', e.message);
+      // Fallback: try standard Ctrl+V just in case Shift+Ins fails
+      try { robot.keyTap('v', 'control'); } catch (e2) {}
+    }
     // Restore the clipboard after a safe delay, but keep the timer reference
     // so any subsequent call can cancel this before it fires.
     clipRestoreTimer = setTimeout(() => {
