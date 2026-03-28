@@ -316,7 +316,7 @@ html, body {
       </div>
     </nav>
     <div class="sidebar-footer">
-      <button class="btn-action tg-btn" onclick="openUrl('https://t.me/junoverseai')" title="Join our Telegram" style="width: 100%; display: flex; align-items: center; justify-content: center; gap: 6px; padding: 7px; cursor: pointer; border-color: rgba(41, 169, 234, 0.4); background: rgba(41, 169, 234, 0.1); color: #29A9EA;">
+      <button class="btn-action tg-btn" onclick="window.electronAPI.openUrl('https://t.me/junoverseai')" title="Join our Telegram" style="width: 100%; display: flex; align-items: center; justify-content: center; gap: 6px; padding: 7px; cursor: pointer; border-color: rgba(41, 169, 234, 0.4); background: rgba(41, 169, 234, 0.1); color: #29A9EA;">
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
         JunoverseAI
       </button>
@@ -548,7 +548,7 @@ html, body {
             <h2>Juno Global Voice</h2>
             <p>Voice dictation for every app on your computer.<br/>Works with any language, any text field.</p>
             <div style="margin-top:12px; display:flex; align-items:center; gap:12px;">
-              <p style="font-size: 11.5px; color: var(--muted); margin:0;">Version <span id="about-version">1.0.0</span></p>
+              <p style="font-size: 11.5px; color: var(--muted); margin:0;">Version <span id="about-version">1.0.9</span></p>
               <button id="btn-update" onclick="checkUpdates()" style="background:var(--accent); color:white; border:none; border-radius:6px; padding:4px 10px; font-size:11px; cursor:pointer; font-weight:600; box-shadow: 0 2px 5px rgba(0,0,0,0.2);">Check for Updates</button>
               <span id="update-status-msg" style="color:var(--accent2); font-size:11px; font-weight:500;"></span>
             </div>
