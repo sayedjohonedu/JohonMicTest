@@ -25,8 +25,8 @@ jobs:
 
       - name: Build & Publish Windows .exe to Releases
         env:
-          # This token must have write access to the PUBLIC juno-voice-releases repo
           GH_TOKEN: ${{ secrets.RELEASE_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN }}
         run: npm run build:win -- --publish always
 
       - name: Upload Windows Installer as Artifact (local preview)
