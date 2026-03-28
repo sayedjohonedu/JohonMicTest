@@ -100,22 +100,40 @@ ipcMain.on('inject-punct', (event, char) => {
 });
 
 // Overlay: simulate Enter/Return key press  (↵ — moves to next line)
+function robustKeyTap(key, modifier) {
+  try {
+    if (modifier) {
+      if (Array.isArray(modifier)) modifier.forEach(m => robot.keyToggle(m, 'down'));
+      else robot.keyToggle(modifier, 'down');
+    }
+    robot.keyToggle(key, 'down');
+    // Minimal delay allows OS input buffer to process the synthetic keys
+    setTimeout(() => {
+      robot.keyToggle(key, 'up');
+      if (modifier) {
+        if (Array.isArray(modifier)) modifier.forEach(m => robot.keyToggle(m, 'up'));
+        else robot.keyToggle(modifier, 'up');
+      }
+    }, 15);
+  } catch(e) { safeLog('robustKeyTap error:', e.message); }
+}
+
 ipcMain.on('inject-enter', () => {
-  robot.keyTap('enter');
+  robustKeyTap('enter');
 });
 
 // Overlay: simulate Backspace key press  (⌫ — deletes character to the LEFT of cursor)
 ipcMain.on('inject-backspace', () => {
-  robot.keyTap('backspace');
+  robustKeyTap('backspace');
 });
 
 // Overlay: keyboard shortcut actions (Cmd/Ctrl + key)
 const KBD_MOD = process.platform === 'darwin' ? 'command' : 'control';
-ipcMain.on('inject-select-all', () => { try { robot.keyTap('a', KBD_MOD); } catch(e){} });
-ipcMain.on('inject-copy',       () => { try { robot.keyTap('c', KBD_MOD); } catch(e){} });
-ipcMain.on('inject-cut',        () => { try { robot.keyTap('x', KBD_MOD); } catch(e){} });
-ipcMain.on('inject-paste',      () => { try { robot.keyTap('v', KBD_MOD); } catch(e){} });
-ipcMain.on('inject-undo',       () => { try { robot.keyTap('z', KBD_MOD); } catch(e){} });
+ipcMain.on('inject-select-all', () => { robustKeyTap('a', KBD_MOD); });
+ipcMain.on('inject-copy',       () => { robustKeyTap('c', KBD_MOD); });
+ipcMain.on('inject-cut',        () => { robustKeyTap('x', KBD_MOD); });
+ipcMain.on('inject-paste',      () => { robustKeyTap('v', KBD_MOD); });
+ipcMain.on('inject-undo',       () => { robustKeyTap('z', KBD_MOD); });
 
 // Overlay: user changed language from the language picker
 ipcMain.on('overlay-change-language', (event, lang) => {
@@ -221,6 +239,8 @@ async function checkAuthStatus() {
 
 // ── Auto Updater logic ────────────────────────────────────────
 autoUpdater.autoDownload = false; 
+
+ipcMain.handle('get-version', () => app.getVersion());
 
 ipcMain.on('check-updates', () => autoUpdater.checkForUpdates());
 ipcMain.on('download-update', () => autoUpdater.downloadUpdate());

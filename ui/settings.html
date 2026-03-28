@@ -763,6 +763,8 @@ function previewTheme() {
 // ── Load config ─────────────────────────────────────────────────
 async function loadConfig() {
   const cfg = await window.electronAPI.getConfig();
+  const version = await window.electronAPI.getVersion();
+  document.getElementById('about-version').textContent = version;
 
   pendingHotkey = cfg.hotkey || DEFAULT_HOTKEY;
   hotkeyBadge.textContent = formatCombo(pendingHotkey);

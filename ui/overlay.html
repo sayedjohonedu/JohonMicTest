@@ -490,6 +490,9 @@ function mkEnterBtn() {
   b.title = 'Return / Enter — move to new line';
   b.addEventListener('mousedown', e => {
     e.preventDefault(); e.stopPropagation();
+  });
+  b.addEventListener('mouseup', e => {
+    e.preventDefault(); e.stopPropagation();
     window.junoAPI.injectEnter();
     flash(b);
   });
@@ -543,6 +546,9 @@ function mkKbdBtn({ key, label, fn }) {
   b.title = `${MOD}+${key} — ${label}`;
   b.innerHTML = `<span class="kbd-key">${MOD}${key}</span><span class="kbd-label">${label}</span>`;
   b.addEventListener('mousedown', e => {
+    e.preventDefault(); e.stopPropagation();
+  });
+  b.addEventListener('mouseup', e => {
     e.preventDefault(); e.stopPropagation();
     fn();
     flash(b);
