@@ -1,6 +1,6 @@
 {
   "name": "juno_voice_app",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "",
   "main": "main.js",
   "scripts": {
@@ -25,8 +25,12 @@
     ],
     "mac": {
       "category": "public.app-category.productivity",
-      "icon": "assets/icon.png",
-      "entitlements": "build/entitlements.mac.plist",
+      "target": [
+        "dmg",
+        "zip"
+      ],
+      "icon": "assets/icon.icns",
+      "identity": null,
       "extendInfo": {
         "NSMicrophoneUsageDescription": "Juno needs microphone access for speech-to-text."
       }
