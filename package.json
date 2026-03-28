@@ -1,6 +1,6 @@
 {
   "name": "juno_voice_app",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "",
   "main": "main.js",
   "scripts": {
@@ -29,7 +29,7 @@
         "dmg",
         "zip"
       ],
-      "icon": "assets/icon.icns",
+      "icon": "assets/logo/dark-logo-solid-black-background.png",
       "identity": null,
       "extendInfo": {
         "NSMicrophoneUsageDescription": "Juno needs microphone access for speech-to-text."
@@ -37,7 +37,7 @@
     },
     "win": {
       "target": "nsis",
-      "icon": "assets/icon.png"
+      "icon": "assets/logo/transparent-white-logo.png"
     },
     "nsis": {
       "oneClick": false,

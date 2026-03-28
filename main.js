@@ -1,4 +1,4 @@
-const { app, Tray, Menu, globalShortcut, clipboard, BrowserWindow, nativeImage, ipcMain, shell } = require('electron');
+const { app, Tray, Menu, globalShortcut, clipboard, BrowserWindow, nativeImage, ipcMain, shell, systemPreferences } = require('electron');
 const path = require('path');
 const http = require('http');
 const fs = require('fs');
@@ -43,6 +43,11 @@ const junoAutoLauncher = new AutoLaunch({
   name: 'Juno Global Voice',
   path: app.getPath('exe'),
 });
+
+// Windows fix for completely invisible or broken transparent windows
+if (process.platform === 'win32') {
+  app.disableHardwareAcceleration();
+}
 
 app.on('will-quit', async () => {
   await closeChromeBridge();
@@ -245,13 +250,14 @@ function createOverlay() {
     height: 312,
     transparent: true,
     frame: false,
+    backgroundColor: '#00000000',
     alwaysOnTop: true,
     skipTaskbar: true,
     resizable: false,
     show: false,
     hasShadow: true,
     focusable: false,                                         // CRITICAL: never steal focus
-    type: process.platform === 'darwin' ? 'panel' : 'toolbar', // macOS panel stays above without focus
+    type: process.platform === 'darwin' ? 'panel' : undefined, // macOS panel stays above without focus
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
@@ -639,6 +645,13 @@ function uiohookKeyName(keycode) {
 app.whenReady().then(() => {
   if (process.platform === 'darwin') {
     app.dock.hide(); 
+    // Request accessibility permissions so robotjs can paste/inject text
+    try {
+      const isTrusted = systemPreferences.isTrustedAccessibilityClient(true);
+      safeLog('macOS Accessibility Trusted: ', isTrusted);
+    } catch (e) {
+      safeLog('Error requesting Accessibility:', e);
+    }
   }
   
   checkAuthStatus(); // Validate trial & license key securely on startup
