@@ -10,6 +10,10 @@ jobs:
   build:
     runs-on: windows-latest
 
+    env:
+      GH_TOKEN: ${{ secrets.RELEASE_TOKEN }}
+      GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN }}
+
     steps:
       - name: Check out Git repository
         uses: actions/checkout@v4
@@ -24,12 +28,10 @@ jobs:
         run: npm ci
 
       - name: Build & Publish Windows .exe to Releases
-        env:
-          GH_TOKEN: ${{ secrets.RELEASE_TOKEN }}
-          GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN }}
         run: npm run build:win -- --publish always
 
       - name: Upload Windows Installer as Artifact (local preview)
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: Juno-Windows-Installer
