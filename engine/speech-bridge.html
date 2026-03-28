@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Juno Speech Bridge</title>
+    <title>MicTab Speech Bridge</title>
 </head>
 <body>
     <script>
@@ -260,7 +260,7 @@
                 // If we're supposed to be active but recognition is null and
                 // we're not already in a restart cycle, something went wrong.
                 if (!isRestarting && !recognition) {
-                    console.warn('[Juno Watchdog] Recognition appears dead. Force-restarting.');
+                    console.warn('[MicTab Watchdog] Recognition appears dead. Force-restarting.');
                     // Send a status ping so the overlay knows we detected the issue
                     if (ws && ws.readyState === WebSocket.OPEN) {
                         ws.send(JSON.stringify({ type: 'status', message: 'watchdog-restart' }));
@@ -270,7 +270,7 @@
                         recognition = createRecognition();
                         recognition.start();
                     } catch (e) {
-                        console.error('[Juno Watchdog] Force-restart failed:', e);
+                        console.error('[MicTab Watchdog] Force-restart failed:', e);
                     }
                 }
             }, 90000); // Check every 90 seconds

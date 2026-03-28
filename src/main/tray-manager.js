@@ -32,7 +32,7 @@ function createTray(toggleListening, showSettings, app, switchTrayLanguage, isLi
 
   updateTrayIcon();
   nativeTheme.on('updated', () => { if (tray) updateTrayIcon(); });
-  tray.setToolTip('Juno Global Voice');
+  tray.setToolTip('MicTab');
   
   updateTrayMenu(toggleListening, showSettings, app, switchTrayLanguage, isListening);
   

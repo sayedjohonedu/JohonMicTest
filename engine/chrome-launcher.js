@@ -33,7 +33,7 @@ async function launchChromeBridge(url, forceVisible = false) {
     throw new Error('Chrome not found. Please install Google Chrome.');
   }
 
-  const useHeadless = !forceVisible && !process.env.JUNO_FORCE_VISIBLE;
+  const useHeadless = !forceVisible && !process.env.MICTAB_FORCE_VISIBLE;
   const chromeArgs = [
     '--use-fake-ui-for-media-stream',
     '--no-first-run',

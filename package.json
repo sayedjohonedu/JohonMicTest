@@ -1,7 +1,7 @@
 {
-  "name": "juno_voice_app",
-  "version": "1.3.7",
-  "description": "Juno Voice App",
+  "name": "mictab",
+  "version": "1.0.0",
+  "description": "MicTab - Voice Dictation App",
   "main": "main.js",
   "scripts": {
     "start": "electron .",
@@ -12,8 +12,8 @@
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "build": {
-    "appId": "com.juno.globalvoice",
-    "productName": "Juno Global Voice",
+    "appId": "com.mictab.app",
+    "productName": "MicTab",
     "icon": "assets/logo/dark-logo-solid-black-background.png",
     "asar": true,
     "files": [
@@ -33,7 +33,7 @@
       ],
       "identity": null,
       "extendInfo": {
-        "NSMicrophoneUsageDescription": "Juno needs microphone access for speech-to-text."
+        "NSMicrophoneUsageDescription": "MicTab needs microphone access for speech-to-text."
       }
     },
     "win": {
@@ -47,8 +47,8 @@
     },
     "publish": {
       "provider": "github",
-      "owner": "sayedjohon",
-      "repo": "juno-voice-releases"
+      "owner": "contactsayedjohon",
+      "repo": "mictab-releases"
     },
     "releaseInfo": {
       "releaseNotesFile": "build/release-notes.md"

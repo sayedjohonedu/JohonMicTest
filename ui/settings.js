@@ -148,7 +148,7 @@ const PANELS = {
   replace: { title: 'Text Replacement', desc: 'Auto-replace your spoken words with custom text' },
   stats: { title: 'My Stats', desc: 'Usage statistics and time saved by voice dictation' },
   license: { title: 'License', desc: 'Manage your subscription and trial' },
-  about: { title: 'About', desc: 'Juno Global Voice information' },
+  about: { title: 'About', desc: 'MicTab information' },
 };
 
 window.switchPanel = function(id, el) {
@@ -310,7 +310,7 @@ let licenseTimer = null;
 function updateLicenseUI(status, firstLaunch, purchase) {
   if (licenseTimer) clearInterval(licenseTimer); const h = document.getElementById('license-headline'), s = document.getElementById('license-subtext'), c = document.getElementById('license-status-card'), b = document.getElementById('btn-verify-license');
   if (status === 'active') { h.textContent = 'Pro Version Unlocked'; c.style.background = 'rgba(72, 199, 116, 0.15)'; c.style.borderColor = '#48c774'; h.style.color = '#48c774'; b.textContent = 'Verified'; b.disabled = true; s.textContent = (purchase?.subscription_id && !purchase?.subscription_ended_at) ? 'Your license is verified and active (Subscription). Thank you! ⭐' : 'Lifetime License — Valid Forever. Thank you! ⭐'; }
-  else if (status === 'expired') { h.textContent = 'Trial or License Expired'; s.textContent = 'To continue using Juno Voice, please enter a valid license key below.'; c.style.background = 'rgba(248, 113, 113, 0.15)'; c.style.borderColor = '#f87171'; h.style.color = '#f87171'; b.disabled = false; b.textContent = 'Activate'; }
+  else if (status === 'expired') { h.textContent = 'Trial or License Expired'; s.textContent = 'To continue using MicTab, please enter a valid license key below.'; c.style.background = 'rgba(248, 113, 113, 0.15)'; c.style.borderColor = '#f87171'; h.style.color = '#f87171'; b.disabled = false; b.textContent = 'Activate'; }
   else {
     c.style.background = 'rgba(124,111,255,0.1)'; c.style.borderColor = 'var(--accent)'; h.style.color = 'var(--text)'; b.disabled = false; b.textContent = 'Activate Pro'; s.textContent = 'You are currently enjoying the fully-featured 7-day free trial.';
     const update = () => { const left = Math.max(0, firstLaunch + (7*24*60*60*1000) - Date.now()); if (!left) { h.textContent = 'Free Trial: Expired'; clearInterval(licenseTimer); return; } const d = Math.floor(left/86400000), hr = Math.floor((left%86400000)/3600000), min = Math.floor((left%3600000)/60000), sec = Math.floor((left%60000)/1000); h.textContent = `Free Trial: ${d}d ${hr}h ${min}m ${sec}s left`; };

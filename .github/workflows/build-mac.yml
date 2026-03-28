@@ -38,7 +38,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: Juno-Mac-Installer
+          name: MicTab-Mac-Installer
           path: |
             dist/*.dmg
             dist/*.zip

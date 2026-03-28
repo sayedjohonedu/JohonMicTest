@@ -261,7 +261,7 @@ function setupIpcHandlers(toggleListening, registerHotkeys, getWsClient, resetSi
     const browserWindow = BrowserWindow.fromWebContents(event.sender);
     const { canceled, filePath } = await dialog.showSaveDialog(browserWindow, {
       title: 'Export Text Replacements',
-      defaultPath: 'juno-replacements.json',
+      defaultPath: 'mictab-replacements.json',
       filters: [{ name: 'JSON File', extensions: ['json'] }],
     });
     if (canceled || !filePath) return { ok: false, reason: 'canceled' };
@@ -309,8 +309,8 @@ function setupIpcHandlers(toggleListening, registerHotkeys, getWsClient, resetSi
   ipcMain.handle('export-settings', async (event) => {
     const browserWindow = BrowserWindow.fromWebContents(event.sender);
     const { canceled, filePath } = await dialog.showSaveDialog(browserWindow, {
-      title: 'Export Juno Voice Settings',
-      defaultPath: 'juno-settings-backup.json',
+      title: 'Export MicTab Settings',
+      defaultPath: 'mictab-settings-backup.json',
       filters: [{ name: 'JSON File', extensions: ['json'] }],
     });
     if (canceled || !filePath) return { canceled: true };
@@ -326,7 +326,7 @@ function setupIpcHandlers(toggleListening, registerHotkeys, getWsClient, resetSi
   ipcMain.handle('import-settings-pick', async (event) => {
     const browserWindow = BrowserWindow.fromWebContents(event.sender);
     const { canceled, filePaths } = await dialog.showOpenDialog(browserWindow, {
-      title: 'Import Juno Voice Settings',
+      title: 'Import MicTab Settings',
       filters: [{ name: 'JSON File', extensions: ['json'] }],
       properties: ['openFile'],
     });
