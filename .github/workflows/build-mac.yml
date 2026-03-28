@@ -1,4 +1,4 @@
-name: Build & Publish Windows App
+name: Build & Publish Mac App
 
 on:
   push:
@@ -8,7 +8,7 @@ on:
 
 jobs:
   build:
-    runs-on: windows-latest
+    runs-on: macos-latest
 
     steps:
       - name: Check out Git repository
@@ -23,16 +23,17 @@ jobs:
       - name: Install Dependencies
         run: npm ci
 
-      - name: Build & Publish Windows .exe to Releases
+      - name: Build & Publish Mac .dmg to Releases
         env:
           # This token must have write access to the PUBLIC juno-voice-releases repo
           GH_TOKEN: ${{ secrets.RELEASE_TOKEN }}
-        run: npm run build:win -- --publish always
+        run: npm run build:mac -- --publish always
 
-      - name: Upload Windows Installer as Artifact (local preview)
+      - name: Upload Mac Installer as Artifact (local preview)
         uses: actions/upload-artifact@v4
         with:
-          name: Juno-Windows-Installer
+          name: Juno-Mac-Installer
           path: |
-            dist/*.exe
-            dist/latest.yml
+            dist/*.dmg
+            dist/*.zip
+            dist/latest-mac.yml

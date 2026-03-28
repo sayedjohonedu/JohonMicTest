@@ -180,19 +180,33 @@ html, body {
 /* Dim rows when their parent section is disabled */
 .disabled-row { opacity: 0.38; pointer-events: none; }
 
-/* ── LANGUAGE SELECT ── */
-.lang-select {
+/* ── LANG & INPUTS ── */
+.lang-select, .replace-input {
   appearance: none; background: var(--card2); border: 1px solid var(--border2);
-  border-radius: 8px; padding: 8px 32px 8px 12px;
+  border-radius: 8px; padding: 8px 12px;
   font-size: 13px; font-weight: 500; color: var(--text); font-family: var(--font);
-  cursor: pointer; min-width: 200px; outline: none;
+  outline: none; transition: border-color 0.15s;
+}
+.lang-select {
+  padding-right: 32px; cursor: pointer; min-width: 200px;
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23888' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
   background-repeat: no-repeat; background-position: right 10px center;
-  transition: border-color 0.15s;
 }
-.lang-select:hover { border-color: var(--accent); }
+.lang-select:hover, .replace-input:focus { border-color: var(--accent); }
 .lang-select option { background: #2a2a35; color: white; }
 [data-theme="light"] .lang-select option { background: white; color: black; }
+.replace-input::placeholder { color: var(--muted); font-weight: 400; }
+
+.replace-row { display: flex; align-items: center; gap: 8px; }
+.replace-input { flex: 1; }
+.btn-del-row {
+  background: transparent; border: 1px solid var(--border2);
+  border-radius: 7px; padding: 0; width: 34px; height: 34px;
+  font-size: 14px; font-weight: 500; color: #f87171;
+  cursor: pointer; display: flex; align-items: center; justify-content: center;
+  transition: background 0.15s, border-color 0.15s; flex-shrink: 0;
+}
+.btn-del-row:hover { background: rgba(248,113,113,0.1); border-color: #f87171; }
 
 /* ── SAVE BAR ── */
 .save-bar {
@@ -277,7 +291,7 @@ html, body {
   <aside class="sidebar">
     <div class="sidebar-header">
       <div class="app-logo">
-        <div class="logo-icon">🎙️</div>
+        <div class="logo-icon"><img src="../assets/logo/transparent-white-logo.png" style="width: 20px; height: 20px; object-fit: contain;"></div>
         <div>
           <div class="logo-text">Juno Voice</div>
           <div class="logo-sub">Global Dictation</div>
@@ -290,6 +304,12 @@ html, body {
       </div>
       <div class="nav-item" data-panel="voice" onclick="switchPanel('voice', this)">
         <span class="nav-icon">🎙️</span> Voice &amp; Language
+      </div>
+      <div class="nav-item" data-panel="replace" onclick="switchPanel('replace', this)">
+        <span class="nav-icon">✨</span> Text Replacement
+      </div>
+      <div class="nav-item" data-panel="license" onclick="switchPanel('license', this)">
+        <span class="nav-icon">🔑</span> License
       </div>
       <div class="nav-item" data-panel="about" onclick="switchPanel('about', this)">
         <span class="nav-icon">ℹ️</span> About
@@ -469,11 +489,58 @@ html, body {
           </div>
         </div>
       </div>
+      
+      <!-- ── TEXT REPLACEMENT PANEL ── -->
+      <div class="panel" id="panel-replace">
+        <div class="section-label">Shortcuts</div>
+        <div class="settings-group">
+          <div class="settings-row">
+            <div class="row-icon">✨</div>
+            <div class="row-info">
+              <label>Enable Text Replacements</label>
+              <small>Automatically replace specific spoken phrases with other text</small>
+            </div>
+            <label class="toggle">
+              <input type="checkbox" id="toggle-replace" onchange="syncReplaceEnable()"/>
+              <div class="toggle-track"></div>
+            </label>
+          </div>
+          <div class="settings-row" id="row-replacements" style="flex-direction: column; align-items: stretch; gap: 12px; padding: 16px;">
+            <div id="replacement-list" style="display: flex; flex-direction: column; gap: 8px;">
+              <!-- Dynamic rows injected here -->
+            </div>
+            <button class="btn-action" style="align-self: flex-start; padding: 6px 12px;" onclick="addReplacementRow('','')">+ Add Entry</button>
+          </div>
+        </div>
+      </div>
+      
+      <!-- ── LICENSE PANEL ── -->
+      <div class="panel" id="panel-license">
+        <div class="section-label">Subscription & Licensing</div>
+        <div class="settings-group">
+          <div class="settings-row" style="flex-direction: column; align-items: flex-start; padding: 16px;">
+            <div id="license-status-card" style="width: 100%; border-radius: 8px; padding: 16px; background: rgba(124,111,255,0.1); margin-bottom: 12px; border: 1px solid var(--accent);">
+              <h3 style="margin-top: 0; margin-bottom: 8px; color: white; font-weight: 600;" id="license-headline">7-Day Free Trial</h3>
+              <p style="margin: 0; color: var(--muted); font-size: 13px;" id="license-subtext">Checking license status...</p>
+            </div>
+            
+            <label style="margin-top: 12px; margin-bottom: 8px; font-weight: 500; font-size: 13px; color: var(--text);">Gumroad License Key</label>
+            <div style="display: flex; gap: 8px; width: 100%;">
+              <input type="text" id="input-license" class="replace-input" placeholder="XXXX-XXXX-XXXX-XXXX" style="letter-spacing: 1px; font-family: monospace;">
+              <button class="btn-action" style="padding: 0 20px; flex-shrink: 0;" id="btn-verify-license" onclick="activateLicense()">Activate</button>
+            </div>
+            <p style="margin-top: 12px; font-size: 12px; color: var(--muted); line-height: 1.4;">
+              Don't have a license? 
+              <a href="#" onclick="window.electronAPI.openUrl('https://johonsayed.gumroad.com/l/JunoverseAI-Dictation')" style="color: var(--accent); text-decoration: none;">Get one on Gumroad</a>.
+            </p>
+          </div>
+        </div>
+      </div>
 
       <!-- ── ABOUT PANEL ── -->
       <div class="panel" id="panel-about">
         <div class="about-hero">
-          <div class="about-icon">🎙️</div>
+          <div class="about-icon"><img src="../assets/logo/transparent-white-logo.png" style="width: 40px; height: 40px; object-fit: contain;"></div>
           <div class="about-text">
             <h2>Juno Global Voice</h2>
             <p>Voice dictation for every app on your computer.<br/>Works with any language, any text field.</p>
@@ -542,6 +609,8 @@ const DEFAULT_HOTKEY = 'Alt+V';
 const PANELS = {
   general: { title: 'General',          desc: 'Hotkeys, activation, and startup' },
   voice:   { title: 'Voice & Language', desc: 'Speech recognition and language options' },
+  replace: { title: 'Text Replacement', desc: 'Auto-replace your spoken words with custom text' },
+  license: { title: 'License',          desc: 'Manage your subscription and trial' },
   about:   { title: 'About',            desc: 'Juno Global Voice information' },
 };
 function switchPanel(id, el) {
@@ -681,6 +750,10 @@ function syncHoldEnable() {
   document.getElementById('row-hold-key').classList.toggle('disabled-row', !on);
   document.getElementById('row-hold-dur').classList.toggle('disabled-row', !on);
 }
+function syncReplaceEnable() {
+  const on = document.getElementById('toggle-replace').checked;
+  document.getElementById('row-replacements').classList.toggle('disabled-row', !on);
+}
 
 function previewTheme() {
   const t = document.getElementById('theme-select').value;
@@ -715,6 +788,24 @@ async function loadConfig() {
   const timeoutSel = document.getElementById('silence-timeout');
   if ([...timeoutSel.options].some(o => o.value === timeout)) timeoutSel.value = timeout;
 
+  const replaceOn = cfg.textReplaceEnabled === true;
+  document.getElementById('toggle-replace').checked = replaceOn;
+  syncReplaceEnable();
+  
+  const replList = document.getElementById('replacement-list');
+  replList.innerHTML = '';
+  const replaces = cfg.textReplacements || [];
+  if (replaces.length === 0) {
+    // start with one empty row if none
+    addReplacementRow('', '');
+  } else {
+    replaces.forEach(r => addReplacementRow(r.say || '', r.replace || ''));
+  }
+
+  // Licensing
+  document.getElementById('input-license').value = cfg.licenseKey || '';
+  updateLicenseUI(cfg.licenseStatus || 'trial', cfg.firstLaunchDate || Date.now());
+
   const theme = cfg.theme || 'dark';
   const themeSel = document.getElementById('theme-select');
   if (themeSel) themeSel.value = theme;
@@ -727,6 +818,82 @@ async function loadConfig() {
     document.getElementById('about-version').textContent = v;
   } catch(err) {}
 }
+
+function addReplacementRow(sayVal, replaceVal) {
+  const list = document.getElementById('replacement-list');
+  const row = document.createElement('div');
+  row.className = 'replace-row';
+  row.innerHTML = `
+    <input type="text" class="replace-input val-say" placeholder="I will say... (e.g. signature)" value="">
+    <span style="font-size:12px; color:var(--muted)">→</span>
+    <input type="text" class="replace-input val-replace" placeholder="Replace with... (e.g. John Doe)" value="">
+    <button class="btn-del-row" onclick="this.parentElement.remove()" title="Delete">✕</button>
+  `;
+  // assign values properly to avoid html injection bugs
+  row.querySelector('.val-say').value = sayVal;
+  row.querySelector('.val-replace').value = replaceVal;
+  list.appendChild(row);
+}
+
+function updateLicenseUI(status, firstLaunch) {
+  const headline = document.getElementById('license-headline');
+  const subtext = document.getElementById('license-subtext');
+  const card = document.getElementById('license-status-card');
+  const btn = document.getElementById('btn-verify-license');
+  
+  if (status === 'active') {
+    headline.textContent = 'Pro Version Unlocked';
+    subtext.textContent = 'Your license is verified and active. Thank you! ⭐';
+    card.style.background = 'rgba(72, 199, 116, 0.15)';
+    card.style.borderColor = '#48c774';
+    headline.style.color = '#48c774';
+    btn.textContent = 'Verified';
+    btn.disabled = true;
+  } else if (status === 'expired') {
+    headline.textContent = 'Trial or License Expired';
+    subtext.textContent = 'To continue using Juno Voice, please enter a valid license key below.';
+    card.style.background = 'rgba(248, 113, 113, 0.15)';
+    card.style.borderColor = '#f87171';
+    headline.style.color = '#f87171';
+    btn.disabled = false;
+    btn.textContent = 'Activate';
+  } else {
+    // trial
+    const daysLeft = Math.max(0, 7 - Math.floor((Date.now() - firstLaunch) / (1000 * 60 * 60 * 24)));
+    headline.textContent = `Free Trial: ${daysLeft} days left`;
+    subtext.textContent = 'You are currently enjoying the unlimited free trial.';
+    card.style.background = 'rgba(124,111,255,0.1)';
+    card.style.borderColor = 'var(--accent)';
+    headline.style.color = 'white';
+    btn.disabled = false;
+    btn.textContent = 'Activate Pro';
+  }
+}
+
+async function activateLicense() {
+  const key = document.getElementById('input-license').value.trim();
+  if (!key) return;
+  const btn = document.getElementById('btn-verify-license');
+  btn.textContent = 'Verifying...';
+  btn.disabled = true;
+  
+  const res = await window.electronAPI.verifyLicense(key);
+  if (res.success) {
+     loadConfig(); // Reload to update UI automatically
+  } else {
+     alert(res.message);
+     btn.textContent = 'Activate';
+     btn.disabled = false;
+  }
+}
+
+if (window.electronAPI.onLicenseExpired) {
+  window.electronAPI.onLicenseExpired(() => {
+    const navItem = document.querySelector('.nav-item[data-panel="license"]');
+    if (navItem) navItem.click();
+  });
+}
+
 loadConfig();
 
 // ── Save ────────────────────────────────────────────────────────
@@ -735,6 +902,15 @@ function saveSettings() {
 
   const btn = document.getElementById('btn-save');
   btn.disabled = true;
+
+  const replacements = [];
+  document.querySelectorAll('#replacement-list .replace-row').forEach(row => {
+    const say = row.querySelector('.val-say').value.trim();
+    const rep = row.querySelector('.val-replace').value.trim();
+    if (say) { // only save if they specified a phrase to watch for
+      replacements.push({ say, replace: rep });
+    }
+  });
 
   const config = {
     hotkey:         pendingHotkey  || DEFAULT_HOTKEY,
@@ -746,6 +922,8 @@ function saveSettings() {
     language:       document.getElementById('lang-select').value,
     silenceTimeout: parseInt(document.getElementById('silence-timeout').value, 10),
     theme:          document.getElementById('theme-select').value,
+    textReplaceEnabled: document.getElementById('toggle-replace').checked,
+    textReplacements: replacements
   };
 
   window.electronAPI.saveConfig(config);

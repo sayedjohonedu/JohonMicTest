@@ -36,6 +36,28 @@ const schema = {
   autoLaunch: {
     type: 'boolean',
     default: true
+  },
+  // ── Text Replacement ──────────────────────────
+  textReplaceEnabled: {
+    type: 'boolean',
+    default: false
+  },
+  textReplacements: {
+    type: 'array',
+    default: []
+  },
+  // ── Licensing ─────────────────────────────────
+  licenseKey: {
+    type: 'string',
+    default: ''
+  },
+  firstLaunchDate: {
+    type: 'number',
+    default: 0
+  },
+  licenseStatus: {
+    type: 'string',
+    default: 'trial' // trial, active, expired
   }
 };
 

@@ -11,4 +11,6 @@ contextBridge.exposeInMainWorld('electronAPI', {
   downloadUpdate:  ()       => ipcRenderer.send('download-update'),
   installUpdate:   ()       => ipcRenderer.send('install-update'),
   onUpdateStatus:  (cb)     => ipcRenderer.on('update-status', (_, info) => cb(info)),
+  verifyLicense:   (key)    => ipcRenderer.invoke('verify-license', key),
+  onLicenseExpired:(cb)     => ipcRenderer.on('license-expired', () => cb())
 });

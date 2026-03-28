@@ -96,28 +96,20 @@ ipcMain.on('inject-punct', (event, char) => {
 
 // Overlay: simulate Enter/Return key press  (↵ — moves to next line)
 ipcMain.on('inject-enter', () => {
-  try { robot.keyTap('enter'); } catch(e){} 
+  robot.keyTap('enter');
 });
 
 // Overlay: simulate Backspace key press  (⌫ — deletes character to the LEFT of cursor)
 ipcMain.on('inject-backspace', () => {
-  try { robot.keyTap('backspace'); } catch(e){} 
+  robot.keyTap('backspace');
 });
 
 // Overlay: keyboard shortcut actions (Cmd/Ctrl + key)
 const KBD_MOD = process.platform === 'darwin' ? 'command' : 'control';
-// Wrap in try-catch to prevent "Invalid key code" crash on non-Latin keyboard layouts
 ipcMain.on('inject-select-all', () => { try { robot.keyTap('a', KBD_MOD); } catch(e){} });
 ipcMain.on('inject-copy',       () => { try { robot.keyTap('c', KBD_MOD); } catch(e){} });
 ipcMain.on('inject-cut',        () => { try { robot.keyTap('x', KBD_MOD); } catch(e){} });
-ipcMain.on('inject-paste',      () => { 
-  try { 
-    if (process.platform === 'win32') robot.keyTap('insert', 'shift');
-    else robot.keyTap('v', KBD_MOD); 
-  } catch(e) { 
-    try { robot.keyTap('v', 'control'); } catch(e2) {}
-  } 
-});
+ipcMain.on('inject-paste',      () => { try { robot.keyTap('v', KBD_MOD); } catch(e){} });
 ipcMain.on('inject-undo',       () => { try { robot.keyTap('z', KBD_MOD); } catch(e){} });
 
 // Overlay: user changed language from the language picker
@@ -139,12 +131,90 @@ ipcMain.on('overlay-change-language', (event, lang) => {
   }
 });
 
+// Overlay: toggle favorite language
+ipcMain.on('toggle-favorite', (event, langCode) => {
+  let favs = store.get('favorites') || [];
+  if (favs.includes(langCode)) {
+    favs = favs.filter(c => c !== langCode);
+  } else {
+    favs.push(langCode);
+  }
+  store.set('favorites', favs);
+});
+
 // Settings / Overlay: open external URLs securely
 ipcMain.on('open-url', (event, url) => {
   shell.openExternal(url);
 });
 
-// --- Auto Updater logic ---
+// ── Licensing & Trial Logic ───────────────────────────────────
+ipcMain.handle('verify-license', async (event, key) => {
+  try {
+    const response = await fetch('https://api.gumroad.com/v2/licenses/verify', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        product_permalink: 'JunoverseAI-Dictation',
+        license_key: key,
+        increment_uses_count: 'true'
+      })
+    });
+    const data = await response.json();
+    
+    if (data.success) {
+      store.set('licenseKey', key);
+      store.set('licenseStatus', 'active');
+      return { success: true, message: 'License verified successfully!' };
+    } else {
+      store.set('licenseStatus', 'expired');
+      return { success: false, message: data.message || 'Invalid or expired key.' };
+    }
+  } catch (err) {
+    safeLog('Gumroad verification err:', err);
+    return { success: false, message: 'Server error. Please check your internet connection and try again.' };
+  }
+});
+
+async function checkAuthStatus() {
+  const key = store.get('licenseKey');
+  if (key) {
+    try {
+      // Background check without incrementing use count
+      const response = await fetch('https://api.gumroad.com/v2/licenses/verify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          product_permalink: 'JunoverseAI-Dictation',
+          license_key: key,
+          increment_uses_count: 'false'
+        })
+      });
+      const data = await response.json();
+      if (!data.success) {
+        store.set('licenseStatus', 'expired');
+      } else {
+        store.set('licenseStatus', 'active');
+      }
+    } catch (e) {
+      // If offline, trust the last known good state
+    }
+  } else {
+    // 7-day Trial logic
+    let firstLaunch = store.get('firstLaunchDate');
+    if (!firstLaunch || firstLaunch === 0) {
+      firstLaunch = Date.now();
+      store.set('firstLaunchDate', firstLaunch);
+    }
+    const daysUsed = (Date.now() - firstLaunch) / (1000 * 60 * 60 * 24);
+    if (daysUsed > 7) {
+      store.set('licenseStatus', 'expired');
+    } else {
+      store.set('licenseStatus', 'trial');
+    }
+  }
+}
+
+// ── Auto Updater logic ────────────────────────────────────────
 autoUpdater.autoDownload = false; 
 
 ipcMain.on('check-updates', () => autoUpdater.checkForUpdates());
@@ -316,12 +386,40 @@ function setupWebSocketServer(server) {
       try {
         const data = JSON.parse(message.toString());
         if (data.type === 'final-text') {
+          let rawText = data.text;
+
+          // ── Text Replacement Feature ──
+          const isReplaceEnabled = store.get('textReplaceEnabled');
+          if (isReplaceEnabled) {
+            const rules = store.get('textReplacements') || [];
+            
+            // Normalize string for exact matching by removing leading/trailing punctuation and whitespace
+            const normalize = (str) => {
+              return (str || '').toLowerCase()
+                                .replace(/^[.,?!;:'"()\[\]{}-]+|[.,?!;:'"()\[\]{}-]+$/g, '')
+                                .trim();
+            };
+            
+            const normalizedRawText = normalize(rawText);
+
+            for (const rule of rules) {
+              if (rule.say && rule.say.trim() !== '') {
+                const normalizedSay = normalize(rule.say);
+                if (normalizedRawText === normalizedSay) {
+                  // Complete exact match found. Replace the entire utterance.
+                  rawText = rule.replace || '';
+                  break; // Only match one rule since it's an exact phrase scenario
+                }
+              }
+            }
+          }
+
           // Smart spacing: add a space between phrases when user paused
           const now = Date.now();
           const pausedLongEnough = (now - lastPhraseTimestamp) > 400; // >400ms gap = natural pause
           const textToInject = (lastPhraseTimestamp > 0 && pausedLongEnough) 
-            ? ' ' + data.text  // prepend space after a pause
-            : data.text;
+            ? ' ' + rawText  // prepend space after a pause
+            : rawText;
           lastPhraseTimestamp = now;
           
           injectText(textToInject);
@@ -388,15 +486,15 @@ function injectText(text) {
 
   setTimeout(() => {
     try {
-      if (process.platform === 'win32') {
-        robot.keyTap('insert', 'shift');
-      } else {
-        robot.keyTap('v', modifier);
-      }
+      robot.keyTap('v', modifier);
     } catch (e) {
-      safeLog('[injectText] Paste shortcut failed:', e.message);
-      // Fallback: try standard Ctrl+V just in case Shift+Ins fails
-      try { robot.keyTap('v', 'control'); } catch (e2) {}
+      safeLog('[injectText] paste failed (likely non-en layout), falling back to typeString:', e.message);
+      try {
+        robot.setKeyboardDelay(0);
+        robot.typeString(text);
+      } catch (err2) {
+        safeLog('[injectText] typeString fallback failed:', err2.message);
+      }
     }
     // Restore the clipboard after a safe delay, but keep the timer reference
     // so any subsequent call can cancel this before it fires.
@@ -410,6 +508,17 @@ function injectText(text) {
 function toggleListening() {
   if (!wsClient) {
     shell.beep();
+    return;
+  }
+  
+  // Enforce Licensing/Trial Check
+  const status = store.get('licenseStatus');
+  if (status === 'expired') {
+    shell.beep();
+    showSettings();
+    if (settingsWindow && !settingsWindow.isDestroyed()) {
+      settingsWindow.webContents.send('license-expired');
+    }
     return;
   }
   
@@ -532,6 +641,8 @@ app.whenReady().then(() => {
     app.dock.hide(); 
   }
   
+  checkAuthStatus(); // Validate trial & license key securely on startup
+  
   const autoLaunch = store.get('autoLaunch');
   if (autoLaunch) {
     junoAutoLauncher.enable().catch(() => {});
@@ -548,4 +659,13 @@ app.whenReady().then(() => {
   setTimeout(() => {
     showSettings();
   }, 1000);
+});
+
+app.on('will-quit', () => {
+  if (uiohookRunning) {
+    try {
+      uIOhook.stop();
+    } catch(e) {}
+  }
+  globalShortcut.unregisterAll();
 });

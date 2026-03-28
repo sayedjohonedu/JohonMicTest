@@ -146,6 +146,13 @@
   }
   .lang-item:hover  { background: rgba(124,111,255,0.22); }
   .lang-item.active { background: rgba(124,111,255,0.14); font-weight: 600; }
+  .lang-item .li-fav {
+    font-size: 15px; flex-shrink: 0; margin-right: 2px;
+    cursor: pointer; transition: transform 0.1s, color 0.1s;
+  }
+  .lang-item .li-fav:hover {
+    transform: scale(1.2); color: var(--accent);
+  }
   .lang-item .li-flag { font-size: 16px; flex-shrink: 0; }
   .lang-item .li-name { flex: 1; color: var(--text); }
   .lang-item .li-code { font-size: 10px; color: var(--muted); }
@@ -403,6 +410,7 @@ let dropdownOpen    = false;
 let wavePhase       = 0;
 let isSpeaking      = false;
 let clearTimer      = null;
+let favorites       = [];
 
 const phraseEl   = document.getElementById('phrase-text');
 const interimEl  = document.getElementById('interim-text');
@@ -417,7 +425,10 @@ const canvas     = document.getElementById('waveform');
 const ctx        = canvas.getContext('2d');
 
 // ── Init ──────────────────────────────────────────────────────
-window.junoAPI.getConfig().then(cfg => setLanguage(cfg.language || 'en-US', false));
+window.junoAPI.getConfig().then(cfg => {
+  if (cfg.favorites) favorites = cfg.favorites;
+  setLanguage(cfg.language || 'en-US', false);
+});
 
 // ── Language ──────────────────────────────────────────────────
 function setLanguage(code, notify=true) {
@@ -547,14 +558,42 @@ function flash(btn) {
 // ── Dropdown — position: fixed, placed by JS ──────────────────
 function buildDropdown() {
   dropdown.innerHTML = '';
-  LANGUAGES.forEach(lang => {
+  
+  // Sort: favorites first, then the rest
+  const sorted = [...LANGUAGES].sort((a, b) => {
+    const aFav = favorites.includes(a.code);
+    const bFav = favorites.includes(b.code);
+    if (aFav && !bFav) return -1;
+    if (!aFav && bFav) return 1;
+    return 0;
+  });
+
+  sorted.forEach(lang => {
     const d = document.createElement('div');
     d.className = 'lang-item' + (lang.code === currentLangCode ? ' active' : '');
+    const isFav = favorites.includes(lang.code);
     d.innerHTML = `
+      <span class="li-fav" style="${isFav ? 'color: var(--accent);' : 'color: var(--muted);'}" title="Toggle Favorite">
+        ${isFav ? '★' : '☆'}
+      </span>
       <span class="li-flag">${lang.flag}</span>
       <span class="li-name">${lang.name}</span>
       <span class="li-code">${lang.code}</span>`;
+    
     d.addEventListener('mousedown', e => {
+      // Toggle favorite
+      if (e.target.classList.contains('li-fav')) {
+        e.preventDefault(); e.stopPropagation();
+        if (isFav) {
+          favorites = favorites.filter(f => f !== lang.code);
+        } else {
+          favorites.push(lang.code);
+        }
+        window.junoAPI.toggleFavorite(lang.code);
+        buildDropdown(); // Refresh UI to sort
+        return;
+      }
+
       e.preventDefault();
       setLanguage(lang.code);
       closeDD();

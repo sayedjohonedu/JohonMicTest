@@ -1,7 +1,7 @@
 const sharp = require('sharp');
 const path = require('path');
 async function build() {
-  const svgPath = path.join(__dirname, 'assets', 'icon-option1.svg');
+  const svgPath = path.join(__dirname, 'assets', 'logo', 'transparent-black-logo.png');
   // standard tray icon
   await sharp(svgPath).resize(22, 22).toFile(path.join(__dirname, 'assets', 'iconTemplate.png'));
   // retina tray icon
