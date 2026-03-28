@@ -177,7 +177,7 @@ ipcMain.handle('verify-license', async (event, key) => {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        product_permalink: 'JunoverseAI-Dictation',
+        product_id: 'LpMFpNqkVgE8EOV8o-Q92w==',
         license_key: key,
         increment_uses_count: 'true'
       })
@@ -207,7 +207,7 @@ async function checkAuthStatus() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          product_permalink: 'JunoverseAI-Dictation',
+          product_id: 'LpMFpNqkVgE8EOV8o-Q92w==',
           license_key: key,
           increment_uses_count: 'false'
         })
