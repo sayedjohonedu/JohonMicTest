@@ -514,6 +514,10 @@ function injectText(text) {
 function toggleListening() {
   if (!wsClient) {
     shell.beep();
+    dialog.showErrorBox(
+      'Service Not Ready',
+      'The speech recognition service is not connected yet. If this persists, restart the app or ensure Chrome is installed.'
+    );
     return;
   }
   
@@ -649,6 +653,12 @@ app.whenReady().then(() => {
     try {
       const isTrusted = systemPreferences.isTrustedAccessibilityClient(true);
       safeLog('macOS Accessibility Trusted: ', isTrusted);
+      if (!isTrusted) {
+        dialog.showErrorBox(
+          'Accessibility Permission Required',
+          'Juno Global Voice needs Accessibility permissions to type text into other applications automatically.\n\nPlease go to System Settings -> Privacy & Security -> Accessibility, check the box next to Juno Global Voice, and then restart this application.'
+        );
+      }
     } catch (e) {
       safeLog('Error requesting Accessibility:', e);
     }
