@@ -285,14 +285,22 @@ function createOverlay() {
     resizable: false,
     show: false,
     hasShadow: true,
-    focusable: false,                                         // CRITICAL: never steal focus
-    type: process.platform === 'darwin' ? 'panel' : undefined, // macOS panel stays above without focus
+    focusable: false,                                          // CRITICAL: never steal focus
+    type: process.platform === 'darwin' ? 'panel' : undefined, // macOS: NSPanel with NSNonactivatingPanelMask
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
       preload: path.join(__dirname, 'ui', 'overlay-preload.js')
     }
   });
+
+  // macOS safety net: if the overlay somehow gains focus (e.g. Electron internals),
+  // immediately release it so the dictation target app keeps its active status.
+  if (process.platform === 'darwin') {
+    overlayWindow.on('focus', () => {
+      overlayWindow.blur();
+    });
+  }
 
   overlayWindow.loadFile(path.join(__dirname, 'ui', 'overlay.html'));
   overlayWindow.on('closed', () => overlayWindow = null);
@@ -367,6 +375,19 @@ function showSettings() {
       preload: path.join(__dirname, 'ui', 'settings-preload.js')
     }
   });
+
+  // ── macOS focus fix ────────────────────────────────────────────
+  // Creating a standard BrowserWindow silently resets the macOS activation
+  // policy from 'accessory' back to 'regular', making Juno the frontmost app.
+  // When Juno is 'regular-active', clicking the overlay causes the dictation
+  // target to lose focus. Re-apply 'accessory' immediately after window creation.
+  if (isMac) {
+    setImmediate(() => app.setActivationPolicy('accessory'));
+    // Also restore after settings closes, as the closing event can reset it.
+    settingsWindow.on('closed', () => {
+      setImmediate(() => app.setActivationPolicy('accessory'));
+    });
+  }
 
   settingsWindow.loadFile('ui/settings.html');
   settingsWindow.on('closed', () => settingsWindow = null);
@@ -717,7 +738,14 @@ function uiohookKeyName(keycode) {
 
 app.whenReady().then(() => {
   if (process.platform === 'darwin') {
-    app.dock.hide(); 
+    app.dock.hide();
+    // CRITICAL: Set activation policy to 'accessory' so Juno NEVER becomes the
+    // frontmost application when its windows are clicked. Without this, clicking
+    // the overlay steals focus from the dictation target.
+    // Note: dock.hide() alone is NOT sufficient — creating any BrowserWindow
+    // silently resets the policy back to 'regular', so we must set it explicitly.
+    app.setActivationPolicy('accessory');
+
     // Request accessibility permissions so robotjs can paste/inject text
     try {
       const isTrusted = systemPreferences.isTrustedAccessibilityClient(true);
