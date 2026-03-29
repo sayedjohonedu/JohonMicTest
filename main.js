@@ -102,19 +102,28 @@ ipcMain.on('inject-punct', (event, char) => {
 // Overlay: simulate Enter/Return key press  (↵ — moves to next line)
 function robustKeyTap(key, modifier) {
   try {
-    if (modifier) {
-      if (Array.isArray(modifier)) modifier.forEach(m => robot.keyToggle(m, 'down'));
-      else robot.keyToggle(modifier, 'down');
-    }
-    robot.keyToggle(key, 'down');
-    // Minimal delay allows OS input buffer to process the synthetic keys
-    setTimeout(() => {
-      robot.keyToggle(key, 'up');
+    if (process.platform === 'darwin') {
       if (modifier) {
-        if (Array.isArray(modifier)) modifier.forEach(m => robot.keyToggle(m, 'up'));
-        else robot.keyToggle(modifier, 'up');
+        const mods = Array.isArray(modifier) ? modifier : [modifier];
+        robot.keyTap(key, mods);
+      } else {
+        robot.keyTap(key);
       }
-    }, 15);
+    } else {
+      if (modifier) {
+        if (Array.isArray(modifier)) modifier.forEach(m => robot.keyToggle(m, 'down'));
+        else robot.keyToggle(modifier, 'down');
+      }
+      robot.keyToggle(key, 'down');
+      // Minimal delay allows OS input buffer to process the synthetic keys
+      setTimeout(() => {
+        robot.keyToggle(key, 'up');
+        if (modifier) {
+          if (Array.isArray(modifier)) modifier.forEach(m => robot.keyToggle(m, 'up'));
+          else robot.keyToggle(modifier, 'up');
+        }
+      }, 15);
+    }
   } catch(e) { safeLog('robustKeyTap error:', e.message); }
 }
 
