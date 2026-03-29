@@ -58,6 +58,16 @@ const schema = {
   licenseStatus: {
     type: 'string',
     default: 'trial' // trial, active, expired
+  },
+  // ── Appearance ────────────────────────────────────────────
+  theme: {
+    type: 'string',
+    default: 'dark'   // 'dark' | 'light'
+  },
+  // ── Voice Behaviour ───────────────────────────────────────
+  silenceTimeout: {
+    type: 'number',
+    default: 15       // seconds (0 = infinite)
   }
 };
 

@@ -1,5 +1,12 @@
 const { contextBridge, ipcRenderer } = require('electron');
 
+// Helper: remove any stale listener for a channel before adding the new one.
+// This prevents duplicate event firings when the settings window is reopened.
+function onChannel(channel, cb) {
+  ipcRenderer.removeAllListeners(channel);
+  ipcRenderer.on(channel, cb);
+}
+
 contextBridge.exposeInMainWorld('electronAPI', {
   platform:        process.platform,
   saveConfig:      (config) => ipcRenderer.send('save-config', config),
@@ -11,7 +18,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   downloadUpdate:  ()       => ipcRenderer.send('download-update'),
   installUpdate:   ()       => ipcRenderer.send('install-update'),
   getVersion:      ()       => ipcRenderer.invoke('get-version'),
-  onUpdateStatus:  (cb)     => ipcRenderer.on('update-status', (_, info) => cb(info)),
+  onUpdateStatus:  (cb)     => onChannel('update-status',   (_, info) => cb(info)),
   verifyLicense:   (key)    => ipcRenderer.invoke('verify-license', key),
-  onLicenseExpired:(cb)     => ipcRenderer.on('license-expired', () => cb())
+  onLicenseExpired:(cb)     => onChannel('license-expired', () => cb())
 });

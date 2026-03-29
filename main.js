@@ -1,4 +1,4 @@
-const { app, Tray, Menu, globalShortcut, clipboard, BrowserWindow, nativeImage, ipcMain, shell, systemPreferences } = require('electron');
+const { app, Tray, Menu, globalShortcut, clipboard, BrowserWindow, nativeImage, ipcMain, shell, systemPreferences, dialog } = require('electron');
 const path = require('path');
 const http = require('http');
 const fs = require('fs');
@@ -492,17 +492,22 @@ function setupWebSocketServer(server) {
 let clipRestoreTimer = null;
 
 // injectCharDirect — for punctuation buttons.
-// Types the character(s) directly via OS key simulation, never touching the clipboard.
-// This eliminates the race condition where a pending clipboard restore would corrupt
-// an in-progress speech injection (causing the previous dictated text to be re-pasted).
+// For ASCII characters: types directly via OS key simulation (no clipboard).
+// For non-ASCII characters (Japanese 。、Arabic ؟, Hindi ।, etc.):
+//   robot.typeString() silently drops them because they have no keycode mapping.
+//   We go straight to clipboard paste for those.
 function injectCharDirect(chars) {
-  try {
-    robot.typeString(chars);
-  } catch (e) {
-    // Fallback: clipboard paste for any char robot.typeString() can't handle
-    safeLog('[injectCharDirect] typeString failed, falling back to clipboard:', e.message);
-    injectText(chars);
+  const isAsciiOnly = /^[\x00-\x7F]+$/.test(chars);
+  if (isAsciiOnly) {
+    try {
+      robot.typeString(chars);
+      return;
+    } catch (e) {
+      safeLog('[injectCharDirect] typeString failed, falling back to clipboard:', e.message);
+    }
   }
+  // Non-ASCII or typeString failure → clipboard paste (same as long speech text)
+  injectText(chars);
 }
 
 // injectText — for dictated speech (potentially long strings).
@@ -517,27 +522,62 @@ function injectText(text) {
   const originalClipboard = clipboard.readText();
   clipboard.writeText(text);
 
-  const modifier = process.platform === 'darwin' ? 'command' : 'control';
-
-  setTimeout(() => {
-    try {
-      robot.keyTap('v', modifier);
-    } catch (e) {
-      safeLog('[injectText] paste failed (likely non-en layout), falling back to typeString:', e.message);
+  // On Windows, robot.keyTap('v', 'control') is unreliable — the Ctrl modifier can
+  // be dropped by the OS, causing Windows to only register bare 'V' presses,
+  // which results in only the first character of the clipboard being "typed" repeatedly.
+  // We use keyToggle with an explicit delay (same pattern as robustKeyTap) to ensure
+  // Ctrl is properly held down before and released after V fires.
+  if (process.platform === 'win32') {
+    setTimeout(() => {
       try {
-        robot.setKeyboardDelay(0);
-        robot.typeString(text);
-      } catch (err2) {
-        safeLog('[injectText] typeString fallback failed:', err2.message);
+        robot.keyToggle('control', 'down');
+        setTimeout(() => {
+          try {
+            robot.keyToggle('v', 'down');
+            setTimeout(() => {
+              robot.keyToggle('v', 'up');
+              robot.keyToggle('control', 'up');
+            }, 30);
+          } catch (e) {
+            robot.keyToggle('control', 'up'); // always release modifier
+            safeLog('[injectText] Windows keyToggle v failed:', e.message);
+            // Fallback: typeString (slow but reliable)
+            try { robot.typeString(text); } catch (err2) {
+              safeLog('[injectText] typeString fallback also failed:', err2.message);
+            }
+          }
+          // Restore clipboard after paste completes
+          clipRestoreTimer = setTimeout(() => {
+            clipboard.writeText(originalClipboard);
+            clipRestoreTimer = null;
+          }, 700);
+        }, 30);
+      } catch (e) {
+        safeLog('[injectText] Windows Ctrl-down failed:', e.message);
+        try { robot.typeString(text); } catch (err2) {}
       }
-    }
-    // Restore the clipboard after a safe delay, but keep the timer reference
-    // so any subsequent call can cancel this before it fires.
-    clipRestoreTimer = setTimeout(() => {
-      clipboard.writeText(originalClipboard);
-      clipRestoreTimer = null;
-    }, 600);
-  }, 100);
+    }, 120);
+  } else {
+    // macOS: robot.keyTap with 'command' modifier is fully reliable
+    setTimeout(() => {
+      try {
+        robot.keyTap('v', 'command');
+      } catch (e) {
+        safeLog('[injectText] macOS paste failed, falling back to typeString:', e.message);
+        try {
+          robot.setKeyboardDelay(0);
+          robot.typeString(text);
+        } catch (err2) {
+          safeLog('[injectText] typeString fallback failed:', err2.message);
+        }
+      }
+      // Restore the clipboard after a safe delay
+      clipRestoreTimer = setTimeout(() => {
+        clipboard.writeText(originalClipboard);
+        clipRestoreTimer = null;
+      }, 600);
+    }, 100);
+  }
 }
 
 function toggleListening() {
