@@ -84,7 +84,7 @@ html, body {
 .version-badge  { font-size: 10.5px; color: var(--muted); text-align: center; padding: 5px; }
 
 /* ── CONTENT ── */
-.content { flex: 1; display: flex; flex-direction: column; overflow: hidden; background: var(--bg); }
+.content { flex: 1; display: flex; flex-direction: column; overflow: hidden; background: var(--bg); -webkit-app-region: drag; }
 .content-header { padding: 36px 32px 20px; flex-shrink: 0; border-bottom: 1px solid var(--border); }
 .content-header h1 { font-size: 22px; font-weight: 700; letter-spacing: -0.5px; color: var(--text); margin-bottom: 3px; }
 .content-header p  { font-size: 12.5px; color: var(--muted); }
@@ -100,7 +100,7 @@ html, body {
 .panel.active { display: flex; flex-direction: column; gap: 12px; }
 
 /* ── SECTION GROUPS ── */
-.settings-group { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
+.settings-group { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; -webkit-app-region: no-drag; }
 .settings-row {
   display: flex; align-items: center; padding: 16px 18px; gap: 16px;
   border-bottom: 1px solid var(--border); transition: background 0.12s;
@@ -197,14 +197,27 @@ html, body {
 [data-theme="light"] .lang-select option { background: white; color: black; }
 .replace-input::placeholder { color: var(--muted); font-weight: 400; }
 
-.replace-row { display: flex; align-items: center; gap: 8px; }
-.replace-input { flex: 1; }
+.replace-row { display: flex; align-items: flex-start; gap: 8px; width: 100%; }
+.replace-input { flex: 1; min-width: 0; }
+
+textarea.replace-input {
+  resize: none;
+  height: 38px;
+  overflow-y: hidden;
+  transition: height 0.2s, border-color 0.15s;
+  line-height: 1.5;
+}
+textarea.replace-input:focus {
+  height: 80px;
+  overflow-y: auto;
+}
 .btn-del-row {
   background: transparent; border: 1px solid var(--border2);
   border-radius: 7px; padding: 0; width: 34px; height: 34px;
   font-size: 14px; font-weight: 500; color: #f87171;
   cursor: pointer; display: flex; align-items: center; justify-content: center;
   transition: background 0.15s, border-color 0.15s; flex-shrink: 0;
+  margin-top: 2px;
 }
 .btn-del-row:hover { background: rgba(248,113,113,0.1); border-color: #f87171; }
 
@@ -221,6 +234,7 @@ html, body {
   font-size: 13.5px; font-weight: 600; color: white; cursor: pointer;
   font-family: var(--font); transition: transform 0.1s, box-shadow 0.2s, opacity 0.2s;
   box-shadow: 0 4px 16px rgba(108,99,255,0.4);
+  -webkit-app-region: no-drag;
 }
 .btn-save:hover   { transform: translateY(-1px); box-shadow: 0 6px 22px rgba(108,99,255,0.5); }
 .btn-save:active  { transform: scale(0.97); }
@@ -231,6 +245,7 @@ html, body {
   background: linear-gradient(145deg, rgba(108,99,255,0.12), rgba(167,139,250,0.06));
   border: 1px solid rgba(108,99,255,0.2); border-radius: var(--radius);
   padding: 32px; display: flex; align-items: center; gap: 20px; margin-bottom: 4px;
+  -webkit-app-region: no-drag;
 }
 .about-icon {
   width: 64px; height: 64px;
@@ -240,7 +255,7 @@ html, body {
 }
 .about-text h2 { font-size: 18px; font-weight: 700; margin-bottom: 4px; }
 .about-text p  { font-size: 12.5px; color: var(--muted); }
-.about-links { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 4px; }
+.about-links { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 4px; -webkit-app-region: no-drag; }
 .about-link {
   background: var(--card); border: 1px solid var(--border);
   border-radius: 10px; padding: 14px 16px;
@@ -345,6 +360,7 @@ html, body {
               <small>Switch between dark and light mode</small>
             </div>
             <select class="duration-select" id="theme-select" onchange="previewTheme()">
+              <option value="system">System</option>
               <option value="dark">Dark</option>
               <option value="light">Light</option>
             </select>
@@ -369,7 +385,7 @@ html, body {
             <div class="row-icon" style="background:rgba(108,99,255,0.08)">🔑</div>
             <div class="row-info">
               <label>Key Combination</label>
-              <small>Click the badge → press your shortcut → saved automatically. Esc cancels.</small>
+              <small>Click the badge → press your shortcut (e.g. <b>Alt+C</b>, <b>F5</b>, <b>Alt+F5</b>, <b>Shift+F4</b>) → saved automatically. Esc cancels.</small>
             </div>
             <div class="key-controls">
               <div class="key-badge" id="hotkey-display">⌘ ⇧ Space</div>
@@ -396,7 +412,7 @@ html, body {
             <div class="row-icon" style="background:rgba(108,99,255,0.08)">🖱️</div>
             <div class="row-info">
               <label>Hold Key</label>
-              <small>Click the badge → press the key you want to hold. Esc cancels.</small>
+              <small>Click the badge → press any single key (F-keys, letter, number, etc.). Esc cancels.</small>
             </div>
             <div class="key-controls">
               <div class="key-badge" id="holdkey-display">Not set</div>
@@ -569,9 +585,9 @@ html, body {
 
         <div class="about-links">
           <div class="about-link">
-            <span class="al-icon">🔒</span>
-            <div class="al-title">100% Private</div>
-            <div>All speech processing relies on your machine. Absolutely zero voice data is sent to external servers.</div>
+            <span class="al-icon">🚀</span>
+            <div class="al-title">Fast & Accurate</div>
+            <div>Powered by advanced cloud-assisted recognition for highly accurate dictation while remaining lightweight on your system.</div>
           </div>
           <div class="about-link">
             <span class="al-icon">⚡</span>
@@ -606,7 +622,7 @@ html, body {
 'use strict';
 
 const IS_MAC = window.electronAPI.platform === 'darwin';
-const DEFAULT_HOTKEY = 'Alt+V';
+const DEFAULT_HOTKEY = 'Alt+C';
 
 // ── Panel switching ─────────────────────────────────────────────
 const PANELS = {
@@ -640,20 +656,45 @@ function comboFromEvent(e) {
   if (e.metaKey || e.ctrlKey) parts.push('CommandOrControl');
   if (e.shiftKey)              parts.push('Shift');
   if (e.altKey)                parts.push('Alt');
+
+  let rawKey = null;
   const IGNORE = ['Meta','Control','Shift','Alt','CapsLock','Tab','Escape'];
-  if (!IGNORE.includes(e.key)) {
-    parts.push(e.key === ' ' ? 'Space' : e.key.length === 1 ? e.key.toUpperCase() : e.key);
+  
+  if (!IGNORE.includes(e.key) && !IGNORE.includes(e.code)) {
+    if (e.code && e.code.startsWith('Key')) rawKey = e.code.substring(3);
+    else if (e.code && e.code.startsWith('Digit')) rawKey = e.code.substring(5);
+    else if (/^F([1-9]|1[0-2])$/.test(e.code)) rawKey = e.code;
+    else if (e.code === 'Space' || e.key === ' ') rawKey = 'Space';
+    else rawKey = e.key.length === 1 ? e.key.toUpperCase() : e.key;
   }
+
+  if (rawKey) parts.push(rawKey);
+
   const hasMod = parts.some(p => ['CommandOrControl','Shift','Alt'].includes(p));
-  const hasKey = parts.some(p => !['CommandOrControl','Shift','Alt'].includes(p));
-  return (hasMod && hasKey) ? parts.join('+') : null;
+  const hasKey = !!rawKey;
+  
+  if (!hasKey) return null;
+  const isFKey = /^F([1-9]|1[0-2])$/.test(rawKey);
+  if (hasMod || isFKey) return parts.join('+');
+  return null;
 }
 
 function singleKeyFromEvent(e) {
-  const IGNORE = ['Meta','Control','Shift','Alt','CapsLock','Tab','Escape'];
-  if (IGNORE.includes(e.key)) return null;
-  if (e.key === ' ') return 'Space';
-  return e.key.length === 1 ? e.key.toUpperCase() : e.key;
+  // For hold-key we want to allow modifiers too
+  const IGNORE = ['Meta','CapsLock','Tab','Escape'];
+  if (IGNORE.includes(e.key) || IGNORE.includes(e.code)) return null;
+
+  // Interpret Alt/Shift/Control modifiers
+  if (e.key === 'Alt' || e.key === 'Shift' || e.key === 'Control') return e.key;
+  
+  let rawKey = null;
+  if (e.code && e.code.startsWith('Key')) rawKey = e.code.substring(3);
+  else if (e.code && e.code.startsWith('Digit')) rawKey = e.code.substring(5);
+  else if (/^F([1-9]|1[0-2])$/.test(e.code)) rawKey = e.code;
+  else if (e.code === 'Space' || e.key === ' ') rawKey = 'Space';
+  else rawKey = e.key.length === 1 ? e.key.toUpperCase() : e.key;
+  
+  return rawKey;
 }
 
 // ── State ────────────────────────────────────────────────────────
@@ -694,12 +735,14 @@ document.addEventListener('keydown', (e) => {
   }
 
   if (recordingMode === 'combo') {
-    // Live preview of held modifiers
+    // Live preview of held modifiers (shown while waiting for the final key)
+    const isFKey = /^F([1-9]|1[0-2])$/.test(e.code || e.key);
     const preview = [];
     if (e.metaKey || e.ctrlKey) preview.push(IS_MAC ? '⌘' : 'Ctrl');
     if (e.shiftKey)              preview.push('⇧');
     if (e.altKey)                preview.push(IS_MAC ? '⌥' : 'Alt');
-    if (preview.length) hotkeyBadge.textContent = preview.join(' + ') + ' + …';
+    // Show modifier preview only when no final key is pressed yet (not an F-key)
+    if (preview.length && !isFKey) hotkeyBadge.textContent = preview.join(' + ') + ' + …';
 
     const combo = comboFromEvent(e);
     if (combo) {
@@ -758,10 +801,25 @@ function syncReplaceEnable() {
   document.getElementById('row-replacements').classList.toggle('disabled-row', !on);
 }
 
-function previewTheme() {
-  const t = document.getElementById('theme-select').value;
+function applyTheme(t) {
+  if (t === 'system') {
+    t = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+  }
   document.documentElement.setAttribute('data-theme', t);
 }
+
+function previewTheme() {
+  const t = document.getElementById('theme-select').value;
+  applyTheme(t);
+}
+
+// Listen for OS theme changes
+window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
+  const themeSel = document.getElementById('theme-select');
+  if (themeSel && themeSel.value === 'system') {
+    applyTheme('system');
+  }
+});
 
 // ── Load config ─────────────────────────────────────────────────
 async function loadConfig() {
@@ -808,10 +866,12 @@ async function loadConfig() {
   }
 
   // Licensing
-  document.getElementById('input-license').value = cfg.licenseKey || '';
-  updateLicenseUI(cfg.licenseStatus || 'trial', cfg.firstLaunchDate || Date.now());
+  const licInput = document.getElementById('input-license');
+  licInput.value = cfg.licenseKey || '';
+  licInput.type = cfg.licenseKey ? 'password' : 'text';
+  updateLicenseUI(cfg.licenseStatus || 'trial', cfg.firstLaunchDate || Date.now(), cfg.licensePurchase);
 
-  const theme = cfg.theme || 'dark';
+  const theme = cfg.theme || 'system';
   const themeSel = document.getElementById('theme-select');
   if (themeSel) themeSel.value = theme;
   previewTheme();
@@ -829,8 +889,8 @@ function addReplacementRow(sayVal, replaceVal) {
   row.className = 'replace-row';
   row.innerHTML = `
     <input type="text" class="replace-input val-say" placeholder="I will say... (e.g. signature)" value="">
-    <span style="font-size:12px; color:var(--muted)">→</span>
-    <input type="text" class="replace-input val-replace" placeholder="Replace with... (e.g. John Doe)" value="">
+    <span style="font-size:12px; color:var(--muted); margin-top:12px;">→</span>
+    <textarea class="replace-input val-replace" placeholder="Replace with... (e.g. John Doe\\nMy Address)"></textarea>
     <button class="btn-del-row" onclick="this.parentElement.remove()" title="Delete">✕</button>
   `;
   // assign values properly to avoid html injection bugs
@@ -839,7 +899,10 @@ function addReplacementRow(sayVal, replaceVal) {
   list.appendChild(row);
 }
 
-function updateLicenseUI(status, firstLaunch) {
+let licenseTimer = null;
+
+function updateLicenseUI(status, firstLaunch, purchaseObj) {
+  if (licenseTimer) clearInterval(licenseTimer);
   const headline = document.getElementById('license-headline');
   const subtext = document.getElementById('license-subtext');
   const card = document.getElementById('license-status-card');
@@ -847,12 +910,17 @@ function updateLicenseUI(status, firstLaunch) {
   
   if (status === 'active') {
     headline.textContent = 'Pro Version Unlocked';
-    subtext.textContent = 'Your license is verified and active. Thank you! ⭐';
     card.style.background = 'rgba(72, 199, 116, 0.15)';
     card.style.borderColor = '#48c774';
     headline.style.color = '#48c774';
     btn.textContent = 'Verified';
     btn.disabled = true;
+    
+    if (purchaseObj && purchaseObj.subscription_id && !purchaseObj.subscription_ended_at) {
+      subtext.textContent = 'Your license is verified and active (Subscription). Thank you! ⭐';
+    } else {
+      subtext.textContent = 'Lifetime License — Valid Forever. Thank you! ⭐';
+    }
   } else if (status === 'expired') {
     headline.textContent = 'Trial or License Expired';
     subtext.textContent = 'To continue using Juno Voice, please enter a valid license key below.';
@@ -863,14 +931,29 @@ function updateLicenseUI(status, firstLaunch) {
     btn.textContent = 'Activate';
   } else {
     // trial
-    const daysLeft = Math.max(0, 7 - Math.floor((Date.now() - firstLaunch) / (1000 * 60 * 60 * 24)));
-    headline.textContent = `Free Trial: ${daysLeft} days left`;
-    subtext.textContent = 'You are currently enjoying the unlimited free trial.';
     card.style.background = 'rgba(124,111,255,0.1)';
     card.style.borderColor = 'var(--accent)';
-    headline.style.color = 'white';
+    headline.style.color = 'var(--text)'; // Use standard text color instead of hardcoded white
     btn.disabled = false;
     btn.textContent = 'Activate Pro';
+    subtext.textContent = 'You are currently enjoying the fully-featured 7-day free trial.';
+    
+    const updateCountdown = () => {
+      const msLeft = Math.max(0, firstLaunch + (7 * 24 * 60 * 60 * 1000) - Date.now());
+      if (msLeft === 0) {
+        headline.textContent = `Free Trial: Expired`;
+        if (licenseTimer) clearInterval(licenseTimer);
+        return;
+      }
+      const d = Math.floor(msLeft / (1000 * 60 * 60 * 24));
+      const h = Math.floor((msLeft / (1000 * 60 * 60)) % 24);
+      const m = Math.floor((msLeft / 1000 / 60) % 60);
+      const s = Math.floor((msLeft / 1000) % 60);
+      headline.textContent = `Free Trial: ${d}d ${h}h ${m}m ${s}s left`;
+    };
+    
+    updateCountdown();
+    licenseTimer = setInterval(updateCountdown, 1000);
   }
 }
 

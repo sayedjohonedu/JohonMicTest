@@ -109,6 +109,22 @@
   #lang-flag    { font-size: 14px; line-height: 1; }
   #lang-chevron { font-size: 9px; color: var(--muted); margin-left: 1px; }
 
+  /* ── Settings Button ── */
+  #settings-btn {
+    display: flex; align-items: center; justify-content: center;
+    background: transparent;
+    border: none;
+    border-radius: 50%;
+    width: 26px; height: 26px;
+    font-size: 14px; color: var(--muted);
+    cursor: pointer; transition: background 0.15s, color 0.15s, transform 0.1s;
+    -webkit-app-region: no-drag;
+    flex-shrink: 0;
+  }
+  #settings-btn:hover { background: var(--surface); color: var(--text); transform: scale(1.05); }
+  #settings-btn:active { transform: scale(0.95); }
+  [data-theme="light"] #settings-btn:hover { background: rgba(0,0,0,0.08); }
+
   /*
    * DROPDOWN — Fixed position, placed by JS so it escapes
    * the card boundary regardless of overflow settings.
@@ -338,6 +354,7 @@
     <div class="dot" id="dot-close" title="Stop"></div>
     <div id="pulse-dot"></div>
     <span id="status-label">Listening…</span>
+    <button id="settings-btn" title="Open Settings">⚙️</button>
     <div id="lang-wrapper">
       <button id="lang-btn">
         <span id="lang-flag">🇺🇸</span>
@@ -381,28 +398,30 @@
 'use strict';
 
 const LANGUAGES = [
-  { code:'en-US', name:'English (US)',   flag:'🇺🇸', punct:['.','?','!',',','"',';',':','…','(',')','-',"'"] },
-  { code:'en-GB', name:'English (UK)',   flag:'🇬🇧', punct:['.','?','!',',','"',';',':','…','(',')','-',"'"] },
-  { code:'en-CA', name:'English (CA)',   flag:'🇨🇦', punct:['.','?','!',',','"',';',':','…','(',')','-',"'"] },
-  { code:'en-AU', name:'English (AU)',   flag:'🇦🇺', punct:['.','?','!',',','"',';',':','…','(',')','-',"'"] },
-  { code:'es-ES', name:'Español (ES)',   flag:'🇪🇸', punct:['.','?','!','¿','¡',',','"',';',':','—','(',')'  ] },
-  { code:'es-MX', name:'Español (MX)',   flag:'🇲🇽', punct:['.','?','!','¿','¡',',','"',';',':','—','(',')'  ] },
-  { code:'fr-FR', name:'Français (FR)',  flag:'🇫🇷', punct:['.','?','!',',','«','»',';',':','—','…','(',')'  ] },
-  { code:'de-DE', name:'Deutsch (DE)',   flag:'🇩🇪', punct:['.','?','!',',','„','"',';',':','—','…','(',')'  ] },
-  { code:'it-IT', name:'Italiano (IT)',  flag:'🇮🇹', punct:['.','?','!',',','"',';',':','—','…','(',')','-'  ] },
-  { code:'pt-BR', name:'Português (BR)', flag:'🇧🇷', punct:['.','?','!',',','"',';',':','—','…','(',')','-'  ] },
-  { code:'pt-PT', name:'Português (PT)', flag:'🇵🇹', punct:['.','?','!',',','"',';',':','—','…','(',')','-'  ] },
-  { code:'ja-JP', name:'Japanese (JP)',  flag:'🇯🇵', punct:['。','？','！','、','「','」','…','ー','～','・','（','）'] },
-  { code:'zh-CN', name:'Chinese (CN)',   flag:'🇨🇳', punct:['。','？','！','，','；','：','——','……','「','」','（','）'] },
-  { code:'ko-KR', name:'Korean (KR)',    flag:'🇰🇷', punct:['.','?','!',',','「','」',';',':','—','…','(',')'  ] },
-  { code:'ar-SA', name:'Arabic (SA)',    flag:'🇸🇦', punct:['.','؟','!','،','"','"',';',':','—','…','(',')'  ] },
-  { code:'bn-BD', name:'Bengali (BD)',   flag:'🇧🇩', punct:['।','?','!',',','"','"',';',':','—','…','(',')'  ] },
-  { code:'hi-IN', name:'Hindi (IN)',     flag:'🇮🇳', punct:['।','?','!',',','"','"',';',':','—','…','(',')'  ] },
-  { code:'ru-RU', name:'Русский (RU)',   flag:'🇷🇺', punct:['.','?','!',',','«','»',';',':','—','…','(',')'  ] },
-  { code:'tr-TR', name:'Türkçe (TR)',    flag:'🇹🇷', punct:['.','?','!',',','"','"',';',':','—','…','(',')'  ] },
-  { code:'nl-NL', name:'Nederlands (NL)',flag:'🇳🇱', punct:['.','?','!',',','"','"',';',':','—','…','(',')'  ] },
-  { code:'pl-PL', name:'Polski (PL)',    flag:'🇵🇱', punct:['.','?','!',',','"','„',';',':','—','…','(',')'  ] },
+  { code:'en-US', name:'English (US)',   flag:'🇺🇸', native:'English', punct:['.','?','!',',','"',';',':','…','(',')','-',"'"] },
+  { code:'en-GB', name:'English (UK)',   flag:'🇬🇧', native:'English', punct:['.','?','!',',','"',';',':','…','(',')','-',"'"] },
+  { code:'en-CA', name:'English (CA)',   flag:'🇨🇦', native:'English', punct:['.','?','!',',','"',';',':','…','(',')','-',"'"] },
+  { code:'en-AU', name:'English (AU)',   flag:'🇦🇺', native:'English', punct:['.','?','!',',','"',';',':','…','(',')','-',"'"] },
+  { code:'es-ES', name:'Español (ES)',   flag:'🇪🇸', native:'Español', punct:['.','?','!','¿','¡',',','"',';',':','—','(',')'  ] },
+  { code:'es-MX', name:'Español (MX)',   flag:'🇲🇽', native:'Español', punct:['.','?','!','¿','¡',',','"',';',':','—','(',')'  ] },
+  { code:'fr-FR', name:'Français (FR)',  flag:'🇫🇷', native:'Français', punct:['.','?','!',',','«','»',';',':','—','…','(',')'  ] },
+  { code:'de-DE', name:'Deutsch (DE)',   flag:'🇩🇪', native:'Deutsch', punct:['.','?','!',',','„','"',';',':','—','…','(',')'  ] },
+  { code:'it-IT', name:'Italiano (IT)',  flag:'🇮🇹', native:'Italiano', punct:['.','?','!',',','"',';',':','—','…','(',')','-'  ] },
+  { code:'pt-BR', name:'Português (BR)', flag:'🇧🇷', native:'Português', punct:['.','?','!',',','"',';',':','—','…','(',')','-'  ] },
+  { code:'pt-PT', name:'Português (PT)', flag:'🇵🇹', native:'Português', punct:['.','?','!',',','"',';',':','—','…','(',')','-'  ] },
+  { code:'ja-JP', name:'Japanese (JP)',  flag:'🇯🇵', native:'日本語', punct:['。','？','！','、','「','」','…','ー','～','・','（','）'] },
+  { code:'zh-CN', name:'Chinese (CN)',   flag:'🇨🇳', native:'中文', punct:['。','？','！','，','；','：','——','……','「','」','（','）'] },
+  { code:'ko-KR', name:'Korean (KR)',    flag:'🇰🇷', native:'한국어', punct:['.','?','!',',','「','」',';',':','—','…','(',')'  ] },
+  { code:'ar-SA', name:'Arabic (SA)',    flag:'🇸🇦', native:'العربية', punct:['.','؟','!','،','"','"',';',':','—','…','(',')'  ] },
+  { code:'bn-BD', name:'Bengali (BD)',   flag:'🇧🇩', native:'বাংলা', punct:['।','?','!',',','"','"',';',':','—','…','(',')'  ] },
+  { code:'hi-IN', name:'Hindi (IN)',     flag:'🇮🇳', native:'हिन्दी', punct:['।','?','!',',','"','"',';',':','—','…','(',')'  ] },
+  { code:'ru-RU', name:'Русский (RU)',   flag:'🇷🇺', native:'Русский', punct:['.','?','!',',','«','»',';',':','—','…','(',')'  ] },
+  { code:'tr-TR', name:'Türkçe (TR)',    flag:'🇹🇷', native:'Türkçe', punct:['.','?','!',',','"','"',';',':','—','…','(',')'  ] },
+  { code:'nl-NL', name:'Nederlands (NL)',flag:'🇳🇱', native:'Nederlands', punct:['.','?','!',',','"','"',';',':','—','…','(',')'  ] },
+  { code:'pl-PL', name:'Polski (PL)',    flag:'🇵🇱', native:'Polski', punct:['.','?','!',',','"','„',';',':','—','…','(',')'  ] },
 ];
+
+const isWin = navigator.userAgent.includes('Windows');
 
 let currentLangCode = 'en-US';
 let currentLang     = LANGUAGES[0];
@@ -434,7 +453,12 @@ window.junoAPI.getConfig().then(cfg => {
 function setLanguage(code, notify=true) {
   currentLangCode = code;
   currentLang = LANGUAGES.find(l => l.code === code) || LANGUAGES[0];
-  langFlagEl.textContent = currentLang.flag;
+  
+  const flagHtml = isWin && currentLang.code.includes('-') 
+    ? `<img src="https://flagcdn.com/16x12/${currentLang.code.split('-')[1].toLowerCase()}.png" width="16" style="vertical-align:-1px;">`
+    : currentLang.flag;
+    
+  langFlagEl.innerHTML = flagHtml;
   langNameEl.textContent = currentLang.name;
   buildPunctuation(currentLang.punct);
   buildDropdown();
@@ -578,13 +602,18 @@ function buildDropdown() {
     const d = document.createElement('div');
     d.className = 'lang-item' + (lang.code === currentLangCode ? ' active' : '');
     const isFav = favorites.includes(lang.code);
+    
+    const flagHtml = isWin && lang.code.includes('-') 
+      ? `<img src="https://flagcdn.com/16x12/${lang.code.split('-')[1].toLowerCase()}.png" width="16" style="vertical-align:-1px;">`
+      : lang.flag;
+
     d.innerHTML = `
       <span class="li-fav" style="${isFav ? 'color: var(--accent);' : 'color: var(--muted);'}" title="Toggle Favorite">
         ${isFav ? '★' : '☆'}
       </span>
-      <span class="li-flag">${lang.flag}</span>
+      <span class="li-flag">${flagHtml}</span>
       <span class="li-name">${lang.name}</span>
-      <span class="li-code">${lang.code}</span>`;
+      <span class="li-code">${lang.native}</span>`;
     
     d.addEventListener('mousedown', e => {
       // Toggle favorite
@@ -655,10 +684,33 @@ document.getElementById('dot-close').addEventListener('mousedown', e => {
   window.junoAPI.stopListening();
 });
 
+// ── Settings button ───────────────────────────────────────────
+document.getElementById('settings-btn').addEventListener('mousedown', e => {
+  e.preventDefault(); e.stopPropagation();
+  window.junoAPI.openSettings();
+});
+
 // ── IPC ───────────────────────────────────────────────────────
+function applyOverlayTheme(themeVal) {
+  let t = themeVal || 'system';
+  if (t === 'system') {
+    t = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+  }
+  document.documentElement.setAttribute('data-theme', t);
+}
+
+// Listen for OS theme changes while overlay is active
+window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
+  window.junoAPI.getConfig().then(cfg => {
+    if ((cfg.theme || 'system') === 'system') {
+      applyOverlayTheme('system');
+    }
+  });
+});
+
 window.junoAPI.onSessionStart((data) => {
   window.junoAPI.getConfig().then(cfg => {
-    document.documentElement.setAttribute('data-theme', cfg.theme || 'dark');
+    applyOverlayTheme(cfg.theme);
   });
   
   clearTimer && clearTimeout(clearTimer);

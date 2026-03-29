@@ -25,5 +25,6 @@ contextBridge.exposeInMainWorld('junoAPI', {
   stopListening:     ()     => ipcRenderer.send('overlay-stop'),
   toggleFavorite:    (lang) => ipcRenderer.send('toggle-favorite', lang),
   getConfig:         ()     => ipcRenderer.invoke('get-config'),
+  openSettings:      ()     => ipcRenderer.send('open-settings'),
   openUrl:           (url)  => ipcRenderer.send('open-url', url),
 });

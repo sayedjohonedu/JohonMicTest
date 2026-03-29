@@ -9,7 +9,7 @@ const schema = {
   // ── Combo Hotkey ─────────────────────────────
   hotkey: {
     type: 'string',
-    default: 'CommandOrControl+Shift+Space'
+    default: 'Alt+C'
   },
   hotkeyEnabled: {
     type: 'boolean',
@@ -59,10 +59,14 @@ const schema = {
     type: 'string',
     default: 'trial' // trial, active, expired
   },
+  licensePurchase: {
+    type: 'object',
+    default: {}
+  },
   // ── Appearance ────────────────────────────────────────────
   theme: {
     type: 'string',
-    default: 'dark'   // 'dark' | 'light'
+    default: 'system'   // 'system' | 'dark' | 'light'
   },
   // ── Voice Behaviour ───────────────────────────────────────
   silenceTimeout: {

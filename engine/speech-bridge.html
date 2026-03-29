@@ -34,6 +34,8 @@
                     startListening(data.language || 'en-US');
                 } else if (data.command === 'stop') {
                     stopListening();
+                } else if (data.command === 'ping') {
+                    if (isActive) armSilenceTimer();
                 }
             };
 

@@ -1,4 +1,4 @@
-const { app, Tray, Menu, globalShortcut, clipboard, BrowserWindow, nativeImage, ipcMain, shell, systemPreferences, dialog } = require('electron');
+const { app, Tray, Menu, globalShortcut, clipboard, BrowserWindow, nativeImage, ipcMain, shell, systemPreferences, dialog, nativeTheme } = require('electron');
 const path = require('path');
 const http = require('http');
 const fs = require('fs');
@@ -66,6 +66,19 @@ ipcMain.on('save-config', (event, config) => {
   }
 });
 
+// ── One-time migration: fix the old CommandOrControl+Shift+Space default ──
+// Previous builds shipped with 'CommandOrControl+Shift+Space' as the default
+// hotkey. This was inconsistent with the UI which showed 'Alt+V'. Both are now
+// replaced with 'Alt+C'. If the old value is still stored, silently upgrade it.
+(function migrateHotkey() {
+  const BAD_DEFAULTS = ['CommandOrControl+Shift+Space', 'Alt+V'];
+  const current = store.get('hotkey');
+  if (BAD_DEFAULTS.includes(current)) {
+    store.set('hotkey', 'Alt+C');
+    safeLog('[Migration] Hotkey updated from', current, '→ Alt+C');
+  }
+})();
+
 ipcMain.handle('get-config', () => {
   return store.store;
 });
@@ -92,11 +105,25 @@ ipcMain.on('overlay-stop', () => {
   if (isListening) toggleListening();
 });
 
+// Helper to keep the microphone active when user interacts with the UI
+function resetSilenceTimer() {
+  if (wsClient && isListening) {
+    wsClient.send(JSON.stringify({ command: 'ping' }));
+  }
+}
+
 // Overlay: inject punctuation — use typeString() to bypass clipboard entirely.
 // This is the fix for the "glitch" where previous speech text would get re-pasted:
 // typeString() simulates individual keystrokes, so it never reads/writes the clipboard.
 ipcMain.on('inject-punct', (event, char) => {
+  resetSilenceTimer();
   injectCharDirect(char);
+});
+
+// Settings: Open settings from overlay button
+ipcMain.on('open-settings', () => {
+  resetSilenceTimer();
+  showSettings();
 });
 
 // Overlay: simulate Enter/Return key press  (↵ — moves to next line)
@@ -128,21 +155,23 @@ function robustKeyTap(key, modifier) {
 }
 
 ipcMain.on('inject-enter', () => {
+  resetSilenceTimer();
   robustKeyTap('enter');
 });
 
 // Overlay: simulate Backspace key press  (⌫ — deletes character to the LEFT of cursor)
 ipcMain.on('inject-backspace', () => {
+  resetSilenceTimer();
   robustKeyTap('backspace');
 });
 
 // Overlay: keyboard shortcut actions (Cmd/Ctrl + key)
 const KBD_MOD = process.platform === 'darwin' ? 'command' : 'control';
-ipcMain.on('inject-select-all', () => { robustKeyTap('a', KBD_MOD); });
-ipcMain.on('inject-copy',       () => { robustKeyTap('c', KBD_MOD); });
-ipcMain.on('inject-cut',        () => { robustKeyTap('x', KBD_MOD); });
-ipcMain.on('inject-paste',      () => { robustKeyTap('v', KBD_MOD); });
-ipcMain.on('inject-undo',       () => { robustKeyTap('z', KBD_MOD); });
+ipcMain.on('inject-select-all', () => { resetSilenceTimer(); robustKeyTap('a', KBD_MOD); });
+ipcMain.on('inject-copy',       () => { resetSilenceTimer(); robustKeyTap('c', KBD_MOD); });
+ipcMain.on('inject-cut',        () => { resetSilenceTimer(); robustKeyTap('x', KBD_MOD); });
+ipcMain.on('inject-paste',      () => { resetSilenceTimer(); robustKeyTap('v', KBD_MOD); });
+ipcMain.on('inject-undo',       () => { resetSilenceTimer(); robustKeyTap('z', KBD_MOD); });
 
 // Overlay: user changed language from the language picker
 ipcMain.on('overlay-change-language', (event, lang) => {
@@ -196,6 +225,7 @@ ipcMain.handle('verify-license', async (event, key) => {
     if (data.success) {
       store.set('licenseKey', key);
       store.set('licenseStatus', 'active');
+      if (data.purchase) store.set('licensePurchase', data.purchase);
       return { success: true, message: 'License verified successfully!' };
     } else {
       store.set('licenseStatus', 'expired');
@@ -224,8 +254,10 @@ async function checkAuthStatus() {
       const data = await response.json();
       if (!data.success) {
         store.set('licenseStatus', 'expired');
+        store.set('licensePurchase', {});
       } else {
         store.set('licenseStatus', 'active');
+        if (data.purchase) store.set('licensePurchase', data.purchase);
       }
     } catch (e) {
       // If offline, trust the last known good state
@@ -303,30 +335,56 @@ function createOverlay() {
   }
 
   overlayWindow.loadFile(path.join(__dirname, 'ui', 'overlay.html'));
+  
+  // Position Lock: Save whenever user drags window
+  overlayWindow.on('moved', () => {
+    const pos = overlayWindow.getPosition();
+    store.set('overlayPosition', { x: pos[0], y: pos[1] });
+  });
+
   overlayWindow.on('closed', () => overlayWindow = null);
 }
 
 function createTray() {
   const isMac = process.platform === 'darwin';
 
-  // macOS: use small template image (auto-adapts to light/dark menu bar)
-  // Windows: use full-colour icon.png — template images show as invisible on Windows
-  const iconPath = isMac
-    ? path.join(__dirname, 'assets', 'iconTemplate.png')
-    : path.join(__dirname, 'assets', 'icon.png');
+  const updateTrayIcon = () => {
+    let iconPath;
 
-  let icon = nativeImage.createFromPath(iconPath);
-  if (icon.isEmpty()) {
-    // Fallback: create a simple dot if the file is missing
-    icon = nativeImage.createFromDataURL('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAABHNCSVQICAgIfAhkiAAAAAlwSFlzAAALEwAACxMBAJqcGAAAABl0RVh0U29mdHdhcmUAd3d3Lmlua3NjYXBlLm9yZ5vuPBoAAABRSURBVDiNY/z//z8DJYCJgUJANQMGBgYGJkombIoZGBgYmCixyIRGDRg1YNSAUQNGDaAqAMlnJGUzMo6A0QhGIxiNYDSC0Qj+B/8TAAD//wMAUhUWnwGUAAAAAElFTkSuQmCC');
-  }
+    if (isMac) {
+      // macOS handles light/dark dynamically if the filename ends with "Template.png"
+      // You can replace "assets/iconTemplate.png" with your resized image.
+      iconPath = path.join(__dirname, 'assets', 'iconTemplate.png');
+    } else {
+      // Windows needs explicit swapping between black and white logo files
+      if (nativeTheme.shouldUseDarkColors) {
+        iconPath = path.join(__dirname, 'assets', 'logo', 'transparent-white-logo.png'); // White logo for Dark taskbar
+      } else {
+        iconPath = path.join(__dirname, 'assets', 'logo', 'transparent-black-logo.png'); // Black logo for Light taskbar
+      }
+    }
 
-  if (isMac) {
-    // Template image auto-adapts to light/dark menu bar — macOS only
-    icon.setTemplateImage(true);
-  }
+    let icon = nativeImage.createFromPath(iconPath);
+    if (icon.isEmpty()) {
+      // Fallback simple dot
+      icon = nativeImage.createFromDataURL('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAABHNCSVQICAgIfAhkiAAAAAlwSFlzAAALEwAACxMBAJqcGAAAABl0RVh0U29mdHdhcmUAd3d3Lmlua3NjYXBlLm9yZ5vuPBoAAABRSURBVDiNY/z//z8DJYCJgUJANQMGBgYGJkombIoZGBgYmCixyIRGDRg1YNSAUQNGDaAqAMlnJGUzMo6A0QhGIxiNYDSC0Qj+B/8TAAD//wMAUhUWnwGUAAAAAElFTkSuQmCC');
+    }
 
-  tray = new Tray(icon);
+    if (isMac) {
+      icon.setTemplateImage(true);
+    }
+
+    if (tray) {
+      tray.setImage(icon);
+    } else {
+      tray = new Tray(icon);
+    }
+  };
+
+  updateTrayIcon();
+  nativeTheme.on('updated', () => {
+    if (tray) updateTrayIcon();
+  });
 
   const contextMenu = Menu.buildFromTemplate([
     { label: 'Start Listening', click: () => toggleListening() },
@@ -364,15 +422,26 @@ function showSettings() {
         autoHideMenuBar: true,
       };
 
+  const savedPos = store.get('settingsPosition');
+  const posOptions = savedPos ? { x: savedPos.x, y: savedPos.y } : {};
+
   settingsWindow = new BrowserWindow({
     width: 750,
     height: 520,
+    ...posOptions,
     icon: path.join(__dirname, 'assets', 'icon.png'),
     resizable: false,
     maximizable: false,
     ...platformOptions,
     webPreferences: {
       preload: path.join(__dirname, 'ui', 'settings-preload.js')
+    }
+  });
+
+  settingsWindow.on('moved', () => {
+    if (settingsWindow) {
+      const [x, y] = settingsWindow.getPosition();
+      store.set('settingsPosition', { x, y });
     }
   });
 
@@ -637,7 +706,13 @@ function toggleListening() {
     if (overlayWindow) {
       overlayWindow.webContents.send('session-start', { lang });
       overlayWindow.showInactive();
-      overlayWindow.center();
+      
+      const pos = store.get('overlayPosition');
+      if (pos && typeof pos.x === 'number' && typeof pos.y === 'number') {
+        overlayWindow.setPosition(pos.x, pos.y);
+      } else {
+        overlayWindow.center();
+      }
     }
     wsClient.send(JSON.stringify({ command: 'start', language: lang, timeout: silenceTimeout }));
   } else {
@@ -669,7 +744,7 @@ function registerHotkeys() {
   // 1) Combo shortcut
   globalShortcut.unregisterAll();
   const hotkeyEnabled = store.get('hotkeyEnabled') !== false;
-  const hotkey        = store.get('hotkey') || 'Alt+V';
+  const hotkey        = store.get('hotkey') || 'Alt+C';
 
   if (hotkeyEnabled && hotkey) {
     try {
