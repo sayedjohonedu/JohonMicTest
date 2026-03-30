@@ -142,21 +142,17 @@
                 // Chrome stopped on its own (timeout, network blip, etc.)
                 // We want to be active — restart immediately.
                 isRestarting = true;
-                recognition = createRecognition();
-                try {
-                    recognition.start();
-                } catch (e) {
-                    // Small delay to allow Chrome's internal state to reset
-                    setTimeout(() => {
-                        if (isActive) {
+                setTimeout(() => {
+                    if (isActive) {
+                        try {
                             recognition = createRecognition();
                             recognition.start();
+                        } catch (e) {
+                            console.error('Restart failed', e);
                         }
-                        isRestarting = false;
-                    }, 300);
-                    return;
-                }
-                isRestarting = false;
+                    }
+                    isRestarting = false;
+                }, 400); // Wait briefly to let Windows release mic lock
             };
 
             return r;

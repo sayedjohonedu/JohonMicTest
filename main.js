@@ -326,7 +326,10 @@ ipcMain.on('set-mini-mode', (event, isMini) => {
   store.set('overlayMini', isMini);
 
   // Resize
+  overlayWindow.setResizable(true);
+  overlayWindow.setMinimumSize(isMini ? MINI_W : FULL_W, isMini ? MINI_H : FULL_H);
   overlayWindow.setSize(isMini ? MINI_W : FULL_W, isMini ? MINI_H : FULL_H);
+  overlayWindow.setResizable(false);
 
   // Restore the saved position for the mode we're ENTERING
   const savedPos = isMini
@@ -963,7 +966,10 @@ function toggleListening(forceLang = null) {
     if (overlayWindow) {
       overlayWindow.webContents.send('session-start', { lang });
       // Apply the correct window size for the current mode
+      overlayWindow.setResizable(true);
+      overlayWindow.setMinimumSize(isMini ? MINI_W : FULL_W, isMini ? MINI_H : FULL_H);
       overlayWindow.setSize(isMini ? MINI_W : FULL_W, isMini ? MINI_H : FULL_H);
+      overlayWindow.setResizable(false);
       overlayWindow.showInactive();
 
       const posKey = isMini ? 'overlayMiniPosition' : 'overlayPosition';
