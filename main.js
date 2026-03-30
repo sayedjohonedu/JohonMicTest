@@ -635,7 +635,7 @@ function showSettings() {
     width: 750,
     height: 520,
     ...posOptions,
-    icon: path.join(__dirname, 'assets', 'icon.png'),
+    icon: path.join(__dirname, 'assets', 'logo', 'dark-logo-solid-black-background.png'),
     resizable: false,
     maximizable: false,
     ...platformOptions,
@@ -828,11 +828,15 @@ function setupWebSocketServer(server) {
 let clipRestoreTimer = null;
 
 // injectCharDirect — for punctuation buttons.
-// For ASCII characters: types directly via OS key simulation (no clipboard).
-// For non-ASCII characters (Japanese 。、Arabic ؟, Hindi ।, etc.):
-//   robot.typeString() silently drops them because they have no keycode mapping.
-//   We go straight to clipboard paste for those.
+// On Windows, robot.typeString can cause double-typing issues in certain apps
+// like Telegram. So we use injectText (clipboard paste) universally on Windows.
+// On macOS, typeString works fine for ASCII characters.
 function injectCharDirect(chars) {
+  if (process.platform === 'win32') {
+    injectText(chars);
+    return;
+  }
+
   const isAsciiOnly = /^[\x00-\x7F]+$/.test(chars);
   if (isAsciiOnly) {
     try {
