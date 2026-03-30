@@ -938,7 +938,7 @@ function toggleListening(forceLang = null) {
 
   // Play the sound on toggle (start, manual stop, or silence-timeout stop)
   if (overlayWindow && !overlayWindow.isDestroyed()) {
-    overlayWindow.webContents.send('play-sound');
+    overlayWindow.webContents.send('play-sound', isListening);
   }
 
   if (isListening) {

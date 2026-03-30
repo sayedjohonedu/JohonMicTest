@@ -12,7 +12,7 @@ contextBridge.exposeInMainWorld('junoAPI', {
   onInterim:         (cb) => onChannel('interim-text',     (_, text) => cb(text)),
   onStatus:          (cb) => onChannel('overlay-status',   (_, s)    => cb(s)),
   onLanguage:        (cb) => onChannel('language-changed', (_, lang) => cb(lang)),
-  onPlaySound:       (cb) => onChannel('play-sound',       ()        => cb()),
+  onPlaySound:       (cb) => onChannel('play-sound',       (_, isStarting) => cb(isStarting)),
   injectPunct:       (char) => ipcRenderer.send('inject-punct',     char),
   injectEnter:       ()     => ipcRenderer.send('inject-enter'),
   injectBackspace:   ()     => ipcRenderer.send('inject-backspace'),

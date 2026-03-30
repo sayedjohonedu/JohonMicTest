@@ -910,11 +910,18 @@ window.junoAPI.onSessionWordCount((n) => {
 
 // ── Audio playback ─────────────────────────────────────────────
 const clickSound = new Audio('../assets/computer-mouse-click.mp3');
+const closeSound = new Audio('../assets/ui-close.aac');
 clickSound.volume = 0.8; // Set a reasonable volume
-window.junoAPI.onPlaySound(() => {
+closeSound.volume = 0.8;
+window.junoAPI.onPlaySound((isStarting) => {
   // Reset time to allow rapid re-triggers
-  clickSound.currentTime = 0;
-  clickSound.play().catch(err => console.log('Audio playback failed:', err));
+  if (isStarting) {
+    clickSound.currentTime = 0;
+    clickSound.play().catch(err => console.log('Audio playback failed:', err));
+  } else {
+    closeSound.currentTime = 0;
+    closeSound.play().catch(err => console.log('Audio playback failed:', err));
+  }
 });
 
 // ── Visualizer State & Settings ──────────────────────────────────
