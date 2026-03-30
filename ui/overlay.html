@@ -125,6 +125,86 @@
   #settings-btn:active { transform: scale(0.95); }
   [data-theme="light"] #settings-btn:hover { background: rgba(0,0,0,0.08); }
 
+  /* ── Mini / Compact button ── */
+  #mini-btn, #expand-btn {
+    display: flex; align-items: center; justify-content: center;
+    background: transparent;
+    border: none;
+    border-radius: 50%;
+    width: 26px; height: 26px;
+    font-size: 13px; color: var(--muted);
+    cursor: pointer; transition: background 0.15s, color 0.15s, transform 0.1s;
+    -webkit-app-region: no-drag;
+    flex-shrink: 0;
+  }
+  #mini-btn:hover  { background: var(--surface); color: var(--text); transform: scale(1.05); }
+  #mini-btn:active { transform: scale(0.92); }
+  #expand-btn      { display: none; font-size: 14px; }
+  #expand-btn:hover  { background: var(--surface); color: var(--text); transform: scale(1.05); }
+  #expand-btn:active { transform: scale(0.92); }
+  [data-theme="light"] #mini-btn:hover,
+  [data-theme="light"] #expand-btn:hover { background: rgba(0,0,0,0.08); }
+
+  /* ── PILL / MINI MODE ─────────────────────────────────────────────────
+   * When #card has .mini-mode, collapse everything except the pill bar.
+   * The window will be resized to 280×38 by main.js simultaneously.
+   */
+  #card.mini-mode {
+    border-radius: 24px;   /* fully rounded pill shape */
+    overflow: hidden;
+  }
+  /* Pill titlebar becomes the entire card */
+  #card.mini-mode #titlebar {
+    padding: 0 10px;
+    height: 38px;
+    flex: 1;
+    gap: 6px;
+  }
+  /* Hide everything except the stop dot, mini waveform, and expand btn */
+  #card.mini-mode #pulse-dot,
+  #card.mini-mode #status-label,
+  #card.mini-mode #lang-wrapper,
+  #card.mini-mode #settings-btn,
+  #card.mini-mode #mini-btn,
+  #card.mini-mode #transcript-area,
+  #card.mini-mode #waveform-wrap,
+  #card.mini-mode .divider,
+  #card.mini-mode #punct-panel,
+  #card.mini-mode #footer { display: none !important; }
+  /* Show expand button, inline mini waveform, and language flag */
+  #card.mini-mode #expand-btn       { display: flex !important; }
+  #card.mini-mode #mini-wave-wrap   { display: flex !important; }
+  #card.mini-mode #mini-lang-flag   { display: flex !important; }
+
+  /* Inline waveform inside pill titlebar */
+  #mini-wave-wrap {
+    display: none;
+    flex: 1;
+    align-items: center;
+    height: 28px;
+    overflow: hidden;
+    -webkit-app-region: drag;
+  }
+  #mini-wave {
+    width: 100%; height: 28px; display: block;
+  }
+
+  /* Language flag shown only in pill mode */
+  #mini-lang-flag {
+    display: none;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+    line-height: 1;
+    flex-shrink: 0;
+    -webkit-app-region: no-drag;
+    cursor: pointer;
+    border-radius: 6px;
+    padding: 2px 4px;
+    transition: background 0.15s;
+  }
+  #mini-lang-flag:hover { background: rgba(255,255,255,0.12); }
+
   /*
    * DROPDOWN — Fixed position, placed by JS so it escapes
    * the card boundary regardless of overflow settings.
@@ -354,6 +434,11 @@
     <div class="dot" id="dot-close" title="Stop"></div>
     <div id="pulse-dot"></div>
     <span id="status-label">Listening…</span>
+    <!-- Mini waveform: only visible in pill mode -->
+    <div id="mini-wave-wrap"><canvas id="mini-wave"></canvas></div>
+    <!-- Language flag: only visible in pill mode, clicking opens lang switcher -->
+    <span id="mini-lang-flag" title="Change language">🇺🇸</span>
+    <button id="mini-btn" title="Compact mode">&#x292F;</button>
     <button id="settings-btn" title="Open Settings">⚙️</button>
     <div id="lang-wrapper">
       <button id="lang-btn">
@@ -362,6 +447,8 @@
         <span id="lang-chevron">▾</span>
       </button>
     </div>
+    <!-- Expand button: only visible in pill mode -->
+    <button id="expand-btn" title="Expand">⤮</button>
   </div>
 
   <div id="transcript-area">
@@ -388,6 +475,8 @@
     <a onclick="window.junoAPI.openUrl('https://www.youtube.com/@junoverseai')">YouTube</a>
     <span class="footer-sep">•</span>
     <a onclick="window.junoAPI.openUrl('https://www.peeai.com')">PeeAI.com</a>
+    <span class="footer-sep" id="wc-sep" style="display:none">•</span>
+    <span id="wc-badge" style="display:none; font-variant-numeric: tabular-nums;">&#x1F4DD; 0 words</span>
   </div>
 </div>
 
@@ -426,27 +515,29 @@ const isWin = navigator.userAgent.includes('Windows');
 let currentLangCode = 'en-US';
 let currentLang     = LANGUAGES[0];
 let dropdownOpen    = false;
-let wavePhase       = 0;
 let isSpeaking      = false;
 let clearTimer      = null;
 let favorites       = [];
 
-const phraseEl   = document.getElementById('phrase-text');
-const interimEl  = document.getElementById('interim-text');
-const langBtn    = document.getElementById('lang-btn');
-const langFlagEl = document.getElementById('lang-flag');
-const langNameEl = document.getElementById('lang-name');
-const dropdown   = document.getElementById('lang-dropdown');
-const prow1      = document.getElementById('prow1');
-const prow2      = document.getElementById('prow2');
-const prow3      = document.getElementById('prow3');
-const canvas     = document.getElementById('waveform');
-const ctx        = canvas.getContext('2d');
+const phraseEl      = document.getElementById('phrase-text');
+const interimEl     = document.getElementById('interim-text');
+const langBtn       = document.getElementById('lang-btn');
+const langFlagEl    = document.getElementById('lang-flag');
+const langNameEl    = document.getElementById('lang-name');
+const dropdown      = document.getElementById('lang-dropdown');
+const miniFlagEl    = document.getElementById('mini-lang-flag');
+const prow1         = document.getElementById('prow1');
+const prow2         = document.getElementById('prow2');
+const prow3         = document.getElementById('prow3');
+const canvas        = document.getElementById('waveform');
+const ctx           = canvas.getContext('2d');
 
 // ── Init ──────────────────────────────────────────────────────
 window.junoAPI.getConfig().then(cfg => {
   if (cfg.favorites) favorites = cfg.favorites;
   setLanguage(cfg.language || 'en-US', false);
+  // Restore mini mode state
+  if (cfg.overlayMini) applyMiniMode(true, false);
 });
 
 // ── Language ──────────────────────────────────────────────────
@@ -460,9 +551,19 @@ function setLanguage(code, notify=true) {
     
   langFlagEl.innerHTML = flagHtml;
   langNameEl.textContent = currentLang.name;
+  // Keep the pill-mode flag in sync
+  if (miniFlagEl) miniFlagEl.innerHTML = flagHtml;
   buildPunctuation(currentLang.punct);
   buildDropdown();
   if (notify) window.junoAPI.changeLanguage(code);
+}
+
+// Clicking the pill flag opens the same language dropdown as the full-mode button
+if (miniFlagEl) {
+  miniFlagEl.addEventListener('click', (e) => {
+    e.stopPropagation();
+    langBtn.click(); // re-use existing toggle logic
+  });
 }
 
 // Detect OS for shortcut label (⌘ on Mac, Ctrl on Windows/Linux)
@@ -498,10 +599,14 @@ function buildPunctuation(chars) {
 function mkBtn(char) {
   const b = document.createElement('button');
   b.className = 'punct-btn';
-  b.textContent = char;
+  
+  const isSpace = char === '…' || char === '……';
+  b.textContent = isSpace ? '␣' : char;
+  if (isSpace) b.title = 'Insert a space';
+
   b.addEventListener('mousedown', e => {
     e.preventDefault(); e.stopPropagation();
-    window.junoAPI.injectPunct(char + ' ');
+    window.junoAPI.injectPunct(isSpace ? ' ' : char + ' ');
     flash(b);
   });
   return b;
@@ -690,6 +795,30 @@ document.getElementById('settings-btn').addEventListener('mousedown', e => {
   window.junoAPI.openSettings();
 });
 
+// ── Mini / Pill mode ──────────────────────────────────────────
+let isMiniMode = false;
+
+function applyMiniMode(mini, notify = true) {
+  isMiniMode = mini;
+  const card = document.getElementById('card');
+  if (mini) {
+    card.classList.add('mini-mode');
+    syncMiniWave(); // start syncing mini waveform
+  } else {
+    card.classList.remove('mini-mode');
+  }
+  if (notify) window.junoAPI.setMiniMode(mini);
+}
+
+document.getElementById('mini-btn').addEventListener('mousedown', e => {
+  e.preventDefault(); e.stopPropagation();
+  applyMiniMode(true);
+});
+document.getElementById('expand-btn').addEventListener('mousedown', e => {
+  e.preventDefault(); e.stopPropagation();
+  applyMiniMode(false);
+});
+
 // ── IPC ───────────────────────────────────────────────────────
 function applyOverlayTheme(themeVal) {
   let t = themeVal || 'system';
@@ -702,16 +831,29 @@ function applyOverlayTheme(themeVal) {
 // Listen for OS theme changes while overlay is active
 window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
   window.junoAPI.getConfig().then(cfg => {
+    if (cfg.visualizerType) visualizerType = cfg.visualizerType;
     if ((cfg.theme || 'system') === 'system') {
       applyOverlayTheme('system');
     }
   });
 });
 
+window.junoAPI.onConfigUpdate && window.junoAPI.onConfigUpdate((cfg) => {
+  if (cfg.visualizerType) visualizerType = cfg.visualizerType;
+  if (cfg.theme && typeof applyOverlayTheme === 'function') applyOverlayTheme(cfg.theme);
+});
+
 window.junoAPI.onSessionStart((data) => {
   window.junoAPI.getConfig().then(cfg => {
     applyOverlayTheme(cfg.theme);
   });
+
+  // Reset live word count badge for this session
+  if (typeof wcBadge !== 'undefined') {
+    wcBadge.style.display = 'none';
+    wcSep.style.display   = 'none';
+    wcBadge.textContent   = '📝 0 words';
+  }
   
   clearTimer && clearTimeout(clearTimer);
   phraseEl.textContent  = '';
@@ -751,6 +893,21 @@ window.junoAPI.onStatus((s) => {
 
 window.junoAPI.onLanguage((code) => setLanguage(code, false));
 
+// ── Tray language switch ───────────────────────────────────────
+// Fired when user picks a language from the tray submenu
+window.junoAPI.onSetLanguage((code) => setLanguage(code, false));
+
+// ── Live session word count badge ───────────────────────────
+const wcBadge = document.getElementById('wc-badge');
+const wcSep   = document.getElementById('wc-sep');
+window.junoAPI.onSessionWordCount((n) => {
+  if (n > 0) {
+    wcBadge.textContent   = `📝 ${n.toLocaleString()} word${n === 1 ? '' : 's'}`;
+    wcBadge.style.display = 'inline';
+    wcSep.style.display   = 'inline';
+  }
+});
+
 // ── Audio playback ─────────────────────────────────────────────
 const clickSound = new Audio('../assets/computer-mouse-click.mp3');
 clickSound.volume = 0.8; // Set a reasonable volume
@@ -760,7 +917,20 @@ window.junoAPI.onPlaySound(() => {
   clickSound.play().catch(err => console.log('Audio playback failed:', err));
 });
 
-// ── Waveform ──────────────────────────────────────────────────
+// ── Visualizer State & Settings ──────────────────────────────────
+let visualizerType = 'wave';
+let currentAudioData = { bins: new Array(15).fill(0), volume: 0 };
+let smoothedBins = new Array(15).fill(0);
+let smoothedVol = 0;
+let wavePhase = 0, miniPhase = 0;
+let currentAmp = 2.5, currentMiniAmp = 2.0;
+
+if (window.junoAPI.onAudioData) {
+  window.junoAPI.onAudioData((data) => {
+    if (data && data.bins && data.bins.length) currentAudioData = data;
+  });
+}
+
 function resizeCanvas() {
   const dpr = window.devicePixelRatio || 1;
   canvas.width  = canvas.offsetWidth  * dpr;
@@ -770,39 +940,240 @@ function resizeCanvas() {
 resizeCanvas();
 new ResizeObserver(resizeCanvas).observe(canvas);
 
-function drawWave() {
-  const W = canvas.offsetWidth;
-  const H = canvas.offsetHeight;
-  ctx.clearRect(0, 0, W, H);
-
-  wavePhase += isSpeaking ? 0.075 : 0.022;
-  const amp = isSpeaking ? 9 : 2.5;
-
-  ctx.beginPath();
-  const steps = Math.floor(W / 3);
-  for (let i = 0; i <= steps; i++) {
-    const x = (i / steps) * W;
-    const y = H/2
-      + Math.sin(i*0.45 + wavePhase) * amp
-      + Math.sin(i*0.9  + wavePhase * 1.3) * amp * 0.5
-      + Math.sin(i*0.2  + wavePhase * 0.7) * amp * 0.3;
-    i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
-  }
-
-  const g = ctx.createLinearGradient(0, 0, W, 0);
+function getNeonGradient(c, w) {
+  const g = c.createLinearGradient(0, 0, w, 0);
   g.addColorStop(0,    'rgba(124,111,255,0)');
   g.addColorStop(0.15, 'rgba(124,111,255,0.85)');
   g.addColorStop(0.85, 'rgba(124,111,255,0.85)');
   g.addColorStop(1,    'rgba(124,111,255,0)');
-
-  ctx.strokeStyle = g;
-  ctx.lineWidth   = isSpeaking ? 2.2 : 1.4;
-  ctx.shadowBlur  = isSpeaking ? 10  : 3;
-  ctx.shadowColor = 'rgba(124,111,255,0.55)';
-  ctx.stroke();
-  requestAnimationFrame(drawWave);
+  return g;
 }
-drawWave();
+
+function updateSmoothings() {
+  const volTarget = isSpeaking ? (currentAudioData.volume / 255) : 0;
+  smoothedVol += (volTarget - smoothedVol) * 0.2;
+  for (let i = 0; i < 15; i++) {
+    const val = isSpeaking && i < currentAudioData.bins.length ? (currentAudioData.bins[i] / 255) : 0;
+    smoothedBins[i] += (val - smoothedBins[i]) * 0.2;
+  }
+}
+
+// Particle system state
+const particles = Array.from({ length: 40 }).map(() => ({
+  x: Math.random(),
+  y: Math.random(),
+  speed: Math.random() * 0.02 + 0.005,
+  offset: Math.random() * Math.PI * 2
+}));
+
+// Draw functions
+function drawTypeWave(c, w, h, isMini) {
+  const phaseStep = isSpeaking ? 0.075 : 0.022;
+  if (isMini) miniPhase += phaseStep; else wavePhase += phaseStep;
+  const phase = isMini ? miniPhase : wavePhase;
+  
+  const baseAmp = isMini ? 2.0 : 2.5;
+  const maxAmp  = isMini ? 12 : 25;
+  const targetAmp = isSpeaking ? baseAmp + (currentAudioData.volume / 255) * maxAmp : baseAmp;
+  
+  if (isMini) {
+    currentMiniAmp += (targetAmp - currentMiniAmp) * 0.2;
+  } else {
+    currentAmp += (targetAmp - currentAmp) * 0.2;
+  }
+  const amp = isMini ? currentMiniAmp : currentAmp;
+
+  c.beginPath();
+  const steps = Math.floor(w / 3);
+  for (let i = 0; i <= steps; i++) {
+    const x = (i / steps) * w;
+    const y = h/2
+      + Math.sin(i*0.45 + phase) * amp
+      + Math.sin(i*0.9  + phase * 1.3) * amp * 0.5
+      + Math.sin(i*0.2  + phase * 0.7) * amp * 0.3;
+    i === 0 ? c.moveTo(x, y) : c.lineTo(x, y);
+  }
+
+  c.strokeStyle = getNeonGradient(c, w);
+  c.lineWidth   = isSpeaking ? (isMini ? 2 : 2.2) : (isMini ? 1.2 : 1.4);
+  c.shadowBlur  = isSpeaking ? 10 : 3;
+  c.shadowColor = 'rgba(124,111,255,0.55)';
+  c.stroke();
+}
+
+function drawTypeBars(c, w, h, isMini) {
+  const barCount = 15;
+  const gap = isMini ? 2 : 4;
+  const totalGapWidth = gap * (barCount - 1);
+  const playArea = w * 0.8; 
+  const startX = (w - playArea) / 2;
+  const barWidth = (playArea - totalGapWidth) / barCount;
+  const maxH = isMini ? h * 0.8 : h * 0.6;
+  const minH = isMini ? 2 : 4;
+
+  c.fillStyle = getNeonGradient(c, w);
+  c.shadowBlur = isSpeaking ? 8 : 2;
+  c.shadowColor = 'rgba(124,111,255,0.5)';
+
+  for (let i = 0; i < barCount; i++) {
+    const height = minH + smoothedBins[i] * maxH;
+    const x = startX + i * (barWidth + gap);
+    const y = h/2 - height/2;
+    c.beginPath();
+    if(c.roundRect) c.roundRect(x, y, barWidth, height, barWidth/2);
+    else c.rect(x,y,barWidth,height);
+    c.fill();
+  }
+}
+
+function drawTypePulse(c, w, h, isMini) {
+  const cx = w / 2;
+  const cy = h / 2;
+  const maxR = isMini ? h * 0.4 : h * 0.8;
+  const minR = isMini ? 3 : 8;
+  
+  c.shadowBlur = isSpeaking ? 15 : 5;
+  c.shadowColor = 'rgba(124,111,255,0.8)';
+  c.strokeStyle = 'rgba(124,111,255,0.9)';
+  c.lineWidth = isMini ? 2 : 3;
+  
+  const r1 = minR + smoothedVol * maxR;
+  const r2 = minR + smoothedVol * maxR * 1.5;
+
+  c.beginPath(); c.arc(cx, cy, r1, 0, Math.PI*2); c.stroke();
+  
+  if (smoothedVol > 0.1) {
+    c.strokeStyle = `rgba(124,111,255,${0.5 * smoothedVol})`;
+    c.beginPath(); c.arc(cx, cy, r2, 0, Math.PI*2); c.stroke();
+  }
+}
+
+function drawTypeParticles(c, w, h, isMini) {
+  c.shadowBlur = isSpeaking ? 6 : 2;
+  c.shadowColor = 'rgba(124,111,255,0.6)';
+  c.fillStyle = 'rgba(124,111,255,0.9)';
+  
+  const pSize = isMini ? 2 : 3;
+  
+  particles.forEach((p, i) => {
+    const binIdx = i % 15;
+    const binVal = smoothedBins[binIdx];
+    
+    p.offset += p.speed;
+    const px = (p.x * w) + Math.sin(p.offset) * (10 + binVal*20);
+    const py = (h/2) + Math.cos(p.offset) * (isMini ? 4 : 15) * (1 + binVal*(isMini?5:10));
+    
+    c.beginPath();
+    c.arc(px, py, pSize + binVal*2, 0, Math.PI*2);
+    c.fill();
+  });
+}
+
+function drawTypeLine(c, w, h, isMini) {
+  const count = 15;
+  const totalPts = count * 2 - 1; // 14..0..14
+  const step = w / (totalPts - 1);
+  const maxH = isMini ? h*0.4 : h*0.6;
+  const minH = isMini ? 1 : 2;
+  
+  c.beginPath();
+  let x = 0;
+  for (let i = count - 1; i >= 0; i--, x += step) {
+    const y = h/2 - minH - smoothedBins[i] * maxH;
+    i === count - 1 ? c.moveTo(x, y) : c.lineTo(x, y);
+  }
+  for (let i = 1; i < count; i++, x += step) {
+    const y = h/2 - minH - smoothedBins[i] * maxH;
+    c.lineTo(x, y);
+  }
+  
+  c.strokeStyle = getNeonGradient(c, w);
+  c.lineWidth = isMini ? 2 : 3;
+  c.shadowBlur = isSpeaking ? 10 : 3;
+  c.shadowColor = 'rgba(124,111,255,0.6)';
+  c.stroke();
+}
+
+function drawTypeMatrix(c, w, h, isMini) {
+  const barCount = 15;
+  const gap = isMini ? 2 : 3;
+  const blocksPerBar = isMini ? 3 : 5;
+  const playArea = w * 0.6; 
+  const startX = (w - playArea) / 2;
+  const bW = playArea / barCount;
+  const bH = (h * 0.6) / blocksPerBar;
+  
+  for (let i = 0; i < barCount; i++) {
+    const fillBlocks = Math.max(isSpeaking ? 1 : 0, Math.round(smoothedBins[i] * blocksPerBar));
+    for (let j = 0; j < blocksPerBar; j++) {
+      if (j >= fillBlocks && fillBlocks > 0) continue; 
+      // when not speaking, draw 1 very faint block
+      if (!isSpeaking && j > 0) continue;
+      
+      const x = startX + i * bW;
+      const y = h/2 + (isMini ? 5 : 10) - (j * bH) - bH;
+      c.fillStyle = isSpeaking ? `rgba(124,111,255,${0.3 + (j / blocksPerBar)*0.7})` : `rgba(124,111,255,0.1)`;
+      c.shadowBlur = isSpeaking ? 4 : 0;
+      c.shadowColor = 'rgba(124,111,255,0.5)';
+      c.fillRect(x + gap/2, y + gap/2, bW - gap, bH - gap);
+    }
+  }
+}
+
+function drawVisualizer() {
+  updateSmoothings();
+  
+  const W = canvas.offsetWidth;
+  const H = canvas.offsetHeight;
+  ctx.clearRect(0, 0, W, H);
+  
+  switch (visualizerType) {
+    case 'bars':      drawTypeBars(ctx, W, H, false); break;
+    case 'pulse':     drawTypePulse(ctx, W, H, false); break;
+    case 'particles': drawTypeParticles(ctx, W, H, false); break;
+    case 'line':      drawTypeLine(ctx, W, H, false); break;
+    case 'matrix':    drawTypeMatrix(ctx, W, H, false); break;
+    case 'wave': 
+    default:          drawTypeWave(ctx, W, H, false); break;
+  }
+  requestAnimationFrame(drawVisualizer);
+}
+drawVisualizer();
+
+// ── Mini waveform (pill mode) ─────────────────────────────────
+const miniCanvas = document.getElementById('mini-wave');
+const mctx       = miniCanvas.getContext('2d');
+
+function resizeMiniCanvas() {
+  const dpr = window.devicePixelRatio || 1;
+  miniCanvas.width  = miniCanvas.offsetWidth  * dpr;
+  miniCanvas.height = miniCanvas.offsetHeight * dpr;
+  mctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+}
+new ResizeObserver(resizeMiniCanvas).observe(miniCanvas);
+resizeMiniCanvas();
+
+function drawMiniWave() {
+  if (!isMiniMode) return;
+  const W = miniCanvas.offsetWidth;
+  const H = miniCanvas.offsetHeight;
+  mctx.clearRect(0, 0, W, H);
+
+  switch (visualizerType) {
+    case 'bars':      drawTypeBars(mctx, W, H, true); break;
+    case 'pulse':     drawTypePulse(mctx, W, H, true); break;
+    case 'particles': drawTypeParticles(mctx, W, H, true); break;
+    case 'line':      drawTypeLine(mctx, W, H, true); break;
+    case 'matrix':    drawTypeMatrix(mctx, W, H, true); break;
+    case 'wave': 
+    default:          drawTypeWave(mctx, W, H, true); break;
+  }
+  requestAnimationFrame(drawMiniWave);
+}
+
+function syncMiniWave() {
+  drawMiniWave();
+}
 </script>
 </body>
 </html>

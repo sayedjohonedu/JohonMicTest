@@ -9,6 +9,32 @@ const { autoUpdater } = require('electron-updater');
 const { launchChromeBridge, closeChromeBridge } = require('./engine/chrome-launcher');
 const store = require('./store/config');
 
+// ── Language list (shared with overlay UI) ────────────────────────
+// Used by the tray language submenu.
+const LANGUAGES = [
+  { code:'en-US', name:'English (US)',    flag:'🇺🇸' },
+  { code:'en-GB', name:'English (UK)',    flag:'🇬🇧' },
+  { code:'en-CA', name:'English (CA)',    flag:'🇨🇦' },
+  { code:'en-AU', name:'English (AU)',    flag:'🇦🇺' },
+  { code:'es-ES', name:'Español (ES)',   flag:'🇪🇸' },
+  { code:'es-MX', name:'Español (MX)',   flag:'🇲🇽' },
+  { code:'fr-FR', name:'Français (FR)',  flag:'🇫🇷' },
+  { code:'de-DE', name:'Deutsch (DE)',   flag:'🇩🇪' },
+  { code:'it-IT', name:'Italiano (IT)',  flag:'🇮🇹' },
+  { code:'pt-BR', name:'Português (BR)', flag:'🇧🇷' },
+  { code:'pt-PT', name:'Português (PT)', flag:'🇵🇹' },
+  { code:'ja-JP', name:'Japanese (JP)',  flag:'🇯🇵' },
+  { code:'zh-CN', name:'Chinese (CN)',   flag:'🇨🇳' },
+  { code:'ko-KR', name:'Korean (KR)',    flag:'🇰🇷' },
+  { code:'ar-SA', name:'Arabic (SA)',    flag:'🇸🇦' },
+  { code:'bn-BD', name:'Bengali (BD)',   flag:'🇧🇩' },
+  { code:'hi-IN', name:'Hindi (IN)',     flag:'🇮🇳' },
+  { code:'ru-RU', name:'Русский (RU)',   flag:'🇷🇺' },
+  { code:'tr-TR', name:'Türkçe (TR)',    flag:'🇹🇷' },
+  { code:'nl-NL', name:'Nederlands (NL)',flag:'🇳🇱' },
+  { code:'pl-PL', name:'Polski (PL)',    flag:'🇵🇱' },
+];
+
 // Prevent Electron from crashing when stdout/stderr is a broken pipe (EIO)
 // This globally wraps console.log/error so no matter where it's called, it won't crash the app.
 const originalLog = console.log;
@@ -38,6 +64,8 @@ let wss = null;
 let wsClient = null;
 let isListening = false;
 let httpPort = 9123;
+let sessionWordCount = 0;  // resets each listening session
+let currentSessionLang = 'en-US';
 
 const junoAutoLauncher = new AutoLaunch({
   name: 'Juno Global Voice',
@@ -49,10 +77,24 @@ if (process.platform === 'win32') {
   app.disableHardwareAcceleration();
 }
 
-app.on('will-quit', async () => {
-  await closeChromeBridge();
+app.on('will-quit', async (event) => {
+  event.preventDefault(); // Pause quit loop to ensure cleanup completes
+  if (uiohookRunning) {
+    try {
+      uIOhook.stop();
+    } catch (e) {}
+  }
   globalShortcut.unregisterAll();
-  try { uIOhook.stop(); } catch (e) {}
+  
+  if (wsClient) {
+    try { wsClient.terminate(); } catch (e) {}
+  }
+  
+  try {
+    await closeChromeBridge();
+  } catch (e) {}
+  
+  app.exit(0); // Force clean exit
 });
 
 ipcMain.on('save-config', (event, config) => {
@@ -63,6 +105,13 @@ ipcMain.on('save-config', (event, config) => {
     junoAutoLauncher.enable().catch(() => {});
   } else {
     junoAutoLauncher.disable().catch(() => {});
+  }
+  
+  if (wsClient) {
+    wsClient.send(JSON.stringify({ command: 'set-mic-sensitivity', sensitivity: config.micSensitivity || 1.0 }));
+  }
+  if (overlayWindow && !overlayWindow.isDestroyed()) {
+    overlayWindow.webContents.send('config-updated', config);
   }
 });
 
@@ -81,6 +130,137 @@ ipcMain.on('save-config', (event, config) => {
 
 ipcMain.handle('get-config', () => {
   return store.store;
+});
+
+// Stats: return cumulative usage data to settings dashboard
+ipcMain.handle('get-stats', () => ({
+  totalWords:    store.get('statsWords')     || 0,
+  totalSessions: store.get('statsSessions')  || 0,
+  langUsage:     store.get('statsLangUsage') || {},
+  firstDate:     store.get('statsFirstDate') || 0,
+}));
+
+// ── Export Text Replacements ────────────────────────────────────────────
+ipcMain.handle('export-replacements', async (event) => {
+  const replacements = store.get('textReplacements') || [];
+  const browserWindow = BrowserWindow.fromWebContents(event.sender);
+  const { canceled, filePath } = await dialog.showSaveDialog(browserWindow, {
+    title: 'Export Text Replacements',
+    defaultPath: 'juno-replacements.json',
+    filters: [{ name: 'JSON File', extensions: ['json'] }],
+  });
+  if (canceled || !filePath) return { ok: false, reason: 'canceled' };
+  try {
+    const fs = require('fs');
+    const payload = {
+      schema: 1,
+      exportedAt: new Date().toISOString(),
+      replacements,
+    };
+    fs.writeFileSync(filePath, JSON.stringify(payload, null, 2), 'utf8');
+    return { ok: true, count: replacements.length };
+  } catch (e) {
+    return { ok: false, reason: e.message };
+  }
+});
+
+// ── Import Text Replacements ────────────────────────────────────────────
+// Returns the parsed replacements to the renderer so it can show the
+// merge/replace modal and decide which action to take before writing to store.
+ipcMain.handle('import-replacements-pick', async (event) => {
+  const browserWindow = BrowserWindow.fromWebContents(event.sender);
+  const { canceled, filePaths } = await dialog.showOpenDialog(browserWindow, {
+    title: 'Import Text Replacements',
+    filters: [{ name: 'JSON File', extensions: ['json'] }],
+    properties: ['openFile'],
+  });
+  if (canceled || !filePaths || filePaths.length === 0) return { ok: false, reason: 'canceled' };
+  try {
+    const fs = require('fs');
+    const raw  = fs.readFileSync(filePaths[0], 'utf8');
+    const data = JSON.parse(raw);
+    // Version-agnostic validation: only check schema field and array shape
+    if (data.schema !== 1)                     return { ok: false, reason: 'invalid_schema' };
+    if (!Array.isArray(data.replacements))     return { ok: false, reason: 'invalid_format' };
+    // Sanitise: keep only {say, replace} string pairs
+    const items = data.replacements
+      .filter(r => typeof r.say === 'string' && typeof r.replace === 'string')
+      .map(r => ({ say: r.say.trim(), replace: r.replace }));
+    return { ok: true, items, count: items.length };
+  } catch (e) {
+    return { ok: false, reason: e.message };
+  }
+});
+
+// Commit the import choice (merge or replace) — called after user confirms in modal
+ipcMain.handle('import-replacements-commit', (event, { items, mode }) => {
+  if (!Array.isArray(items)) return { ok: false };
+  if (mode === 'replace') {
+    store.set('textReplacements', items);
+  } else {
+    // merge: add items whose 'say' phrase isn't already in the list
+    const existing = store.get('textReplacements') || [];
+    const existingKeys = new Set(existing.map(r => r.say.toLowerCase().trim()));
+    const newItems = items.filter(r => !existingKeys.has(r.say.toLowerCase().trim()));
+    store.set('textReplacements', [...existing, ...newItems]);
+  }
+  return { ok: true };
+});
+
+ipcMain.handle('app-factory-reset', () => {
+  // Prevent trial bypassing and license loss
+  const licenseKey = store.get('licenseKey');
+  const licenseStatus = store.get('licenseStatus');
+  const licensePurchase = store.get('licensePurchase');
+  const firstLaunchDate = store.get('firstLaunchDate');
+
+  store.clear();
+
+  if (licenseKey !== undefined) store.set('licenseKey', licenseKey);
+  if (licenseStatus !== undefined) store.set('licenseStatus', licenseStatus);
+  if (licensePurchase !== undefined) store.set('licensePurchase', licensePurchase);
+  if (firstLaunchDate !== undefined) store.set('firstLaunchDate', firstLaunchDate);
+
+  if (wsClient) wsClient.terminate();
+  if (uIOhook) uIOhook.stop();
+  app.relaunch();
+  app.quit();
+});
+
+// ── Mic Selector ─────────────────────────────────────────────────────────
+// get-mic-list: sends get-devices to bridge and resolves with the device-list reply
+// Uses a one-shot pending promise so we don't need a persistent event emitter.
+let pendingMicListResolve = null;
+
+ipcMain.handle('get-mic-list', () => {
+  return new Promise((resolve) => {
+    if (!wsClient) {
+      // Bridge not connected yet — return empty list, UI shows placeholder
+      resolve([]);
+      return;
+    }
+    // If another request is already pending, resolve it immediately with []
+    if (pendingMicListResolve) pendingMicListResolve([]);
+    pendingMicListResolve = resolve;
+    // Ask bridge to enumerate audio inputs
+    wsClient.send(JSON.stringify({ command: 'get-devices' }));
+    // Safety timeout: if bridge doesn't respond in 3s, resolve empty
+    setTimeout(() => {
+      if (pendingMicListResolve === resolve) {
+        pendingMicListResolve = null;
+        resolve([]);
+      }
+    }, 3000);
+  });
+});
+
+ipcMain.on('set-mic', (event, deviceId) => {
+  // Persist selection
+  store.set('selectedMicId', deviceId || '');
+  // Tell bridge immediately if connected — takes effect on next start
+  if (wsClient) {
+    wsClient.send(JSON.stringify({ command: 'set-device', deviceId: deviceId || null }));
+  }
 });
 
 // Settings: suspend ALL global shortcuts so the window can capture raw keystrokes
@@ -124,6 +304,37 @@ ipcMain.on('inject-punct', (event, char) => {
 ipcMain.on('open-settings', () => {
   resetSilenceTimer();
   showSettings();
+});
+
+// Overlay: toggle mini/pill mode
+// Resizes window + saves state + swaps saved positions
+ipcMain.on('set-mini-mode', (event, isMini) => {
+  if (!overlayWindow) return;
+
+  const FULL_W = 420, FULL_H = 312;
+  const MINI_W = 280, MINI_H = 38;
+
+  // Save the position we're LEAVING
+  const pos = overlayWindow.getPosition();
+  if (isMini) {
+    store.set('overlayPosition', { x: pos[0], y: pos[1] });
+  } else {
+    store.set('overlayMiniPosition', { x: pos[0], y: pos[1] });
+  }
+
+  // Persist new mode
+  store.set('overlayMini', isMini);
+
+  // Resize
+  overlayWindow.setSize(isMini ? MINI_W : FULL_W, isMini ? MINI_H : FULL_H);
+
+  // Restore the saved position for the mode we're ENTERING
+  const savedPos = isMini
+    ? store.get('overlayMiniPosition')
+    : store.get('overlayPosition');
+  if (savedPos && typeof savedPos.x === 'number') {
+    overlayWindow.setPosition(savedPos.x, savedPos.y);
+  }
 });
 
 // Overlay: simulate Enter/Return key press  (↵ — moves to next line)
@@ -386,16 +597,8 @@ function createTray() {
     if (tray) updateTrayIcon();
   });
 
-  const contextMenu = Menu.buildFromTemplate([
-    { label: 'Start Listening', click: () => toggleListening() },
-    { type: 'separator' },
-    { label: 'Settings', click: () => showSettings() },
-    { type: 'separator' },
-    { label: 'Quit', click: () => app.quit() }
-  ]);
-
   tray.setToolTip('Juno Global Voice');
-  tray.setContextMenu(contextMenu);
+  updateTrayMenu();
 }
 
 function showSettings() {
@@ -506,6 +709,18 @@ function setupWebSocketServer(server) {
   wss.on('connection', (ws) => {
     safeLog('Bridge connected via WebSocket');
     wsClient = ws;
+
+    // Restore saved mic preference — bridge applies it on next start command
+    const savedMicId = store.get('selectedMicId') || '';
+    if (savedMicId) {
+      ws.send(JSON.stringify({ command: 'set-device', deviceId: savedMicId }));
+    }
+    
+    // Restore mic sensitivity
+    const savedSensitivity = store.get('micSensitivity');
+    if (savedSensitivity !== undefined) {
+      ws.send(JSON.stringify({ command: 'set-mic-sensitivity', sensitivity: savedSensitivity }));
+    }
     
     ws.on('message', (message) => {
       try {
@@ -539,6 +754,24 @@ function setupWebSocketServer(server) {
             }
           }
 
+          // ── Stats tracking ───────────────────────────────────────────
+          const wordCount = data.text.trim().split(/\s+/).filter(Boolean).length;
+          sessionWordCount += wordCount;
+
+          // Persist cumulative word count
+          store.set('statsWords', (store.get('statsWords') || 0) + wordCount);
+
+          // Persist language breakdown
+          const currentLang = currentSessionLang || store.get('language') || 'en-US';
+          const langUsage   = store.get('statsLangUsage') || {};
+          langUsage[currentLang] = (langUsage[currentLang] || 0) + wordCount;
+          store.set('statsLangUsage', langUsage);
+
+          // Send live session word count to overlay
+          if (overlayWindow && !overlayWindow.isDestroyed()) {
+            overlayWindow.webContents.send('session-word-count', sessionWordCount);
+          }
+
           // Smart spacing: add a space between phrases when user paused
           const now = Date.now();
           const pausedLongEnough = (now - lastPhraseTimestamp) > 400; // >400ms gap = natural pause
@@ -564,8 +797,18 @@ function setupWebSocketServer(server) {
             toggleListening(); // Synchronize Electron status
             if (overlayWindow) overlayWindow.webContents.send('overlay-status', 'silence-timeout');
           }
+        } else if (data.type === 'device-list') {
+          // Bridge responded to get-devices command — relay to pending IPC promise
+          if (pendingMicListResolve) {
+            pendingMicListResolve(data.devices || []);
+            pendingMicListResolve = null;
+          }
         } else if (data.type === 'error') {
           safeLog('Bridge Error:', data.message);
+        } else if (data.type === 'audio-data') {
+          if (overlayWindow && !overlayWindow.isDestroyed()) {
+            overlayWindow.webContents.send('audio-data', { bins: data.bins, volume: data.volume });
+          }
         }
       } catch (e) {
         safeLog('WebSocket message parsing error:', e);
@@ -670,7 +913,7 @@ function injectText(text) {
   }
 }
 
-function toggleListening() {
+function toggleListening(forceLang = null) {
   if (!wsClient) {
     shell.beep();
     dialog.showErrorBox(
@@ -699,15 +942,32 @@ function toggleListening() {
   }
 
   if (isListening) {
+    // Reset per-session word counter
+    sessionWordCount = 0;
+
+    // Record first-use date if not already set
+    if (!store.get('statsFirstDate')) {
+      store.set('statsFirstDate', Date.now());
+    }
+
+    // Increment session count
+    store.set('statsSessions', (store.get('statsSessions') || 0) + 1);
     lastPhraseTimestamp = 0;
-    const lang = store.get('language') || 'en-US';
+    const lang = forceLang || store.get('language') || 'en-US';
+    currentSessionLang = lang;
     const silenceTimeout = store.get('silenceTimeout') !== undefined ? store.get('silenceTimeout') : 15;
-    
+    const isMini = store.get('overlayMini') || false;
+    const FULL_W = 420, FULL_H = 312;
+    const MINI_W = 280, MINI_H = 38;
+
     if (overlayWindow) {
       overlayWindow.webContents.send('session-start', { lang });
+      // Apply the correct window size for the current mode
+      overlayWindow.setSize(isMini ? MINI_W : FULL_W, isMini ? MINI_H : FULL_H);
       overlayWindow.showInactive();
-      
-      const pos = store.get('overlayPosition');
+
+      const posKey = isMini ? 'overlayMiniPosition' : 'overlayPosition';
+      const pos = store.get(posKey);
       if (pos && typeof pos.x === 'number' && typeof pos.y === 'number') {
         overlayWindow.setPosition(pos.x, pos.y);
       } else {
@@ -724,14 +984,61 @@ function toggleListening() {
 }
 
 function updateTrayMenu() {
-    const contextMenu = Menu.buildFromTemplate([
-        { label: isListening ? 'Stop Listening' : 'Start Listening', click: () => toggleListening() },
-        { type: 'separator' },
-        { label: 'Settings', click: () => showSettings() },
-        { type: 'separator' },
-        { label: 'Quit', click: () => app.quit() }
-    ]);
-    tray.setContextMenu(contextMenu);
+  const currentLang = store.get('language') || 'en-US';
+  const isMac = process.platform === 'darwin';
+
+  // Build language submenu dynamically
+  const langSubmenu = LANGUAGES.map(lang => {
+    // On Windows, emoji flags may not render in native menus — use text code fallback
+    const label = isMac
+      ? `${lang.flag}  ${lang.name}`
+      : `[${lang.code.split('-')[1]}] ${lang.name}`;
+    return {
+      label,
+      type: 'radio',
+      checked: lang.code === currentLang,
+      click: () => switchTrayLanguage(lang.code)
+    };
+  });
+
+  const contextMenu = Menu.buildFromTemplate([
+    { label: isListening ? 'Stop Listening' : 'Start Listening', click: () => toggleListening() },
+    { type: 'separator' },
+    {
+      label: 'Language',
+      submenu: langSubmenu
+    },
+    { type: 'separator' },
+    { label: 'Settings', click: () => showSettings() },
+    { type: 'separator' },
+    { label: 'Quit', click: () => app.quit() }
+  ]);
+  tray.setContextMenu(contextMenu);
+}
+
+// Switch language from the tray submenu
+function switchTrayLanguage(langCode) {
+  store.set('language', langCode);
+  const silenceTimeout = store.get('silenceTimeout') !== undefined ? store.get('silenceTimeout') : 15;
+
+  // Notify overlay UI so the language pill label updates
+  if (overlayWindow && !overlayWindow.isDestroyed()) {
+    overlayWindow.webContents.send('set-language', langCode);
+  }
+  // Notify settings window if open
+  if (settingsWindow && !settingsWindow.isDestroyed()) {
+    settingsWindow.webContents.send('language-changed', langCode);
+  }
+  // If currently listening, restart recognition in the new language
+  if (isListening && wsClient) {
+    wsClient.send(JSON.stringify({ command: 'stop' }));
+    setTimeout(() => {
+      if (isListening && wsClient) {
+        wsClient.send(JSON.stringify({ command: 'start', language: langCode, timeout: silenceTimeout }));
+      }
+    }, 200);
+  }
+  updateTrayMenu(); // refresh checkmarks
 }
 
 // ── Hotkey system ─────────────────────────────────────────────
@@ -741,7 +1048,7 @@ let holdKeyPressed  = false;
 let uiohookRunning  = false;
 
 function registerHotkeys() {
-  // 1) Combo shortcut
+  // 1) Combo shortcut (Global)
   globalShortcut.unregisterAll();
   const hotkeyEnabled = store.get('hotkeyEnabled') !== false;
   const hotkey        = store.get('hotkey') || 'Alt+C';
@@ -753,6 +1060,20 @@ function registerHotkeys() {
       safeLog('Hotkey registration failed:', e.message);
     }
   }
+
+  // 1b) Language-specific Combo Hotkeys
+  const langHotkeys = store.get('langHotkeys') || [];
+  langHotkeys.forEach((lh) => {
+    if (lh.combo && lh.lang) {
+      // Don't register if it's identical to the global hotkey (prevents conflict)
+      if (lh.combo === hotkey && hotkeyEnabled) return;
+      try {
+        globalShortcut.register(lh.combo, () => toggleListening(lh.lang));
+      } catch (e) {
+        safeLog(`Lang Hotkey registration failed for ${lh.combo}:`, e.message);
+      }
+    }
+  });
 
   // 2) Hold-key via uiohook-napi
   const holdEnabled  = store.get('holdKeyEnabled') === true;
@@ -856,11 +1177,3 @@ app.whenReady().then(() => {
   }, 1000);
 });
 
-app.on('will-quit', () => {
-  if (uiohookRunning) {
-    try {
-      uIOhook.stop();
-    } catch(e) {}
-  }
-  globalShortcut.unregisterAll();
-});

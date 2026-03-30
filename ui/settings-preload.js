@@ -19,6 +19,13 @@ contextBridge.exposeInMainWorld('electronAPI', {
   installUpdate:   ()       => ipcRenderer.send('install-update'),
   getVersion:      ()       => ipcRenderer.invoke('get-version'),
   onUpdateStatus:  (cb)     => onChannel('update-status',   (_, info) => cb(info)),
-  verifyLicense:   (key)    => ipcRenderer.invoke('verify-license', key),
-  onLicenseExpired:(cb)     => onChannel('license-expired', () => cb())
+  verifyLicense:             (key)        => ipcRenderer.invoke('verify-license',              key),
+  onLicenseExpired:          (cb)         => onChannel('license-expired', () => cb()),
+  getStats:                  ()           => ipcRenderer.invoke('get-stats'),
+  exportReplacements:        ()           => ipcRenderer.invoke('export-replacements'),
+  importReplacementsPick:    ()           => ipcRenderer.invoke('import-replacements-pick'),
+  importReplacementsCommit:  (payload)    => ipcRenderer.invoke('import-replacements-commit', payload),
+  factoryReset:              ()           => ipcRenderer.invoke('app-factory-reset'),
+  getMicList:                ()           => ipcRenderer.invoke('get-mic-list'),
+  setMic:                    (deviceId)   => ipcRenderer.send('set-mic', deviceId),
 });

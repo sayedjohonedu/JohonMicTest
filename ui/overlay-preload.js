@@ -27,4 +27,9 @@ contextBridge.exposeInMainWorld('junoAPI', {
   getConfig:         ()     => ipcRenderer.invoke('get-config'),
   openSettings:      ()     => ipcRenderer.send('open-settings'),
   openUrl:           (url)  => ipcRenderer.send('open-url', url),
+  setMiniMode:       (mini) => ipcRenderer.send('set-mini-mode', mini),
+  onSetLanguage:     (cb)   => onChannel('set-language',        (_, lang) => cb(lang)),
+  onSessionWordCount:(cb)   => onChannel('session-word-count',  (_, n)    => cb(n)),
+  onAudioData:       (cb)   => onChannel('audio-data',          (_, data) => cb(data)),
+  onConfigUpdate:    (cb)   => onChannel('config-updated',      (_, cfg)  => cb(cfg)),
 });

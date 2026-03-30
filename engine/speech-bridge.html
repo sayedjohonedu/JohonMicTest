@@ -15,6 +15,14 @@
         let isRestarting = false;    // Prevent double-starts during restart
         let silenceTimer = null;
         let SILENCE_TIMEOUT_MS = 15000;
+        let selectedDeviceId = null; // null = use Chrome default (system default mic)
+        
+        // --- Web Audio API for Visualizer ---
+        let audioCtx = null;
+        let analyser = null;
+        let gainNode = null;
+        let analyserInterval = null;
+        let micSensitivity = 1.0;
 
         // --- WebSocket ---
         function setupWebSocket() {
@@ -36,6 +44,17 @@
                     stopListening();
                 } else if (data.command === 'ping') {
                     if (isActive) armSilenceTimer();
+                } else if (data.command === 'get-devices') {
+                    // Enumerate audio input devices and send list back
+                    enumerateDevices();
+                } else if (data.command === 'set-device') {
+                    // User picked a mic — store it, mic routing applies on next start
+                    selectedDeviceId = data.deviceId || null;
+                } else if (data.command === 'set-mic-sensitivity') {
+                    micSensitivity = data.sensitivity || 1.0;
+                    if (gainNode) {
+                        gainNode.gain.value = micSensitivity;
+                    }
                 }
             };
 
@@ -61,6 +80,24 @@
                 clearTimeout(silenceTimer);
                 silenceTimer = null;
             }
+        }
+
+        // --- Device enumeration --------------------------------------------------
+        // Works on both macOS and Windows — Chrome has already obtained mic
+        // permission by the time this page loads, so device labels are populated.
+        function enumerateDevices() {
+            if (!navigator.mediaDevices || !navigator.mediaDevices.enumerateDevices) {
+                ws.send(JSON.stringify({ type: 'device-list', devices: [] }));
+                return;
+            }
+            navigator.mediaDevices.enumerateDevices().then(devices => {
+                const audioInputs = devices
+                    .filter(d => d.kind === 'audioinput')
+                    .map(d => ({ id: d.deviceId, label: d.label || `Microphone (${d.deviceId.slice(0,8)})` }));
+                ws.send(JSON.stringify({ type: 'device-list', devices: audioInputs }));
+            }).catch(() => {
+                ws.send(JSON.stringify({ type: 'device-list', devices: [] }));
+            });
         }
 
         // --- Recognition ---
@@ -125,23 +162,105 @@
             return r;
         }
 
+        // --- Mic routing ---------------------------------------------------------
+        // When a specific device is selected, we open a getUserMedia stream on that
+        // device before starting recognition. Chrome routes the Web Speech API
+        // through whichever mic stream is most recently active, so this effectively
+        // forces the recognition to use the chosen device.
+        // When selectedDeviceId is null, we skip this entirely — default behaviour.
+        let activeStream = null; // Keep reference so we can stop tracks on stopListening
+
+        function setupAnalyser(stream) {
+            if (!audioCtx) {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            }
+            if (audioCtx.state === 'suspended') {
+                audioCtx.resume();
+            }
+            try {
+                const source = audioCtx.createMediaStreamSource(stream);
+                gainNode = audioCtx.createGain();
+                gainNode.gain.value = micSensitivity;
+                
+                analyser = audioCtx.createAnalyser();
+                analyser.fftSize = 64; // results in 32 frequency bins
+                
+                source.connect(gainNode);
+                gainNode.connect(analyser);
+                
+                if (analyserInterval) clearInterval(analyserInterval);
+                const dataArray = new Uint8Array(analyser.frequencyBinCount);
+                
+                analyserInterval = setInterval(() => {
+                    if (!isActive) return;
+                    analyser.getByteFrequencyData(dataArray);
+                    
+                    // Take the first 16 bins (usually covers human vocal range nicely)
+                    const bins = Array.from(dataArray.slice(0, 16));
+                    
+                    // Simple average volume
+                    let sum = 0;
+                    for (let i = 0; i < bins.length; i++) sum += bins[i];
+                    const volume = bins.length ? (sum / bins.length) : 0;
+                    
+                    if (ws && ws.readyState === WebSocket.OPEN) {
+                        // Sending max 30 times a second to keep IPC relatively quiet
+                        ws.send(JSON.stringify({ type: 'audio-data', bins, volume }));
+                    }
+                }, 1000 / 30);
+            } catch (e) {
+                console.error("Audio analyser failed:", e);
+            }
+        }
+
+        function startListeningWithRouting(lang, callback) {
+            const constraints = selectedDeviceId ? { audio: { deviceId: { exact: selectedDeviceId } } } : { audio: true };
+            // Stop any previous routing stream
+            if (activeStream) {
+                activeStream.getTracks().forEach(t => t.stop());
+                activeStream = null;
+            }
+            navigator.mediaDevices.getUserMedia(constraints)
+                .then(stream => {
+                    activeStream = stream;
+                    setupAnalyser(stream);
+                    callback();
+                })
+                .catch(() => {
+                    // Device unavailable — fall back to default
+                    selectedDeviceId = null;
+                    callback();
+                });
+        }
+
         function startListening(lang) {
             currentLang = lang || currentLang;
             if (isActive) return; // Already listening
             isActive = true;
             isRestarting = false;
-            recognition = createRecognition();
-            recognition.start();
-            armSilenceTimer();
+            startListeningWithRouting(currentLang, () => {
+                recognition = createRecognition();
+                recognition.start();
+                armSilenceTimer();
+            });
         }
 
         function stopListening() {
             isActive = false;
             isRestarting = false;
             clearSilenceTimer();
+            if (analyserInterval) {
+                clearInterval(analyserInterval);
+                analyserInterval = null;
+            }
             if (recognition) {
                 try { recognition.stop(); } catch (e) {}
                 recognition = null;
+            }
+            // Release routing stream so the mic indicator light turns off
+            if (activeStream) {
+                activeStream.getTracks().forEach(t => t.stop());
+                activeStream = null;
             }
         }
 

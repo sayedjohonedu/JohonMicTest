@@ -84,13 +84,14 @@ html, body {
 .version-badge  { font-size: 10.5px; color: var(--muted); text-align: center; padding: 5px; }
 
 /* ── CONTENT ── */
-.content { flex: 1; display: flex; flex-direction: column; overflow: hidden; background: var(--bg); -webkit-app-region: drag; }
-.content-header { padding: 36px 32px 20px; flex-shrink: 0; border-bottom: 1px solid var(--border); }
-.content-header h1 { font-size: 22px; font-weight: 700; letter-spacing: -0.5px; color: var(--text); margin-bottom: 3px; }
+.content { flex: 1; display: flex; flex-direction: column; overflow: hidden; background: var(--bg); }
+.content-header { padding: 36px 32px 20px; flex-shrink: 0; border-bottom: 1px solid var(--border); -webkit-app-region: drag; }
+.content-header h1 { font-size: 22px; font-weight: 700; letter-spacing: -0.5px; color: var(--text); margin-bottom: 3px; -webkit-app-region: no-drag; }
 .content-header p  { font-size: 12.5px; color: var(--muted); }
 .content-body {
   flex: 1; overflow-y: auto; overflow-x: hidden; padding: 24px 32px;
   scrollbar-width: thin; scrollbar-color: rgba(255,255,255,0.1) transparent;
+  -webkit-app-region: no-drag; 
 }
 .content-body::-webkit-scrollbar { width: 4px; }
 .content-body::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 2px; }
@@ -323,6 +324,9 @@ textarea.replace-input:focus {
       <div class="nav-item" data-panel="replace" onclick="switchPanel('replace', this)">
         <span class="nav-icon">✨</span> Text Replacement
       </div>
+      <div class="nav-item" data-panel="stats" onclick="switchPanel('stats', this)">
+        <span class="nav-icon">📊</span> My Stats
+      </div>
       <div class="nav-item" data-panel="license" onclick="switchPanel('license', this)">
         <span class="nav-icon">🔑</span> License
       </div>
@@ -365,6 +369,22 @@ textarea.replace-input:focus {
               <option value="light">Light</option>
             </select>
           </div>
+          <!-- VISUALIZER STYLE -->
+          <div class="settings-row" style="border-top: 1px solid var(--border); margin-top: 4px; padding-top: 12px;">
+            <div class="row-icon" style="background: rgba(124,111,255,0.08); font-size: 14px;">🌊</div>
+            <div class="row-info">
+              <label>Visualizer Style</label>
+              <small>Choose the voice equalizer style in the overlay</small>
+            </div>
+            <select class="duration-select" id="visualizer-style">
+              <option value="wave">Wave</option>
+              <option value="bars">Bars</option>
+              <option value="pulse">Pulse</option>
+              <option value="particles">Particles</option>
+              <option value="line">Line</option>
+              <option value="matrix">Matrix</option>
+            </select>
+          </div>
         </div>
 
         <!-- COMBO HOTKEY -->
@@ -391,6 +411,15 @@ textarea.replace-input:focus {
               <div class="key-badge" id="hotkey-display">⌘ ⇧ Space</div>
               <button class="btn-action" onclick="resetHotkey()">↺ Reset</button>
             </div>
+          </div>
+        </div>
+
+        <!-- LANGUAGE-SPECIFIC HOTKEYS -->
+        <div class="section-label" style="margin-top:4px">Language-Specific Hotkeys</div>
+        <div class="settings-group" id="row-lang-hotkeys">
+          <div id="lang-hotkeys-list"></div>
+          <div class="settings-row" style="cursor:pointer; justify-content:center; color:var(--accent2); font-weight:500;" onclick="addLangHotkeyRow('', 'bn-BD')">
+            + Add Language Hotkey
           </div>
         </div>
 
@@ -507,6 +536,46 @@ textarea.replace-input:focus {
             </select>
           </div>
         </div>
+
+        <div class="section-label">Microphone</div>
+        <div class="settings-group">
+          <div class="settings-row">
+            <div class="row-icon">🎙️</div>
+            <div class="row-info">
+              <label>Input Device</label>
+              <small>Choose which microphone Juno uses for dictation</small>
+            </div>
+            <div style="display:flex; gap:6px; align-items:center;">
+              <select class="duration-select" id="mic-select" style="min-width:170px; max-width:200px;" onchange="onMicChange(this.value)">
+                <option value="">🎙 System Default</option>
+              </select>
+              <button id="btn-refresh-mics" title="Refresh microphone list"
+                onclick="loadMicList(true)"
+                style="background:var(--surface); border:1px solid var(--border,rgba(255,255,255,0.1));
+                       border-radius:6px; padding:5px 8px; cursor:pointer; color:var(--muted); font-size:13px;
+                       transition:background .2s;"
+                onmouseover="this.style.background='rgba(124,111,255,0.2)'"
+                onmouseout="this.style.background='var(--surface)'">↺</button>
+            </div>
+          </div>
+          <div id="mic-status-row" style="padding: 4px 16px 10px; font-size:11px; color:var(--muted); display:none;"></div>
+          <!-- MIC SENSITIVITY -->
+          <div class="settings-row" style="border-top: 1px solid var(--border); margin-top: 4px; padding-top: 12px;">
+            <div class="row-icon" style="background:rgba(124,111,255,0.08); font-size:14px;">🎚️</div>
+            <div class="row-info" style="flex: 1;">
+              <label style="display:flex; justify-content: space-between; align-items:center;">
+                Mic Sensitivity
+                <span id="label-sensitivity" style="font-size:11px; color:var(--accent); font-weight:bold;">1.0</span>
+              </label>
+              <small>Adjust visualizer responsiveness to your voice</small>
+            </div>
+            <div style="width: 150px; display:flex; align-items:center;">
+              <input type="range" id="mic-sensitivity" min="0.1" max="5.0" step="0.1" value="1.0" 
+                     style="width: 100%; cursor: pointer; accent-color: var(--accent);"
+                     oninput="document.getElementById('label-sensitivity').textContent = parseFloat(this.value).toFixed(1);">
+            </div>
+          </div>
+        </div>
       </div>
       
       <!-- ── TEXT REPLACEMENT PANEL ── -->
@@ -529,6 +598,29 @@ textarea.replace-input:focus {
               <!-- Dynamic rows injected here -->
             </div>
             <button class="btn-action" style="align-self: flex-start; padding: 6px 12px;" onclick="addReplacementRow('','')">+ Add Entry</button>
+          </div>
+
+          <!-- Export / Import row -->
+          <div style="display:flex; align-items:center; gap:10px; padding: 0 16px 16px;">
+            <button class="btn-action" id="btn-export-replacements" onclick="doExportReplacements()"
+              style="display:flex; align-items:center; gap:6px; padding:6px 14px; font-size:12px;">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+                   stroke-linecap="round" stroke-linejoin="round">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                <polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/>
+              </svg>
+              Export JSON
+            </button>
+            <button class="btn-action" id="btn-import-replacements" onclick="doImportReplacements()"
+              style="display:flex; align-items:center; gap:6px; padding:6px 14px; font-size:12px;">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+                   stroke-linecap="round" stroke-linejoin="round">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                <polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
+              </svg>
+              Import JSON
+            </button>
+            <span id="import-export-msg" style="font-size:11px; color:var(--accent); display:none; transition:opacity .3s;"></span>
           </div>
         </div>
       </div>
@@ -606,7 +698,66 @@ textarea.replace-input:focus {
           </div>
         </div>
 
+        <!-- Factory Reset Section -->
+        <div style="margin-top:24px; text-align:center; padding-top:16px; border-top:1px solid var(--border);">
+          <button id="btn-factory-reset" onclick="factoryReset()" style="background:rgba(255,71,87,0.1); color:#ff4757; border:1px solid rgba(255,71,87,0.2); border-radius:6px; padding:6px 14px; font-size:11.5px; cursor:pointer; font-weight:600; font-family:var(--font); transition:all 0.15s;">Factory Reset / Wipe Data</button>
+        </div>
+
       </div>
+    
+      <!-- Stats Panel -->
+      <div id="panel-stats" class="panel">
+        <div style="display:flex; flex-direction:column; gap:20px;">
+  
+          <!-- Hero Stat Block (Glassmorphism) -->
+        <div style="background: linear-gradient(135deg, rgba(108,99,255,0.1), rgba(108,99,255,0.02)); border: 1px solid rgba(124,111,255,0.25); border-radius: 12px; padding: 24px; position:relative; overflow:hidden; box-shadow:0 8px 32px rgba(0,0,0,0.1);">
+          <div style="position:absolute; top:-50%; right:-10%; width:150px; height:150px; background:var(--accent); filter:blur(60px); opacity:0.15; border-radius:50%; pointer-events:none;"></div>
+          
+          <h3 style="margin-top:0; font-size:14px; font-weight:600; color:var(--text); letter-spacing:0.5px; display:flex; align-items:center; gap:8px;">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="color:var(--accent);"><path d="M12 20V10M18 20V4M6 20v-4"/></svg>
+            Lifetime Metrics
+          </h3>
+
+          <div style="display:grid; grid-template-columns:repeat(3,1fr); gap:16px; margin-top:20px;">
+            <div style="display:flex; flex-direction:column;">
+              <div style="font-size:32px; font-weight:800; color:var(--text); letter-spacing:-1px;" id="stat-words">0</div>
+              <div style="font-size:11px; font-weight:600; color:var(--muted); text-transform:uppercase; letter-spacing:1px; margin-top:2px;">Words Typed</div>
+            </div>
+            <div style="display:flex; flex-direction:column;">
+              <div style="font-size:32px; font-weight:800; color:var(--text); letter-spacing:-1px;" id="stat-time">0m</div>
+              <div style="font-size:11px; font-weight:600; color:var(--muted); text-transform:uppercase; letter-spacing:1px; margin-top:2px;">Time Saved</div>
+            </div>
+            <div style="display:flex; flex-direction:column;">
+              <div style="font-size:32px; font-weight:800; color:var(--text); letter-spacing:-1px;" id="stat-sessions">0</div>
+              <div style="font-size:11px; font-weight:600; color:var(--muted); text-transform:uppercase; letter-spacing:1px; margin-top:2px;">Total Sessions</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Language breakdown -->
+        <div style="background:var(--card2); border: 1px solid var(--border2); border-radius:12px; padding:20px;">
+          <h3 style="margin-top:0; margin-bottom:16px; font-size:13px; font-weight:600; color:var(--accent); letter-spacing:0.3px; display:flex; align-items:center; gap:6px;">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12h4l3-9 5 18 3-9h5"/></svg>
+            Language Breakdown
+          </h3>
+          <div id="stat-langs" style="display:flex; flex-direction:column; gap:12px;">
+            <div style="font-size:12px; color:var(--muted);">No sessions recorded yet.</div>
+          </div>
+        </div>
+
+        <!-- First use & footnote -->
+        <div style="background:rgba(255,255,255,0.02); border-radius:8px; padding:14px; display:flex; gap:12px; align-items:flex-start;">
+          <div style="color:var(--muted2); padding-top:2px;">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+          </div>
+          <div style="font-size:11.5px; color:var(--muted); line-height:1.6;">
+            <strong id="stat-since" style="color:var(--muted2); display:block; margin-bottom:4px;"></strong>
+            Estimation based on <strong>40 WPM</strong> average typing speed vs ~<strong>130 WPM</strong> voice dictation. Wait times are excluded.
+          </div>
+        </div>
+
+      </div>
+    </div><!-- /panel-stats -->
 
     </div><!-- /content-body -->
 
@@ -629,6 +780,7 @@ const PANELS = {
   general: { title: 'General',          desc: 'Hotkeys, activation, and startup' },
   voice:   { title: 'Voice & Language', desc: 'Speech recognition and language options' },
   replace: { title: 'Text Replacement', desc: 'Auto-replace your spoken words with custom text' },
+  stats:   { title: 'My Stats',         desc: 'Usage statistics and time saved by voice dictation' },
   license: { title: 'License',          desc: 'Manage your subscription and trial' },
   about:   { title: 'About',            desc: 'Juno Global Voice information' },
 };
@@ -639,6 +791,83 @@ function switchPanel(id, el) {
   el.classList.add('active');
   document.getElementById('panel-title').textContent = PANELS[id].title;
   document.getElementById('panel-desc').textContent  = PANELS[id].desc;
+  if (id === 'stats') loadStats();
+}
+
+// ── Stats Dashboard ────────────────────────────────────────────
+function formatTimeSaved(words) {
+  // Formula: words × (1/40 − 1/130) minutes
+  const minutes = Math.round(words * (1/40 - 1/130));
+  if (minutes < 1)   return '< 1m';
+  if (minutes < 60)  return `${minutes}m`;
+  const h = Math.floor(minutes / 60);
+  const m = minutes % 60;
+  return m > 0 ? `${h}h ${m}m` : `${h}h`;
+}
+
+function loadStats() {
+  window.electronAPI.getStats().then(s => {
+    // Cards
+    animateValue(document.getElementById('stat-words'), 0, s.totalWords, 1500);
+    document.getElementById('stat-time').textContent     = formatTimeSaved(s.totalWords);
+    animateValue(document.getElementById('stat-sessions'), 0, s.totalSessions, 1000);
+
+    // First-use date
+    const sinceEl = document.getElementById('stat-since');
+    if (s.firstDate) {
+      const d = new Date(s.firstDate);
+      sinceEl.textContent = `Since ${d.toLocaleDateString(undefined, { year:'numeric', month:'short' })}`;
+    } else {
+      sinceEl.textContent = '';
+    }
+
+    // Language breakdown bars
+    const langsEl = document.getElementById('stat-langs');
+    const entries = Object.entries(s.langUsage || {}).sort((a, b) => b[1] - a[1]);
+    if (entries.length === 0) {
+      langsEl.innerHTML = '<div style="font-size:12px; color:var(--muted);">No sessions recorded yet.</div>';
+      return;
+    }
+    const maxWords = entries[0][1];
+    const LANG_NAMES = {
+      'en-US':'English (US)','en-GB':'English (UK)','en-CA':'English (CA)','en-AU':'English (AU)',
+      'es-ES':'Español (ES)','es-MX':'Español (MX)','fr-FR':'Français (FR)','de-DE':'Deutsch (DE)',
+      'it-IT':'Italiano (IT)','pt-BR':'Português (BR)','pt-PT':'Português (PT)','ja-JP':'Japanese (JP)',
+      'zh-CN':'Chinese (CN)','ko-KR':'Korean (KR)','ar-SA':'Arabic (SA)','bn-BD':'Bengali (BD)',
+      'hi-IN':'Hindi (IN)','ru-RU':'Русский (RU)','tr-TR':'Türkçe (TR)','nl-NL':'Nederlands (NL)','pl-PL':'Polski (PL)',
+    };
+    const total = entries.reduce((sum, [, n]) => sum + n, 0);
+    langsEl.innerHTML = entries.map(([code, words]) => {
+      const pct   = total > 0 ? Math.round((words / total) * 100) : 0;
+      const bar   = Math.max(2, Math.round((words / maxWords) * 100));
+      const label = LANG_NAMES[code] || code;
+      return `
+        <div style="display:flex; align-items:center; gap:12px; margin-bottom:4px;">
+          <div style="font-size:12px; font-weight:500; color:var(--text); width:130px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${label}</div>
+          <div style="flex:1; height:8px; border-radius:4px; background:rgba(108,99,255,0.08); overflow:hidden; position:relative;">
+            <div style="position:absolute; left:0; top:0; width:${bar}%; height:100%; border-radius:4px; background:linear-gradient(90deg, var(--accent), #b485ff); transition:width 1s cubic-bezier(0.16, 1, 0.3, 1);"></div>
+          </div>
+          <div style="font-size:11.5px; font-weight:600; color:var(--muted); width:40px; text-align:right;">${pct}%</div>
+        </div>`;
+    }).join('');
+  }).catch(() => {
+    // getStats not available (old build) — fail silently
+  });
+}
+// ── Number Animator ────────────────────────────────────────────────
+function animateValue(obj, start, end, duration) {
+  let startTimestamp = null;
+  const step = (timestamp) => {
+    if (!startTimestamp) startTimestamp = timestamp;
+    const progress = Math.min((timestamp - startTimestamp) / duration, 1);
+    // easeOutQuart
+    const ease = 1 - Math.pow(1 - progress, 4);
+    obj.innerHTML = Math.floor(progress * (end - start) + start).toLocaleString(undefined, {maximumFractionDigits:0});
+    if (progress < 1) {
+      window.requestAnimationFrame(step);
+    }
+  };
+  window.requestAnimationFrame(step);
 }
 
 // ── Helpers ─────────────────────────────────────────────────────
@@ -700,7 +929,8 @@ function singleKeyFromEvent(e) {
 // ── State ────────────────────────────────────────────────────────
 let pendingHotkey  = DEFAULT_HOTKEY;
 let pendingHoldKey = '';
-let recordingMode  = null; // 'combo' | 'hold' | null
+let recordingMode  = null; // 'combo' | 'hold' | 'lang-combo' | null
+let activeBadgeNode = null;
 
 const hotkeyBadge  = document.getElementById('hotkey-display');
 const holdkeyBadge = document.getElementById('holdkey-display');
@@ -715,11 +945,15 @@ holdkeyBadge.addEventListener('click', () => {
   startRecording('hold');
 });
 
-function startRecording(mode) {
+function startRecording(mode, badgeNode = null) {
   recordingMode = mode;
-  const badge = mode === 'combo' ? hotkeyBadge : holdkeyBadge;
+  let badge = badgeNode;
+  if (!badge) {
+    badge = mode === 'combo' ? hotkeyBadge : holdkeyBadge;
+  }
+  activeBadgeNode = badge;
   badge.classList.add('recording');
-  badge.textContent = mode === 'combo' ? 'Press shortcut…' : 'Press any key…';
+  badge.textContent = (mode === 'combo' || mode === 'lang-combo') ? 'Press shortcut…' : 'Press any key…';
   // Suspend OS-level shortcuts so they don't intercept our keydown
   window.electronAPI.suspendHotkeys();
 }
@@ -734,7 +968,7 @@ document.addEventListener('keydown', (e) => {
     return;
   }
 
-  if (recordingMode === 'combo') {
+  if (recordingMode === 'combo' || recordingMode === 'lang-combo') {
     // Live preview of held modifiers (shown while waiting for the final key)
     const isFKey = /^F([1-9]|1[0-2])$/.test(e.code || e.key);
     const preview = [];
@@ -742,19 +976,23 @@ document.addEventListener('keydown', (e) => {
     if (e.shiftKey)              preview.push('⇧');
     if (e.altKey)                preview.push(IS_MAC ? '⌥' : 'Alt');
     // Show modifier preview only when no final key is pressed yet (not an F-key)
-    if (preview.length && !isFKey) hotkeyBadge.textContent = preview.join(' + ') + ' + …';
+    if (preview.length && !isFKey) activeBadgeNode.textContent = preview.join(' + ') + ' + …';
 
     const combo = comboFromEvent(e);
     if (combo) {
-      pendingHotkey = combo;
-      hotkeyBadge.textContent = formatCombo(combo);
+      if (recordingMode === 'combo') {
+        pendingHotkey = combo;
+      } else {
+        activeBadgeNode.dataset.rawCombo = combo;
+      }
+      activeBadgeNode.textContent = formatCombo(combo);
       stopRecording(false);
     }
   } else {
     const key = singleKeyFromEvent(e);
     if (key) {
       pendingHoldKey = key;
-      holdkeyBadge.textContent = key;
+      activeBadgeNode.textContent = key;
       stopRecording(false);
     }
   }
@@ -762,14 +1000,22 @@ document.addEventListener('keydown', (e) => {
 
 function stopRecording(cancelled) {
   const mode = recordingMode;
+  const badge = activeBadgeNode;
   recordingMode = null;
-  const badge = mode === 'combo' ? hotkeyBadge : holdkeyBadge;
+  activeBadgeNode = null;
   badge.classList.remove('recording');
+  
   if (cancelled) {
-    badge.textContent = mode === 'combo'
-      ? formatCombo(pendingHotkey)
-      : (pendingHoldKey || 'Not set');
+    if (mode === 'combo') {
+      badge.textContent = formatCombo(pendingHotkey);
+    } else if (mode === 'lang-combo') {
+      const savedCombo = badge.dataset.rawCombo;
+      badge.textContent = savedCombo ? formatCombo(savedCombo) : 'Not set';
+    } else {
+      badge.textContent = pendingHoldKey || 'Not set';
+    }
   }
+  
   // Re-register global shortcuts
   window.electronAPI.resumeHotkeys();
 }
@@ -851,6 +1097,9 @@ async function loadConfig() {
   const timeoutSel = document.getElementById('silence-timeout');
   if ([...timeoutSel.options].some(o => o.value === timeout)) timeoutSel.value = timeout;
 
+  // Load microphone list and restore saved selection
+  loadMicList(false, cfg.selectedMicId || '');
+
   const replaceOn = cfg.textReplaceEnabled === true;
   document.getElementById('toggle-replace').checked = replaceOn;
   syncReplaceEnable();
@@ -865,6 +1114,12 @@ async function loadConfig() {
     replaces.forEach(r => addReplacementRow(r.say || '', r.replace || ''));
   }
 
+  // Language Hotkeys
+  const langHotkeysList = document.getElementById('lang-hotkeys-list');
+  langHotkeysList.innerHTML = '';
+  const lHotkeys = cfg.langHotkeys || [];
+  lHotkeys.forEach(lh => addLangHotkeyRow(lh.combo || '', lh.lang || 'bn-BD'));
+
   // Licensing
   const licInput = document.getElementById('input-license');
   licInput.value = cfg.licenseKey || '';
@@ -875,6 +1130,17 @@ async function loadConfig() {
   const themeSel = document.getElementById('theme-select');
   if (themeSel) themeSel.value = theme;
   previewTheme();
+
+  const visualizerStyleSel = document.getElementById('visualizer-style');
+  if (visualizerStyleSel) visualizerStyleSel.value = cfg.visualizerType || 'wave';
+
+  const micSensitivityInput = document.getElementById('mic-sensitivity');
+  const sensitivityLabel = document.getElementById('label-sensitivity');
+  if (micSensitivityInput) {
+    const val = cfg.micSensitivity || 1.0;
+    micSensitivityInput.value = val;
+    if (sensitivityLabel) sensitivityLabel.textContent = parseFloat(val).toFixed(1);
+  }
 
   try {
     const pkg = require('../package.json');
@@ -896,6 +1162,50 @@ function addReplacementRow(sayVal, replaceVal) {
   // assign values properly to avoid html injection bugs
   row.querySelector('.val-say').value = sayVal;
   row.querySelector('.val-replace').value = replaceVal;
+  list.appendChild(row);
+}
+
+function addLangHotkeyRow(comboVal = '', langVal = 'bn-BD') {
+  const list = document.getElementById('lang-hotkeys-list');
+  const cloneSelect = document.getElementById('lang-select').cloneNode(true);
+  cloneSelect.id = ''; 
+  cloneSelect.className = 'lang-select val-lang';
+
+  const row = document.createElement('div');
+  row.className = 'settings-row lang-hotkey-row';
+  row.style.borderTop = '1px solid var(--border)';
+  row.style.marginTop = '4px';
+  row.style.paddingTop = '12px';
+  row.innerHTML = `
+    <div class="row-icon" style="background:rgba(108,99,255,0.08); font-size:14px;">🔑</div>
+    <div class="row-info" style="flex-direction:row; align-items:center; gap:8px;">
+      <div class="key-badge val-combo" style="cursor:pointer;" title="Click to record shortcut">${comboVal ? formatCombo(comboVal) : 'Not set'}</div>
+      <span style="font-size:12px; color:var(--muted)">triggers</span>
+      <div class="select-wrapper"></div>
+    </div>
+    <div class="key-controls">
+      <button class="btn-action btn-del-row" style="color:#ff6b6b; border-color:rgba(255,107,107,0.3)" title="Remove">✕</button>
+    </div>
+  `;
+
+  row.querySelector('.select-wrapper').appendChild(cloneSelect);
+  cloneSelect.value = langVal || 'bn-BD';
+
+  const badge = row.querySelector('.val-combo');
+  const btnRemove = row.querySelector('.btn-del-row');
+
+  badge.dataset.rawCombo = comboVal || '';
+
+  const startRec = () => {
+    if (recordingMode) return;
+    startRecording('lang-combo', badge);
+  };
+
+  badge.addEventListener('click', startRec);
+  btnRemove.addEventListener('click', () => {
+    row.remove();
+  });
+
   list.appendChild(row);
 }
 
@@ -999,6 +1309,15 @@ function saveSettings() {
     }
   });
 
+  const langHotkeys = [];
+  document.querySelectorAll('#lang-hotkeys-list .lang-hotkey-row').forEach(row => {
+    const combo = row.querySelector('.val-combo').dataset.rawCombo;
+    const lang = row.querySelector('.val-lang').value;
+    if (combo && lang) {
+      langHotkeys.push({ combo, lang });
+    }
+  });
+
   const config = {
     hotkey:         pendingHotkey  || DEFAULT_HOTKEY,
     hotkeyEnabled:  document.getElementById('toggle-hotkey').checked,
@@ -1009,8 +1328,11 @@ function saveSettings() {
     language:       document.getElementById('lang-select').value,
     silenceTimeout: parseInt(document.getElementById('silence-timeout').value, 10),
     theme:          document.getElementById('theme-select').value,
+    visualizerType: document.getElementById('visualizer-style') ? document.getElementById('visualizer-style').value : 'wave',
+    micSensitivity: document.getElementById('mic-sensitivity') ? parseFloat(document.getElementById('mic-sensitivity').value) : 1.0,
     textReplaceEnabled: document.getElementById('toggle-replace').checked,
-    textReplacements: replacements
+    textReplacements: replacements,
+    langHotkeys:    langHotkeys
   };
 
   window.electronAPI.saveConfig(config);
@@ -1057,6 +1379,207 @@ window.electronAPI.onUpdateStatus((info) => {
     console.error(info.message);
   }
 });
+
+// ── Microphone Selector ─────────────────────────────────────────────────────
+
+// loadMicList(forceRefresh, savedId)
+// forceRefresh=true: user clicked ↺, show spinner
+// savedId: deviceId to pre-select after load (empty = System Default)
+async function loadMicList(forceRefresh, savedId) {
+  const sel = document.getElementById('mic-select');
+  const statusRow = document.getElementById('mic-status-row');
+  if (!sel) return;
+
+  if (forceRefresh) {
+    sel.innerHTML = '<option value="">Loading…</option>';
+    sel.disabled = true;
+  }
+
+  try {
+    const devices = await window.electronAPI.getMicList();
+
+    // Reset to default-only, then append real devices
+    sel.innerHTML = '<option value="">🎙 System Default</option>';
+
+    if (devices.length === 0) {
+      // Bridge not ready or no devices — show helpful note
+      statusRow.textContent = 'ℹ️ Microphone list not available yet. Start recording once, then refresh.';
+      statusRow.style.display = 'block';
+    } else {
+      statusRow.style.display = 'none';
+      devices.forEach(d => {
+        const opt = document.createElement('option');
+        opt.value = d.id;
+        // Truncate very long labels
+        opt.textContent = d.label.length > 40 ? d.label.slice(0, 37) + '…' : d.label;
+        opt.title = d.label;
+        sel.appendChild(opt);
+      });
+    }
+
+    // Restore saved selection
+    const idToSelect = savedId !== undefined ? savedId : (sel.dataset.pendingSavedId || '');
+    if (idToSelect && [...sel.options].some(o => o.value === idToSelect)) {
+      sel.value = idToSelect;
+    } else {
+      sel.value = '';
+    }
+  } catch (e) {
+    statusRow.textContent = '⚠ Could not load microphone list.';
+    statusRow.style.display = 'block';
+  } finally {
+    sel.disabled = false;
+  }
+}
+
+function onMicChange(deviceId) {
+  window.electronAPI.setMic(deviceId);
+}
+
+// ── Export / Import Text Replacements ─────────────────────────────────────
+
+// Show a brief fade-in message beside the buttons
+function showIEMsg(text, isError) {
+  const el = document.getElementById('import-export-msg');
+  el.textContent = text;
+  el.style.color  = isError ? '#f87171' : 'var(--accent)';
+  el.style.display = 'inline';
+  el.style.opacity = '1';
+  clearTimeout(el._t);
+  el._t = setTimeout(() => { el.style.opacity = '0'; setTimeout(() => { el.style.display = 'none'; }, 300); }, 3000);
+}
+
+async function doExportReplacements() {
+  const btn = document.getElementById('btn-export-replacements');
+  btn.disabled = true;
+  btn.textContent = 'Saving…';
+  try {
+    const res = await window.electronAPI.exportReplacements();
+    if (res.ok) showIEMsg(`✓ Exported ${res.count} replacement${res.count !== 1 ? 's' : ''}`, false);
+    else if (res.reason !== 'canceled') showIEMsg('Export failed: ' + res.reason, true);
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg> Export JSON`;
+  }
+}
+
+// pendingImport holds the items returned from main process between pick → modal confirm
+let pendingImport = null;
+
+async function doImportReplacements() {
+  const btn = document.getElementById('btn-import-replacements');
+  btn.disabled = true;
+  btn.textContent = 'Opening…';
+  try {
+    const res = await window.electronAPI.importReplacementsPick();
+    if (!res.ok) {
+      if (res.reason === 'canceled') return;
+      if (res.reason === 'invalid_schema') showIEMsg('⚠ Not a valid Juno replacements file', true);
+      else if (res.reason === 'invalid_format') showIEMsg('⚠ File format not recognized', true);
+      else showIEMsg('Import error: ' + res.reason, true);
+      return;
+    }
+    // Show the merge/replace modal
+    pendingImport = res.items;
+    document.getElementById('import-modal-count').textContent = res.count;
+    document.getElementById('import-modal').classList.add('open');
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> Import JSON`;
+  }
+}
+
+async function factoryReset() {
+  if (confirm("Are you sure you want to completely wipe all options, text replacements, languages, and dictation statistics? The application will immediately restart.")) {
+    await window.electronAPI.factoryReset();
+  }
+}
+
+function closeImportModal() {
+  document.getElementById('import-modal').classList.remove('open');
+  pendingImport = null;
+}
+
+async function confirmImport(mode) {
+  if (!pendingImport) return;
+  const items = pendingImport;
+  closeImportModal();
+  const res = await window.electronAPI.importReplacementsCommit({ items, mode });
+  if (res.ok) {
+    // Reload replacement rows from store (re-uses existing addReplacementRow pattern)
+    const cfg = await window.electronAPI.getConfig();
+    const list = document.getElementById('replacement-list');
+    list.innerHTML = '';
+    const replaces = cfg.textReplacements || [];
+    if (replaces.length === 0) {
+      addReplacementRow('', '');
+    } else {
+      replaces.forEach(r => addReplacementRow(r.say || '', r.replace || ''));
+    }
+    const label = mode === 'replace' ? 'Replaced all entries' : 'Merged successfully';
+    showIEMsg(`✓ ${label}`, false);
+  } else {
+    showIEMsg('Import commit failed', true);
+  }
+}
+
+// Close modal on backdrop click
+document.getElementById('import-modal').addEventListener('click', (e) => {
+  if (e.target === e.currentTarget) closeImportModal();
+});
 </script>
+
+<!-- ── Import Merge/Replace Modal ─────────────────────────────────── -->
+<div id="import-modal" style="
+  display:none; position:fixed; inset:0; z-index:9999;
+  background:rgba(0,0,0,0.55); backdrop-filter:blur(6px);
+  align-items:center; justify-content:center;
+  color: var(--text);
+">
+  <div style="
+    background:var(--card);
+    border:1px solid var(--border);
+    border-radius:16px; padding:28px 32px;
+    max-width:360px; width:90%;
+    box-shadow:0 24px 64px rgba(0,0,0,0.5);
+    animation: slideIn 0.18s ease;
+  ">
+    <div style="font-size:20px; margin-bottom:4px; color: var(--text);">📥 Import Replacements</div>
+    <p style="font-size:13px; color:var(--muted); margin:8px 0 20px; line-height:1.6;">
+      Found <strong id="import-modal-count" style="color:var(--accent);">0</strong> replacements in the file.<br>
+      How would you like to import them?
+    </p>
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:18px;">
+      <button onclick="confirmImport('merge')" style="
+        background:var(--bg); border:1px solid var(--border);
+        border-radius:10px; padding:14px 10px; cursor:pointer; color:var(--text);
+        transition:background 0.2s;
+      " onmouseover="this.style.background='var(--border)'"
+         onmouseout="this.style.background='var(--bg)'">
+        <div style="font-size:20px; margin-bottom:4px;">🔀</div>
+        <div style="font-weight:600; font-size:13px; color: var(--text);">Merge</div>
+        <div style="font-size:11px; color:var(--muted); margin-top:3px;">Add new entries,<br>skip duplicates</div>
+      </button>
+      <button onclick="confirmImport('replace')" style="
+        background:var(--bg); border:1px solid var(--border);
+        border-radius:10px; padding:14px 10px; cursor:pointer; color:var(--text);
+        transition:background 0.2s;
+      " onmouseover="this.style.background='var(--border)'"
+         onmouseout="this.style.background='var(--bg)'">
+        <div style="font-size:20px; margin-bottom:4px;">🗑️</div>
+        <div style="font-weight:600; font-size:13px; color: var(--text);">Replace All</div>
+        <div style="font-size:11px; color:var(--muted); margin-top:3px;">Overwrite your<br>current list</div>
+      </button>
+    </div>
+    <button onclick="closeImportModal()" style="
+      width:100%; background:transparent; border:1px solid var(--border,rgba(255,255,255,0.1));
+      border-radius:8px; padding:8px; cursor:pointer; color:var(--muted); font-size:12px;
+    ">Cancel</button>
+  </div>
+</div>
+<style>
+#import-modal.open  { display:flex !important; }
+@keyframes slideIn  { from { opacity:0; transform:translateY(-12px); } to { opacity:1; transform:translateY(0); } }
+</style>
 </body>
 </html>
