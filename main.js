@@ -12,27 +12,114 @@ const store = require('./store/config');
 // ── Language list (shared with overlay UI) ────────────────────────
 // Used by the tray language submenu.
 const LANGUAGES = [
-  { code:'en-US', name:'English (US)',    flag:'🇺🇸' },
-  { code:'en-GB', name:'English (UK)',    flag:'🇬🇧' },
-  { code:'en-CA', name:'English (CA)',    flag:'🇨🇦' },
-  { code:'en-AU', name:'English (AU)',    flag:'🇦🇺' },
-  { code:'es-ES', name:'Español (ES)',   flag:'🇪🇸' },
-  { code:'es-MX', name:'Español (MX)',   flag:'🇲🇽' },
-  { code:'fr-FR', name:'Français (FR)',  flag:'🇫🇷' },
-  { code:'de-DE', name:'Deutsch (DE)',   flag:'🇩🇪' },
-  { code:'it-IT', name:'Italiano (IT)',  flag:'🇮🇹' },
-  { code:'pt-BR', name:'Português (BR)', flag:'🇧🇷' },
-  { code:'pt-PT', name:'Português (PT)', flag:'🇵🇹' },
-  { code:'ja-JP', name:'Japanese (JP)',  flag:'🇯🇵' },
-  { code:'zh-CN', name:'Chinese (CN)',   flag:'🇨🇳' },
-  { code:'ko-KR', name:'Korean (KR)',    flag:'🇰🇷' },
-  { code:'ar-SA', name:'Arabic (SA)',    flag:'🇸🇦' },
-  { code:'bn-BD', name:'Bengali (BD)',   flag:'🇧🇩' },
-  { code:'hi-IN', name:'Hindi (IN)',     flag:'🇮🇳' },
-  { code:'ru-RU', name:'Русский (RU)',   flag:'🇷🇺' },
-  { code:'tr-TR', name:'Türkçe (TR)',    flag:'🇹🇷' },
-  { code:'nl-NL', name:'Nederlands (NL)',flag:'🇳🇱' },
-  { code:'pl-PL', name:'Polski (PL)',    flag:'🇵🇱' },
+  // English (6)
+  { code:'en-US', name:'English (US)',       flag:'🇺🇸' },
+  { code:'en-GB', name:'English (UK)',       flag:'🇬🇧' },
+  { code:'en-CA', name:'English (CA)',       flag:'🇨🇦' },
+  { code:'en-AU', name:'English (AU)',       flag:'🇦🇺' },
+  { code:'en-IN', name:'English (IN)',       flag:'🇮🇳' },
+  { code:'en-ZA', name:'English (ZA)',       flag:'🇿🇦' },
+  // Spanish (4)
+  { code:'es-ES', name:'Español (ES)',       flag:'🇪🇸' },
+  { code:'es-MX', name:'Español (MX)',       flag:'🇲🇽' },
+  { code:'es-AR', name:'Español (AR)',       flag:'🇦🇷' },
+  { code:'es-US', name:'Español (US)',       flag:'🇺🇸' },
+  // Portuguese (2)
+  { code:'pt-BR', name:'Português (BR)',     flag:'🇧🇷' },
+  { code:'pt-PT', name:'Português (PT)',     flag:'🇵🇹' },
+  // French (2)
+  { code:'fr-FR', name:'Français (FR)',      flag:'🇫🇷' },
+  { code:'fr-CA', name:'Français (CA)',      flag:'🇨🇦' },
+  // German (3)
+  { code:'de-DE', name:'Deutsch (DE)',       flag:'🇩🇪' },
+  { code:'de-AT', name:'Deutsch (AT)',       flag:'🇦🇹' },
+  { code:'de-CH', name:'Deutsch (CH)',       flag:'🇨🇭' },
+  // Dutch (2)
+  { code:'nl-NL', name:'Nederlands (NL)',    flag:'🇳🇱' },
+  { code:'nl-BE', name:'Nederlands (BE)',    flag:'🇧🇪' },
+  // Scandinavian (4)
+  { code:'sv-SE', name:'Svenska (SE)',       flag:'🇸🇪' },
+  { code:'da-DK', name:'Dansk (DK)',         flag:'🇩🇰' },
+  { code:'nb-NO', name:'Norsk (NO)',         flag:'🇳🇴' },
+  { code:'is-IS', name:'Íslenska (IS)',      flag:'🇮🇸' },
+  // Italian
+  { code:'it-IT', name:'Italiano (IT)',      flag:'🇮🇹' },
+  // Slavic (10)
+  { code:'ru-RU', name:'Русский (RU)',       flag:'🇷🇺' },
+  { code:'pl-PL', name:'Polski (PL)',        flag:'🇵🇱' },
+  { code:'cs-CZ', name:'Čeština (CZ)',       flag:'🇨🇿' },
+  { code:'sk-SK', name:'Slovenčina (SK)',    flag:'🇸🇰' },
+  { code:'uk-UA', name:'Українська (UA)',    flag:'🇺🇦' },
+  { code:'hr-HR', name:'Hrvatski (HR)',      flag:'🇭🇷' },
+  { code:'sr-RS', name:'Српски (RS)',        flag:'🇷🇸' },
+  { code:'bg-BG', name:'Български (BG)',     flag:'🇧🇬' },
+  { code:'sl-SI', name:'Slovenščina (SI)',   flag:'🇸🇮' },
+  { code:'mk-MK', name:'Македонски (MK)',    flag:'🇲🇰' },
+  // Other European (5)
+  { code:'ro-RO', name:'Română (RO)',        flag:'🇷🇴' },
+  { code:'ca-ES', name:'Català (ES)',        flag:'🇪🇸' },
+  { code:'el-GR', name:'Ελληνικά (GR)',      flag:'🇬🇷' },
+  { code:'fi-FI', name:'Suomi (FI)',         flag:'🇫🇮' },
+  { code:'hu-HU', name:'Magyar (HU)',        flag:'🇭🇺' },
+  // East Asian (4)
+  { code:'ja-JP', name:'Japanese (JP)',      flag:'🇯🇵' },
+  { code:'zh-CN', name:'Chinese (CN)',       flag:'🇨🇳' },
+  { code:'zh-TW', name:'Chinese (TW)',       flag:'🇹🇼' },
+  { code:'ko-KR', name:'Korean (KR)',        flag:'🇰🇷' },
+  // Southeast Asian (10)
+  { code:'th-TH', name:'Thai (TH)',          flag:'🇹🇭' },
+  { code:'vi-VN', name:'Tiếng Việt (VN)',    flag:'🇻🇳' },
+  { code:'id-ID', name:'Bahasa Indonesia',   flag:'🇮🇩' },
+  { code:'ms-MY', name:'Bahasa Melayu (MY)', flag:'🇲🇾' },
+  { code:'ms-BN', name:'Bahasa Melayu (BN)', flag:'🇧🇳' },
+  { code:'tl-PH', name:'Filipino (PH)',      flag:'🇵🇭' },
+  { code:'my-MM', name:'Myanmar (MM)',       flag:'🇲🇲' },
+  { code:'km-KH', name:'Khmer (KH)',         flag:'🇰🇭' },
+  { code:'lo-LA', name:'Lao (LA)',           flag:'🇱🇦' },
+  { code:'mn-MN', name:'Монгол (MN)',        flag:'🇲🇳' },
+  // South Asian (16)
+  { code:'hi-IN', name:'Hindi (IN)',         flag:'🇮🇳' },
+  { code:'bn-IN', name:'Bengali (IN)',       flag:'🇮🇳' },
+  { code:'bn-BD', name:'Bengali (BD)',       flag:'🇧🇩' },
+  { code:'ur-IN', name:'Urdu (IN)',          flag:'🇮🇳' },
+  { code:'ur-PK', name:'Urdu (PK)',          flag:'🇵🇰' },
+  { code:'pa-IN', name:'Punjabi (IN)',       flag:'🇮🇳' },
+  { code:'gu-IN', name:'Gujarati (IN)',      flag:'🇮🇳' },
+  { code:'mr-IN', name:'Marathi (IN)',       flag:'🇮🇳' },
+  { code:'te-IN', name:'Telugu (IN)',        flag:'🇮🇳' },
+  { code:'kn-IN', name:'Kannada (IN)',       flag:'🇮🇳' },
+  { code:'ml-IN', name:'Malayalam (IN)',     flag:'🇮🇳' },
+  { code:'ta-IN', name:'Tamil (IN)',         flag:'🇮🇳' },
+  { code:'or-IN', name:'Odia (IN)',          flag:'🇮🇳' },
+  { code:'si-LK', name:'Sinhala (LK)',       flag:'🇱🇰' },
+  { code:'ne-NP', name:'Nepali (NP)',        flag:'🇳🇵' },
+  { code:'dv-MV', name:'Dhivehi (MV)',       flag:'🇲🇻' },
+  // Middle East & Africa (18)
+  { code:'ar-SA', name:'Arabic (SA)',        flag:'🇸🇦' },
+  { code:'ar-AE', name:'Arabic (AE)',        flag:'🇦🇪' },
+  { code:'ar-EG', name:'Arabic (EG)',        flag:'🇪🇬' },
+  { code:'tr-TR', name:'Türkçe (TR)',        flag:'🇹🇷' },
+  { code:'he-IL', name:'עברית (IL)',         flag:'🇮🇱' },
+  { code:'fa-IR', name:'فارسی (IR)',         flag:'🇮🇷' },
+  { code:'sw-KE', name:'Kiswahili (KE)',     flag:'🇰🇪' },
+  { code:'am-ET', name:'Amharic (ET)',       flag:'🇪🇹' },
+  { code:'zu-ZA', name:'isiZulu (ZA)',       flag:'🇿🇦' },
+  { code:'yo-NG', name:'Yoruba (NG)',        flag:'🇳🇬' },
+  { code:'ig-NG', name:'Igbo (NG)',          flag:'🇳🇬' },
+  { code:'ha-NG', name:'Hausa (NG)',         flag:'🇳🇬' },
+  { code:'so-SO', name:'Soomaali (SO)',      flag:'🇸🇴' },
+  { code:'rw-RW', name:'Kinyarwanda (RW)',   flag:'🇷🇼' },
+  { code:'mg-MG', name:'Malagasy (MG)',      flag:'🇲🇬' },
+  { code:'uz-UZ', name:'O\'zbek (UZ)',       flag:'🇺🇿' },
+  { code:'kk-KZ', name:'Қазақша (KZ)',       flag:'🇰🇿' },
+  { code:'ky-KG', name:'Кыргызча (KG)',      flag:'🇰🇬' },
+  // Pacific & Other (6)
+  { code:'haw-US', name:'Hawaiian (US)',     flag:'🇺🇸' },
+  { code:'mi-NZ',  name:'Māori (NZ)',        flag:'🇳🇿' },
+  { code:'sm-WS',  name:'Samoan (WS)',       flag:'🇼🇸' },
+  { code:'to-TO',  name:'Tongan (TO)',       flag:'🇹🇴' },
+  { code:'fj-FJ',  name:'Fijian (FJ)',       flag:'🇫🇯' },
+  { code:'cy-GB',  name:'Cymraeg (GB)',      flag:'🇬🇧' },
 ];
 
 // Prevent Electron from crashing when stdout/stderr is a broken pipe (EIO)
@@ -207,6 +294,103 @@ ipcMain.handle('import-replacements-commit', (event, { items, mode }) => {
   return { ok: true };
 });
 
+// ── Export / Import Full Settings ───────────────────────────────────────────
+ipcMain.handle('export-settings', async (event) => {
+  const browserWindow = BrowserWindow.fromWebContents(event.sender);
+  const { canceled, filePath } = await dialog.showSaveDialog(browserWindow, {
+    title: 'Export Juno Voice Settings',
+    defaultPath: 'juno-settings-backup.json',
+    filters: [{ name: 'JSON File', extensions: ['json'] }],
+  });
+  if (canceled || !filePath) return { canceled: true };
+  try {
+    const fs = require('fs');
+    // We export the entire electron-store configuration EXCEPT for local state / licenses 
+    const allStore = store.store;
+    const configToExport = {
+      ...allStore
+    };
+    // Clean out device-specific or private things
+    delete configToExport.overlayPosition;
+    delete configToExport.overlayMiniPosition;
+    delete configToExport.settingsPosition;
+    delete configToExport.licenseKey;
+    delete configToExport.licenseStatus;
+    delete configToExport.licensePurchase;
+    delete configToExport.firstLaunchDate;
+    delete configToExport.statsSessions;
+    delete configToExport.statsFirstDate;
+    delete configToExport.statsTotalWords;
+    
+    fs.writeFileSync(filePath, JSON.stringify(configToExport, null, 2), 'utf8');
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: e.message };
+  }
+});
+
+ipcMain.handle('import-settings-pick', async (event) => {
+  const browserWindow = BrowserWindow.fromWebContents(event.sender);
+  const { canceled, filePaths } = await dialog.showOpenDialog(browserWindow, {
+    title: 'Import Juno Voice Settings',
+    filters: [{ name: 'JSON File', extensions: ['json'] }],
+    properties: ['openFile'],
+  });
+  if (canceled || !filePaths || filePaths.length === 0) return { canceled: true };
+  try {
+    const fs = require('fs');
+    const raw  = fs.readFileSync(filePaths[0], 'utf8');
+    const importedConfig = JSON.parse(raw);
+    
+    // Check for shortcuts that might conflict on this OS
+    let conflicts = [];
+    const isMac = process.platform === 'darwin';
+    
+    // Helper to check if a single shortcut string conflicts with current OS
+    const checkShortcut = (str) => {
+      if (!str) return false;
+      const lower = str.toLowerCase();
+      // If it's Mac but has 'num', 'scrolllock', etc. or if it's Windows but uses 'command'
+      if (isMac && (lower.includes('win') || lower.includes('windows'))) return true;
+      if (!isMac && (lower.includes('command') || lower.includes('cmd') || lower.includes('mac'))) return true;
+      return false;
+    };
+
+    if (checkShortcut(importedConfig.hotkey)) conflicts.push(`Global Hotkey: ${importedConfig.hotkey}`);
+    
+    if (importedConfig.langHotkeys && Array.isArray(importedConfig.langHotkeys)) {
+      importedConfig.langHotkeys.forEach(lh => {
+        if (checkShortcut(lh.combo)) {
+          conflicts.push(`Language Hotkey (${lh.lang}): ${lh.combo}`);
+        }
+      });
+    }
+
+    return { ok: true, config: importedConfig, conflicts };
+  } catch (e) {
+    return { error: 'Failed to read or parse file' };
+  }
+});
+
+ipcMain.handle('import-settings-commit', (event, newConfig) => {
+  try {
+    // Merge new config keys over existing store (keeps local states like license unharmed)
+    for (const key in newConfig) {
+      // Don't override secure ones just in case they slipped through
+      if (!['licenseKey', 'licenseStatus', 'licensePurchase', 'statsSessions', 'statsFirstDate', 'overlayPosition', 'overlayMiniPosition', 'settingsPosition'].includes(key)) {
+        store.set(key, newConfig[key]);
+      }
+    }
+    
+    // Re-register hotkeys with new settings
+    registerHotkeys();
+    
+    return { ok: true };
+  } catch(e) {
+    return { ok: false, error: e.message };
+  }
+});
+
 ipcMain.handle('app-factory-reset', () => {
   // Prevent trial bypassing and license loss
   const licenseKey = store.get('licenseKey');
@@ -304,6 +488,29 @@ ipcMain.on('inject-punct', (event, char) => {
 ipcMain.on('open-settings', () => {
   resetSilenceTimer();
   showSettings();
+});
+
+// Overlay: Dynamic resize for transcript text expansion
+ipcMain.on('overlay-request-resize', (event, transcriptHeight) => {
+  if (!overlayWindow || !isListening) return; // Prevent hidden windows from waking up on resize
+  const isMini = store.get('overlayMini');
+  if (isMini) return; // Mini mode is fixed height
+
+  const FULL_W = 420;
+  const BASE_H = 312;
+  const BASE_TRANSCRIPT_H = 52;
+  
+  let extraHeight = transcriptHeight - BASE_TRANSCRIPT_H;
+  if (extraHeight < 0) extraHeight = 0;
+  const maxExtra = 400; // Limit extension so it doesn't overflow screen
+  if (extraHeight > maxExtra) extraHeight = maxExtra;
+
+  const newHeight = BASE_H + extraHeight;
+  
+  overlayWindow.setResizable(true);
+  overlayWindow.setMinimumSize(FULL_W, newHeight);
+  overlayWindow.setSize(FULL_W, newHeight);
+  overlayWindow.setResizable(false);
 });
 
 // Overlay: toggle mini/pill mode
@@ -853,6 +1060,18 @@ function injectCharDirect(chars) {
 // injectText — for dictated speech (potentially long strings).
 // Uses clipboard paste for speed; cancels any in-flight restore before touching the clipboard.
 function injectText(text) {
+  // Check user preference for typing vs pasting
+  const isSimTyping = store.get('simulateTyping');
+  if (isSimTyping) {
+    try {
+      robot.setKeyboardDelay(0);
+      robot.typeString(text);
+    } catch (e) {
+      safeLog('[injectText] Simulated typing failed:', e.message);
+    }
+    return;
+  }
+
   // Cancel any pending clipboard restore from a previous call to avoid race conditions
   if (clipRestoreTimer) {
     clearTimeout(clipRestoreTimer);
@@ -975,6 +1194,16 @@ function toggleListening(forceLang = null) {
       overlayWindow.setSize(isMini ? MINI_W : FULL_W, isMini ? MINI_H : FULL_H);
       overlayWindow.setResizable(false);
       overlayWindow.showInactive();
+      // Clear any stale transcript text immediately in the renderer process.
+      // This prevents old text from persisting on Windows when the overlay is
+      // re-shown after a silence timeout (the session-start IPC may arrive before
+      // the renderer is fully ready, causing a race condition).
+      overlayWindow.webContents.executeJavaScript(`
+        var p=document.getElementById('phrase-text'),i=document.getElementById('interim-text');
+        if(p)p.textContent='';
+        if(i)i.textContent='';
+        if(p)p.classList.remove('fading');
+      `).catch(()=>{});
 
       const posKey = isMini ? 'overlayMiniPosition' : 'overlayPosition';
       const pos = store.get(posKey);
@@ -997,19 +1226,35 @@ function updateTrayMenu() {
   const currentLang = store.get('language') || 'en-US';
   const isMac = process.platform === 'darwin';
 
-  // Build language submenu dynamically
-  const langSubmenu = LANGUAGES.map(lang => {
-    // On Windows, emoji flags may not render in native menus — use text code fallback
-    const label = isMac
-      ? `${lang.flag}  ${lang.name}`
-      : `[${lang.code.split('-')[1]}] ${lang.name}`;
+  const makeItem = (lang) => {
+    const label = isMac ? `${lang.flag}  ${lang.name}` : lang.name;
     return {
       label,
       type: 'radio',
       checked: lang.code === currentLang,
       click: () => switchTrayLanguage(lang.code)
     };
-  });
+  };
+
+  // 6 regional submenus
+  const westernPrefixes  = ['en-','es-','pt-','fr-','de-','nl-','sv-','da-','nb-','is-','it-','cy-','haw-'];
+  const europeanPrefixes = ['ru-','pl-','cs-','sk-','uk-','hr-','sr-','bg-','sl-','mk-','ro-','ca-','el-','fi-','hu-'];
+  const eastSeaPrefixes  = ['ja-','zh-','ko-','mn-','th-','vi-','id-','ms-','tl-','my-','km-','lo-'];
+  const southAsiaCodes   = ['hi-IN','bn-IN','bn-BD','ur-IN','ur-PK','pa-IN','gu-IN','mr-IN','te-IN','kn-IN','ml-IN','ta-IN','or-IN','si-LK','ne-NP','dv-MV'];
+  const mideastPrefixes  = ['ar-','tr-','he-','fa-','sw-','am-','zu-','yo-','ig-','ha-','so-','rw-','mg-','uz-','kk-','ky-'];
+  const pacificCodes     = ['mi-NZ','sm-WS','to-TO','fj-FJ'];
+
+  const filterByPrefix = (prefixes) => LANGUAGES.filter(l => prefixes.some(p => l.code.startsWith(p)));
+  const filterByCodes  = (codes)    => LANGUAGES.filter(l => codes.includes(l.code));
+
+  const langSubmenu = [
+    { label: 'Western',       submenu: filterByPrefix(westernPrefixes).map(makeItem) },
+    { label: 'European',      submenu: filterByPrefix(europeanPrefixes).map(makeItem) },
+    { label: 'East & SE Asia', submenu: filterByPrefix(eastSeaPrefixes).map(makeItem) },
+    { label: 'South Asia',    submenu: filterByCodes(southAsiaCodes).map(makeItem) },
+    { label: 'Middle East & Africa', submenu: filterByPrefix(mideastPrefixes).map(makeItem) },
+    { label: 'Pacific & Other', submenu: filterByCodes(pacificCodes).map(makeItem) },
+  ];
 
   const contextMenu = Menu.buildFromTemplate([
     { label: isListening ? 'Stop Listening' : 'Start Listening', click: () => toggleListening() },

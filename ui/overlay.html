@@ -215,7 +215,7 @@
   #lang-dropdown {
     position: fixed;   /* Escape any parent overflow/clip */
     min-width: 210px;
-    max-height: 240px;
+    max-height: 480px;
     overflow-y: auto;
     background: rgba(26, 26, 34, 0.98);
     backdrop-filter: blur(40px);
@@ -261,17 +261,18 @@
     box-shadow: 0 20px 50px rgba(0,0,0,0.15), 0 0 0 0.5px rgba(0,0,0,0.05) inset;
   }
 
-  /* ── Transcript (one phrase at a time, fixed height) ── */
+  /* ── Transcript (one phrase at a time, dynamic height) ── */
   #transcript-area {
     flex: 0 0 auto;
-    height: 52px;
+    min-height: 52px;
+    height: auto;
     padding: 2px 14px 4px;
     overflow: hidden;
   }
   #phrase-text {
     font-size: 14.5px; font-weight: 400; line-height: 1.5;
     color: var(--text);
-    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    white-space: pre-wrap; word-break: break-word;
     opacity: 1;
     transition: opacity 0.3s ease;
   }
@@ -279,7 +280,7 @@
   #interim-text {
     font-size: 13px; font-style: italic;
     color: var(--muted);
-    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    white-space: pre-wrap; word-break: break-word;
     min-height: 20px;
   }
 
@@ -489,28 +490,123 @@
 <script>
 'use strict';
 
+const PUNCT_LATIN = ['.','?','!',',','"',';',':','—','…','(',')','-',"'" ];
+const PUNCT_CJK    = ['。','？','！','，','；','：','——','……','「','」','（','）'];
+const PUNCT_ARABIC = ['.','؟','!','،','"','"',';',':','—','…','(',')' ];
+const PUNCT_INDIC  = ['।','?','!',',','"','"',';',':','—','…','(',')' ];
+const PUNCT_CYRILLIC = ['.','?','!',',','«','»',';',':','—','…','(',')' ];
+const PUNCT_KHMER  = ['។','?','!',',','"','"',';',':','…','(',')','-' ];
+const PUNCT_THAI   = ['.','?','!',',','"','"',';',':','…','(',')','-' ];
+
 const LANGUAGES = [
-  { code:'en-US', name:'English (US)',   flag:'🇺🇸', native:'English', punct:['.','?','!',',','"',';',':','…','(',')','-',"'"] },
-  { code:'en-GB', name:'English (UK)',   flag:'🇬🇧', native:'English', punct:['.','?','!',',','"',';',':','…','(',')','-',"'"] },
-  { code:'en-CA', name:'English (CA)',   flag:'🇨🇦', native:'English', punct:['.','?','!',',','"',';',':','…','(',')','-',"'"] },
-  { code:'en-AU', name:'English (AU)',   flag:'🇦🇺', native:'English', punct:['.','?','!',',','"',';',':','…','(',')','-',"'"] },
-  { code:'es-ES', name:'Español (ES)',   flag:'🇪🇸', native:'Español', punct:['.','?','!','¿','¡',',','"',';',':','—','(',')'  ] },
-  { code:'es-MX', name:'Español (MX)',   flag:'🇲🇽', native:'Español', punct:['.','?','!','¿','¡',',','"',';',':','—','(',')'  ] },
-  { code:'fr-FR', name:'Français (FR)',  flag:'🇫🇷', native:'Français', punct:['.','?','!',',','«','»',';',':','—','…','(',')'  ] },
-  { code:'de-DE', name:'Deutsch (DE)',   flag:'🇩🇪', native:'Deutsch', punct:['.','?','!',',','„','"',';',':','—','…','(',')'  ] },
-  { code:'it-IT', name:'Italiano (IT)',  flag:'🇮🇹', native:'Italiano', punct:['.','?','!',',','"',';',':','—','…','(',')','-'  ] },
-  { code:'pt-BR', name:'Português (BR)', flag:'🇧🇷', native:'Português', punct:['.','?','!',',','"',';',':','—','…','(',')','-'  ] },
-  { code:'pt-PT', name:'Português (PT)', flag:'🇵🇹', native:'Português', punct:['.','?','!',',','"',';',':','—','…','(',')','-'  ] },
-  { code:'ja-JP', name:'Japanese (JP)',  flag:'🇯🇵', native:'日本語', punct:['。','？','！','、','「','」','…','ー','～','・','（','）'] },
-  { code:'zh-CN', name:'Chinese (CN)',   flag:'🇨🇳', native:'中文', punct:['。','？','！','，','；','：','——','……','「','」','（','）'] },
-  { code:'ko-KR', name:'Korean (KR)',    flag:'🇰🇷', native:'한국어', punct:['.','?','!',',','「','」',';',':','—','…','(',')'  ] },
-  { code:'ar-SA', name:'Arabic (SA)',    flag:'🇸🇦', native:'العربية', punct:['.','؟','!','،','"','"',';',':','—','…','(',')'  ] },
-  { code:'bn-BD', name:'Bengali (BD)',   flag:'🇧🇩', native:'বাংলা', punct:['।','?','!',',','"','"',';',':','—','…','(',')'  ] },
-  { code:'hi-IN', name:'Hindi (IN)',     flag:'🇮🇳', native:'हिन्दी', punct:['।','?','!',',','"','"',';',':','—','…','(',')'  ] },
-  { code:'ru-RU', name:'Русский (RU)',   flag:'🇷🇺', native:'Русский', punct:['.','?','!',',','«','»',';',':','—','…','(',')'  ] },
-  { code:'tr-TR', name:'Türkçe (TR)',    flag:'🇹🇷', native:'Türkçe', punct:['.','?','!',',','"','"',';',':','—','…','(',')'  ] },
-  { code:'nl-NL', name:'Nederlands (NL)',flag:'🇳🇱', native:'Nederlands', punct:['.','?','!',',','"','"',';',':','—','…','(',')'  ] },
-  { code:'pl-PL', name:'Polski (PL)',    flag:'🇵🇱', native:'Polski', punct:['.','?','!',',','"','„',';',':','—','…','(',')'  ] },
+  // English (6)
+  { code:'en-US', name:'English (US)',       flag:'🇺🇸', native:'English',       punct:PUNCT_LATIN },
+  { code:'en-GB', name:'English (UK)',       flag:'🇬🇧', native:'English',       punct:PUNCT_LATIN },
+  { code:'en-CA', name:'English (CA)',       flag:'🇨🇦', native:'English',       punct:PUNCT_LATIN },
+  { code:'en-AU', name:'English (AU)',       flag:'🇦🇺', native:'English',       punct:PUNCT_LATIN },
+  { code:'en-IN', name:'English (IN)',       flag:'🇮🇳', native:'English',       punct:PUNCT_LATIN },
+  { code:'en-ZA', name:'English (ZA)',       flag:'🇿🇦', native:'English',       punct:PUNCT_LATIN },
+  // Spanish (4)
+  { code:'es-ES', name:'Español (ES)',       flag:'🇪🇸', native:'Español',       punct:['.','?','!','¿','¡',',','"',';',':','—','(',')' ] },
+  { code:'es-MX', name:'Español (MX)',       flag:'🇲🇽', native:'Español',       punct:['.','?','!','¿','¡',',','"',';',':','—','(',')' ] },
+  { code:'es-AR', name:'Español (AR)',       flag:'🇦🇷', native:'Español',       punct:['.','?','!','¿','¡',',','"',';',':','—','(',')' ] },
+  { code:'es-US', name:'Español (US)',       flag:'🇺🇸', native:'Español',       punct:['.','?','!','¿','¡',',','"',';',':','—','(',')' ] },
+  // Portuguese (2)
+  { code:'pt-BR', name:'Português (BR)',     flag:'🇧🇷', native:'Português',     punct:PUNCT_LATIN },
+  { code:'pt-PT', name:'Português (PT)',     flag:'🇵🇹', native:'Português',     punct:PUNCT_LATIN },
+  // French (2)
+  { code:'fr-FR', name:'Français (FR)',      flag:'🇫🇷', native:'Français',      punct:['.','?','!',',','«','»',';',':','—','…','(',')' ] },
+  { code:'fr-CA', name:'Français (CA)',      flag:'🇨🇦', native:'Français',      punct:['.','?','!',',','«','»',';',':','—','…','(',')' ] },
+  // German (3)
+  { code:'de-DE', name:'Deutsch (DE)',       flag:'🇩🇪', native:'Deutsch',       punct:['.','?','!',',','„','"',';',':','—','…','(',')' ] },
+  { code:'de-AT', name:'Deutsch (AT)',       flag:'🇦🇹', native:'Deutsch',       punct:['.','?','!',',','„','"',';',':','—','…','(',')' ] },
+  { code:'de-CH', name:'Deutsch (CH)',       flag:'🇨🇭', native:'Deutsch',       punct:['.','?','!',',','„','"',';',':','—','…','(',')' ] },
+  // Dutch (2)
+  { code:'nl-NL', name:'Nederlands (NL)',    flag:'🇳🇱', native:'Nederlands',    punct:PUNCT_LATIN },
+  { code:'nl-BE', name:'Nederlands (BE)',    flag:'🇧🇪', native:'Nederlands',    punct:PUNCT_LATIN },
+  // Scandinavian (4)
+  { code:'sv-SE', name:'Svenska (SE)',       flag:'🇸🇪', native:'Svenska',       punct:PUNCT_LATIN },
+  { code:'da-DK', name:'Dansk (DK)',         flag:'🇩🇰', native:'Dansk',         punct:PUNCT_LATIN },
+  { code:'nb-NO', name:'Norsk (NO)',         flag:'🇳🇴', native:'Norsk',         punct:PUNCT_LATIN },
+  { code:'is-IS', name:'Íslenska (IS)',      flag:'🇮🇸', native:'Íslenska',      punct:PUNCT_LATIN },
+  // Italian
+  { code:'it-IT', name:'Italiano (IT)',      flag:'🇮🇹', native:'Italiano',      punct:PUNCT_LATIN },
+  // Slavic (10)
+  { code:'ru-RU', name:'Русский (RU)',       flag:'🇷🇺', native:'Русский',       punct:PUNCT_CYRILLIC },
+  { code:'pl-PL', name:'Polski (PL)',        flag:'🇵🇱', native:'Polski',        punct:['.','?','!',',','"','„',';',':','—','…','(',')' ] },
+  { code:'cs-CZ', name:'Čeština (CZ)',       flag:'🇨🇿', native:'Čeština',       punct:PUNCT_LATIN },
+  { code:'sk-SK', name:'Slovenčina (SK)',    flag:'🇸🇰', native:'Slovenčina',    punct:PUNCT_LATIN },
+  { code:'uk-UA', name:'Українська (UA)',    flag:'🇺🇦', native:'Українська',    punct:PUNCT_CYRILLIC },
+  { code:'hr-HR', name:'Hrvatski (HR)',      flag:'🇭🇷', native:'Hrvatski',      punct:PUNCT_LATIN },
+  { code:'sr-RS', name:'Српски (RS)',        flag:'🇷🇸', native:'Српски',        punct:PUNCT_CYRILLIC },
+  { code:'bg-BG', name:'Български (BG)',     flag:'🇧🇬', native:'Български',     punct:PUNCT_CYRILLIC },
+  { code:'sl-SI', name:'Slovenščina (SI)',   flag:'🇸🇮', native:'Slovenščina',   punct:PUNCT_LATIN },
+  { code:'mk-MK', name:'Македонски (MK)',    flag:'🇲🇰', native:'Македонски',    punct:PUNCT_CYRILLIC },
+  // Other European (5)
+  { code:'ro-RO', name:'Română (RO)',        flag:'🇷🇴', native:'Română',        punct:PUNCT_LATIN },
+  { code:'ca-ES', name:'Català (ES)',        flag:'🇪🇸', native:'Català',        punct:PUNCT_LATIN },
+  { code:'el-GR', name:'Ελληνικά (GR)',      flag:'🇬🇷', native:'Ελληνικά',      punct:PUNCT_LATIN },
+  { code:'fi-FI', name:'Suomi (FI)',         flag:'🇫🇮', native:'Suomi',         punct:PUNCT_LATIN },
+  { code:'hu-HU', name:'Magyar (HU)',        flag:'🇭🇺', native:'Magyar',        punct:PUNCT_LATIN },
+  // East Asian (4)
+  { code:'ja-JP', name:'Japanese (JP)',      flag:'🇯🇵', native:'日本語',         punct:['。','？','！','、','「','」','…','ー','～','・','（','）'] },
+  { code:'zh-CN', name:'Chinese (CN)',       flag:'🇨🇳', native:'中文',           punct:PUNCT_CJK },
+  { code:'zh-TW', name:'Chinese (TW)',       flag:'🇹🇼', native:'中文',           punct:PUNCT_CJK },
+  { code:'ko-KR', name:'Korean (KR)',        flag:'🇰🇷', native:'한국어',         punct:PUNCT_LATIN },
+  // Southeast Asian (10)
+  { code:'th-TH', name:'Thai (TH)',          flag:'🇹🇭', native:'ภาษาไทย',       punct:PUNCT_THAI },
+  { code:'vi-VN', name:'Tiếng Việt (VN)',    flag:'🇻🇳', native:'Tiếng Việt',    punct:PUNCT_LATIN },
+  { code:'id-ID', name:'Bahasa Indonesia',   flag:'🇮🇩', native:'Bahasa Indonesia', punct:PUNCT_LATIN },
+  { code:'ms-MY', name:'Bahasa Melayu (MY)', flag:'🇲🇾', native:'Bahasa Melayu', punct:PUNCT_LATIN },
+  { code:'ms-BN', name:'Bahasa Melayu (BN)', flag:'🇧🇳', native:'Bahasa Melayu', punct:PUNCT_LATIN },
+  { code:'tl-PH', name:'Filipino (PH)',      flag:'🇵🇭', native:'Filipino',      punct:PUNCT_LATIN },
+  { code:'my-MM', name:'Myanmar (MM)',       flag:'🇲🇲', native:'မြန်မာ',         punct:PUNCT_LATIN },
+  { code:'km-KH', name:'Khmer (KH)',         flag:'🇰🇭', native:'ខ្មែរ',           punct:PUNCT_KHMER },
+  { code:'lo-LA', name:'Lao (LA)',           flag:'🇱🇦', native:'ລາວ',             punct:PUNCT_LATIN },
+  { code:'mn-MN', name:'Монгол (MN)',        flag:'🇲🇳', native:'Монгол',         punct:PUNCT_CYRILLIC },
+  // South Asian (16)
+  { code:'hi-IN', name:'Hindi (IN)',         flag:'🇮🇳', native:'हिन्दी',          punct:PUNCT_INDIC },
+  { code:'bn-IN', name:'Bengali (IN)',       flag:'🇮🇳', native:'বাংলা',           punct:PUNCT_INDIC },
+  { code:'bn-BD', name:'Bengali (BD)',       flag:'🇧🇩', native:'বাংলা',           punct:PUNCT_INDIC },
+  { code:'ur-IN', name:'Urdu (IN)',          flag:'🇮🇳', native:'اردو',             punct:PUNCT_ARABIC },
+  { code:'ur-PK', name:'Urdu (PK)',          flag:'🇵🇰', native:'اردو',             punct:PUNCT_ARABIC },
+  { code:'pa-IN', name:'Punjabi (IN)',       flag:'🇮🇳', native:'ਪੰਜਾਬੀ',           punct:PUNCT_INDIC },
+  { code:'gu-IN', name:'Gujarati (IN)',      flag:'🇮🇳', native:'ગુજરાતી',          punct:PUNCT_INDIC },
+  { code:'mr-IN', name:'Marathi (IN)',       flag:'🇮🇳', native:'मराठी',            punct:PUNCT_INDIC },
+  { code:'te-IN', name:'Telugu (IN)',        flag:'🇮🇳', native:'తెలుగు',            punct:PUNCT_INDIC },
+  { code:'kn-IN', name:'Kannada (IN)',       flag:'🇮🇳', native:'ಕನ್ನಡ',            punct:PUNCT_INDIC },
+  { code:'ml-IN', name:'Malayalam (IN)',     flag:'🇮🇳', native:'മലയാളം',           punct:PUNCT_INDIC },
+  { code:'ta-IN', name:'Tamil (IN)',         flag:'🇮🇳', native:'தமிழ்',            punct:PUNCT_INDIC },
+  { code:'or-IN', name:'Odia (IN)',          flag:'🇮🇳', native:'ଓଡ଼ିଆ',             punct:PUNCT_INDIC },
+  { code:'si-LK', name:'Sinhala (LK)',       flag:'🇱🇰', native:'සිංහල',           punct:PUNCT_INDIC },
+  { code:'ne-NP', name:'Nepali (NP)',        flag:'🇳🇵', native:'नेपाली',           punct:PUNCT_INDIC },
+  { code:'dv-MV', name:'Dhivehi (MV)',       flag:'🇲🇻', native:'ދިވެހި',           punct:PUNCT_ARABIC },
+  // Middle East & Africa (18)
+  { code:'ar-SA', name:'Arabic (SA)',        flag:'🇸🇦', native:'العربية',         punct:PUNCT_ARABIC },
+  { code:'ar-AE', name:'Arabic (AE)',        flag:'🇦🇪', native:'العربية',         punct:PUNCT_ARABIC },
+  { code:'ar-EG', name:'Arabic (EG)',        flag:'🇪🇬', native:'العربية',         punct:PUNCT_ARABIC },
+  { code:'tr-TR', name:'Türkçe (TR)',        flag:'🇹🇷', native:'Türkçe',          punct:PUNCT_LATIN },
+  { code:'he-IL', name:'עברית (IL)',         flag:'🇮🇱', native:'עברית',           punct:PUNCT_ARABIC },
+  { code:'fa-IR', name:'فارسی (IR)',         flag:'🇮🇷', native:'فارسی',           punct:PUNCT_ARABIC },
+  { code:'sw-KE', name:'Kiswahili (KE)',     flag:'🇰🇪', native:'Kiswahili',       punct:PUNCT_LATIN },
+  { code:'am-ET', name:'Amharic (ET)',       flag:'🇪🇹', native:'አማርኛ',            punct:PUNCT_LATIN },
+  { code:'zu-ZA', name:'isiZulu (ZA)',       flag:'🇿🇦', native:'isiZulu',         punct:PUNCT_LATIN },
+  { code:'yo-NG', name:'Yoruba (NG)',        flag:'🇳🇬', native:'Yorùbá',          punct:PUNCT_LATIN },
+  { code:'ig-NG', name:'Igbo (NG)',          flag:'🇳🇬', native:'Igbo',            punct:PUNCT_LATIN },
+  { code:'ha-NG', name:'Hausa (NG)',         flag:'🇳🇬', native:'Hausa',           punct:PUNCT_LATIN },
+  { code:'so-SO', name:'Soomaali (SO)',      flag:'🇸🇴', native:'Soomaali',        punct:PUNCT_LATIN },
+  { code:'rw-RW', name:'Kinyarwanda (RW)',   flag:'🇷🇼', native:'Kinyarwanda',     punct:PUNCT_LATIN },
+  { code:'mg-MG', name:'Malagasy (MG)',      flag:'🇲🇬', native:'Malagasy',        punct:PUNCT_LATIN },
+  { code:'uz-UZ', name:"O'zbek (UZ)",        flag:'🇺🇿', native:"O'zbek",          punct:PUNCT_LATIN },
+  { code:'kk-KZ', name:'Қазақша (KZ)',       flag:'🇰🇿', native:'Қазақша',         punct:PUNCT_CYRILLIC },
+  { code:'ky-KG', name:'Кыргызча (KG)',      flag:'🇰🇬', native:'Кыргызча',        punct:PUNCT_CYRILLIC },
+  // Pacific & Other (6)
+  { code:'haw-US', name:'Hawaiian (US)',     flag:'🇺🇸', native:'ʻŌlelo Hawaiʻi',  punct:PUNCT_LATIN },
+  { code:'mi-NZ',  name:'Māori (NZ)',        flag:'🇳🇿', native:'Te Reo Māori',    punct:PUNCT_LATIN },
+  { code:'sm-WS',  name:'Samoan (WS)',       flag:'🇼🇸', native:'Gagana Sāmoa',    punct:PUNCT_LATIN },
+  { code:'to-TO',  name:'Tongan (TO)',       flag:'🇹🇴', native:'Lea Faka-Tonga',  punct:PUNCT_LATIN },
+  { code:'fj-FJ',  name:'Fijian (FJ)',       flag:'🇫🇯', native:'Na Vosa Vakaviti',punct:PUNCT_LATIN },
+  { code:'cy-GB',  name:'Cymraeg (GB)',      flag:'🇬🇧', native:'Cymraeg',         punct:PUNCT_LATIN },
 ];
 
 const isWin = navigator.userAgent.includes('Windows');
@@ -746,8 +842,9 @@ function buildDropdown() {
 }
 
 function positionDropdown() {
-  const rect = langBtn.getBoundingClientRect();
-  const ddH  = Math.min(240, LANGUAGES.length * 37);  // estimated height
+  const anchor = (isMiniMode && miniFlagEl) ? miniFlagEl : langBtn;
+  const rect = anchor.getBoundingClientRect();
+  const ddH  = Math.min(480, LANGUAGES.length * 24);  // estimated height
   
   // Try to open above first, otherwise below
   const spaceAbove = rect.top;
@@ -852,11 +949,16 @@ window.junoAPI.onSessionStart((data) => {
   });
 
   // Reset live word count badge for this session
-  if (typeof wcBadge !== 'undefined') {
-    wcBadge.style.display = 'none';
-    wcSep.style.display   = 'none';
-    wcBadge.textContent   = '📝 0 words';
-  }
+  // Reset live word count badge for this session
+  try {
+    const badge = document.getElementById('wc-badge');
+    const separator = document.getElementById('wc-separator');
+    if (badge) {
+      badge.style.display = 'none';
+      badge.textContent = '📝 0 words';
+    }
+    if (separator) separator.style.display = 'none';
+  } catch (e) {}
   
   clearTimer && clearTimeout(clearTimer);
   phraseEl.textContent  = '';
@@ -1184,6 +1286,19 @@ function drawMiniWave() {
 function syncMiniWave() {
   drawMiniWave();
 }
+
+// ── Dynamic Transcript Resize ──
+const transcriptArea = document.getElementById('transcript-area');
+const transcriptRo = new ResizeObserver(entries => {
+  if (isMiniMode) return;
+  for (let entry of entries) {
+    if (window.junoAPI && window.junoAPI.requestResize) {
+      window.junoAPI.requestResize(Math.ceil(entry.borderBoxSize ? entry.borderBoxSize[0].blockSize : entry.contentRect.height));
+    }
+  }
+});
+if (transcriptArea) transcriptRo.observe(transcriptArea);
+
 </script>
 </body>
 </html>

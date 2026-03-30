@@ -111,7 +111,9 @@ html, body {
 .panel.active { display: flex; flex-direction: column; gap: 12px; }
 
 /* ── SECTION GROUPS ── */
-.settings-group { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; -webkit-app-region: no-drag; }
+.settings-group { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); position: relative; -webkit-app-region: no-drag; }
+.settings-row:first-child { border-top-left-radius: var(--radius); border-top-right-radius: var(--radius); }
+.settings-row:last-child { border-bottom-left-radius: var(--radius); border-bottom-right-radius: var(--radius); }
 .settings-row {
   display: flex; align-items: center; padding: 16px 18px; gap: 16px;
   border-bottom: 1px solid var(--border); transition: background 0.12s;
@@ -206,6 +208,44 @@ html, body {
 .lang-select:hover, .replace-input:focus { border-color: var(--accent); }
 .lang-select option { background: #2a2a35; color: white; }
 [data-theme="light"] .lang-select option { background: white; color: black; }
+
+/* ── CUSTOM FLAG DROPDOWN (Windows-safe) ── */
+.cfd-wrapper {
+  position: relative; display: inline-block; min-width: 200px;
+  z-index: 10;
+}
+.cfd-selected {
+  display: flex; align-items: center; gap: 8px;
+  background: var(--card2); border: 1px solid var(--border2);
+  border-radius: 8px; padding: 7px 10px 7px 12px;
+  font-size: 13px; font-weight: 500; color: var(--text);
+  cursor: pointer; user-select: none; transition: border-color 0.15s;
+}
+.cfd-selected:hover { border-color: var(--accent); }
+.cfd-selected-name { flex: 1; }
+.cfd-arrow {
+  flex-shrink: 0; transition: transform 0.2s;
+  color: #888;
+}
+.cfd-wrapper.open .cfd-arrow { transform: rotate(180deg); }
+.cfd-list {
+  display: none; position: absolute; top: calc(100% + 4px); left: 0; right: 0;
+  background: var(--card2); border: 1px solid var(--border2);
+  border-radius: 8px; overflow: hidden;
+  max-height: 480px; overflow-y: auto;
+  box-shadow: 0 8px 28px rgba(0,0,0,0.35);
+  z-index: 9999;
+}
+.cfd-wrapper.open .cfd-list { display: block; }
+.cfd-item {
+  display: flex; align-items: center; gap: 9px;
+  padding: 7px 12px; font-size: 13px; cursor: pointer;
+  transition: background 0.1s; color: var(--text);
+}
+.cfd-item:hover { background: rgba(108,99,255,0.15); }
+.cfd-item.active { background: rgba(108,99,255,0.22); color: var(--accent2); font-weight: 600; }
+.cfd-flag-img { flex-shrink: 0; border-radius: 1px; vertical-align: -1px; }
+.cfd-flag-emoji { font-size: 16px; line-height: 1; flex-shrink: 0; }
 .replace-input::placeholder { color: var(--muted); font-weight: 400; }
 
 .replace-row { display: flex; align-items: flex-start; gap: 8px; width: 100%; }
@@ -492,6 +532,27 @@ textarea.replace-input:focus {
           </div>
         </div>
 
+        <!-- DATA / BACKUP -->
+        <div class="section-label" style="margin-top:4px">Data & Backup</div>
+        <div class="settings-group">
+          <div class="settings-row">
+            <div class="row-icon">💾</div>
+            <div class="row-info">
+              <label>Export / Import Settings</label>
+              <small id="backup-status-text">Backup or restore shortcuts and configurations</small>
+            </div>
+            <div style="display:flex; gap: 8px;">
+              <button class="btn-action" id="btn-import-settings" style="font-size: 11px; display: flex; align-items: center; gap: 6px; padding: 6px 12px; margin-top:0;">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                Import
+              </button>
+              <button class="btn-action" id="btn-export-settings" style="font-size: 11px; display: flex; align-items: center; gap: 6px; padding: 6px 12px; margin-top:0;">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                Export
+              </button>
+            </div>
+          </div>
+        </div>
 
       </div>
 
@@ -505,29 +566,17 @@ textarea.replace-input:focus {
               <label>Recognition Language</label>
               <small>The language used for speech-to-text conversion</small>
             </div>
-            <select class="lang-select" id="lang-select">
-              <option value="en-US">🇺🇸 English (US)</option>
-              <option value="en-GB">🇬🇧 English (UK)</option>
-              <option value="en-CA">🇨🇦 English (CA)</option>
-              <option value="en-AU">🇦🇺 English (AU)</option>
-              <option value="es-ES">🇪🇸 Español (ES)</option>
-              <option value="es-MX">🇲🇽 Español (MX)</option>
-              <option value="fr-FR">🇫🇷 Français (FR)</option>
-              <option value="de-DE">🇩🇪 Deutsch (DE)</option>
-              <option value="it-IT">🇮🇹 Italiano (IT)</option>
-              <option value="pt-BR">🇧🇷 Português (BR)</option>
-              <option value="pt-PT">🇵🇹 Português (PT)</option>
-              <option value="ja-JP">🇯🇵 Japanese (JP)</option>
-              <option value="zh-CN">🇨🇳 Chinese (CN)</option>
-              <option value="ko-KR">🇰🇷 Korean (KR)</option>
-              <option value="ar-SA">🇸🇦 Arabic (SA)</option>
-              <option value="bn-BD">🇧🇩 Bengali (BD)</option>
-              <option value="hi-IN">🇮🇳 Hindi (IN)</option>
-              <option value="ru-RU">🇷🇺 Русский (RU)</option>
-              <option value="tr-TR">🇹🇷 Türkçe (TR)</option>
-              <option value="nl-NL">🇳🇱 Nederlands (NL)</option>
-              <option value="pl-PL">🇵🇱 Polski (PL)</option>
-            </select>
+            <!-- Custom flag dropdown — works on both macOS (emoji) and Windows (flagcdn img) -->
+            <div class="cfd-wrapper" id="lang-cfd-wrapper">
+              <div class="cfd-selected" id="lang-cfd-selected">
+                <span class="cfd-flag-slot" id="lang-cfd-flag"></span>
+                <span class="cfd-selected-name" id="lang-cfd-name">English (US)</span>
+                <svg class="cfd-arrow" width="12" height="12" viewBox="0 0 12 12"><path fill="currentColor" d="M6 8L1 3h10z"/></svg>
+              </div>
+              <div class="cfd-list" id="lang-cfd-list"></div>
+            </div>
+            <!-- Hidden select keeps .value in sync for saveSettings() & addLangHotkeyRow cloning -->
+            <select class="lang-select" id="lang-select" style="display:none" aria-hidden="true"></select>
           </div>
         </div>
         <div class="section-label">Behavior</div>
@@ -546,6 +595,17 @@ textarea.replace-input:focus {
               <option value="60">60 seconds</option>
               <option value="0">Never (Infinite)</option>
             </select>
+          </div>
+          <div class="settings-row" style="border-top: 1px solid var(--border); margin-top: 4px; padding-top: 12px;">
+            <div class="row-icon">⌨️</div>
+            <div class="row-info">
+              <label>Preserve Clipboard History</label>
+              <small>Use simulated typing instead of fast paste (keeps clipboard clean)</small>
+            </div>
+            <label class="toggle">
+              <input type="checkbox" id="toggle-sim-typing"/>
+              <div class="toggle-track"></div>
+            </label>
           </div>
         </div>
 
@@ -781,7 +841,203 @@ textarea.replace-input:focus {
 'use strict';
 
 const IS_MAC = window.electronAPI.platform === 'darwin';
+const IS_WIN = window.electronAPI.platform === 'win32';
 const DEFAULT_HOTKEY = 'Alt+C';
+
+// ── Shared language list (mirrors overlay.html + main.js) ──────────────────
+const SETTINGS_LANGUAGES = [
+  // English (6)
+  { code:'en-US', name:'English (US)',       flag:'🇺🇸' },
+  { code:'en-GB', name:'English (UK)',       flag:'🇬🇧' },
+  { code:'en-CA', name:'English (CA)',       flag:'🇨🇦' },
+  { code:'en-AU', name:'English (AU)',       flag:'🇦🇺' },
+  { code:'en-IN', name:'English (IN)',       flag:'🇮🇳' },
+  { code:'en-ZA', name:'English (ZA)',       flag:'🇿🇦' },
+  // Spanish (4)
+  { code:'es-ES', name:'Español (ES)',       flag:'🇪🇸' },
+  { code:'es-MX', name:'Español (MX)',       flag:'🇲🇽' },
+  { code:'es-AR', name:'Español (AR)',       flag:'🇦🇷' },
+  { code:'es-US', name:'Español (US)',       flag:'🇺🇸' },
+  // Portuguese (2)
+  { code:'pt-BR', name:'Português (BR)',     flag:'🇧🇷' },
+  { code:'pt-PT', name:'Português (PT)',     flag:'🇵🇹' },
+  // French (2)
+  { code:'fr-FR', name:'Français (FR)',      flag:'🇫🇷' },
+  { code:'fr-CA', name:'Français (CA)',      flag:'🇨🇦' },
+  // German (3)
+  { code:'de-DE', name:'Deutsch (DE)',       flag:'🇩🇪' },
+  { code:'de-AT', name:'Deutsch (AT)',       flag:'🇦🇹' },
+  { code:'de-CH', name:'Deutsch (CH)',       flag:'🇨🇭' },
+  // Dutch (2)
+  { code:'nl-NL', name:'Nederlands (NL)',    flag:'🇳🇱' },
+  { code:'nl-BE', name:'Nederlands (BE)',    flag:'🇧🇪' },
+  // Scandinavian (4)
+  { code:'sv-SE', name:'Svenska (SE)',       flag:'🇸🇪' },
+  { code:'da-DK', name:'Dansk (DK)',         flag:'🇩🇰' },
+  { code:'nb-NO', name:'Norsk (NO)',         flag:'🇳🇴' },
+  { code:'is-IS', name:'Íslenska (IS)',      flag:'🇮🇸' },
+  // Italian
+  { code:'it-IT', name:'Italiano (IT)',      flag:'🇮🇹' },
+  // Slavic (10)
+  { code:'ru-RU', name:'Русский (RU)',       flag:'🇷🇺' },
+  { code:'pl-PL', name:'Polski (PL)',        flag:'🇵🇱' },
+  { code:'cs-CZ', name:'Čeština (CZ)',       flag:'🇨🇿' },
+  { code:'sk-SK', name:'Slovenčina (SK)',    flag:'🇸🇰' },
+  { code:'uk-UA', name:'Українська (UA)',    flag:'🇺🇦' },
+  { code:'hr-HR', name:'Hrvatski (HR)',      flag:'🇭🇷' },
+  { code:'sr-RS', name:'Српски (RS)',        flag:'🇷🇸' },
+  { code:'bg-BG', name:'Български (BG)',     flag:'🇧🇬' },
+  { code:'sl-SI', name:'Slovenščina (SI)',   flag:'🇸🇮' },
+  { code:'mk-MK', name:'Македонски (MK)',    flag:'🇲🇰' },
+  // Other European (5)
+  { code:'ro-RO', name:'Română (RO)',        flag:'🇷🇴' },
+  { code:'ca-ES', name:'Català (ES)',        flag:'🇪🇸' },
+  { code:'el-GR', name:'Ελληνικά (GR)',      flag:'🇬🇷' },
+  { code:'fi-FI', name:'Suomi (FI)',         flag:'🇫🇮' },
+  { code:'hu-HU', name:'Magyar (HU)',        flag:'🇭🇺' },
+  // East Asian (4)
+  { code:'ja-JP', name:'Japanese (JP)',      flag:'🇯🇵' },
+  { code:'zh-CN', name:'Chinese (CN)',       flag:'🇨🇳' },
+  { code:'zh-TW', name:'Chinese (TW)',       flag:'🇹🇼' },
+  { code:'ko-KR', name:'Korean (KR)',        flag:'🇰🇷' },
+  // Southeast Asian (10)
+  { code:'th-TH', name:'Thai (TH)',          flag:'🇹🇭' },
+  { code:'vi-VN', name:'Tiếng Việt (VN)',    flag:'🇻🇳' },
+  { code:'id-ID', name:'Bahasa Indonesia',   flag:'🇮🇩' },
+  { code:'ms-MY', name:'Bahasa Melayu (MY)', flag:'🇲🇾' },
+  { code:'ms-BN', name:'Bahasa Melayu (BN)', flag:'🇧🇳' },
+  { code:'tl-PH', name:'Filipino (PH)',      flag:'🇵🇭' },
+  { code:'my-MM', name:'Myanmar (MM)',       flag:'🇲🇲' },
+  { code:'km-KH', name:'Khmer (KH)',         flag:'🇰🇭' },
+  { code:'lo-LA', name:'Lao (LA)',           flag:'🇱🇦' },
+  { code:'mn-MN', name:'Монгол (MN)',        flag:'🇲🇳' },
+  // South Asian (16)
+  { code:'hi-IN', name:'Hindi (IN)',         flag:'🇮🇳' },
+  { code:'bn-IN', name:'Bengali (IN)',       flag:'🇮🇳' },
+  { code:'bn-BD', name:'Bengali (BD)',       flag:'🇧🇩' },
+  { code:'ur-IN', name:'Urdu (IN)',          flag:'🇮🇳' },
+  { code:'ur-PK', name:'Urdu (PK)',          flag:'🇵🇰' },
+  { code:'pa-IN', name:'Punjabi (IN)',       flag:'🇮🇳' },
+  { code:'gu-IN', name:'Gujarati (IN)',      flag:'🇮🇳' },
+  { code:'mr-IN', name:'Marathi (IN)',       flag:'🇮🇳' },
+  { code:'te-IN', name:'Telugu (IN)',        flag:'🇮🇳' },
+  { code:'kn-IN', name:'Kannada (IN)',       flag:'🇮🇳' },
+  { code:'ml-IN', name:'Malayalam (IN)',     flag:'🇮🇳' },
+  { code:'ta-IN', name:'Tamil (IN)',         flag:'🇮🇳' },
+  { code:'or-IN', name:'Odia (IN)',          flag:'🇮🇳' },
+  { code:'si-LK', name:'Sinhala (LK)',       flag:'🇱🇰' },
+  { code:'ne-NP', name:'Nepali (NP)',        flag:'🇳🇵' },
+  { code:'dv-MV', name:'Dhivehi (MV)',       flag:'🇲🇻' },
+  // Middle East & Africa (18)
+  { code:'ar-SA', name:'Arabic (SA)',        flag:'🇸🇦' },
+  { code:'ar-AE', name:'Arabic (AE)',        flag:'🇦🇪' },
+  { code:'ar-EG', name:'Arabic (EG)',        flag:'🇪🇬' },
+  { code:'tr-TR', name:'Türkçe (TR)',        flag:'🇹🇷' },
+  { code:'he-IL', name:'עברית (IL)',         flag:'🇮🇱' },
+  { code:'fa-IR', name:'فارسی (IR)',         flag:'🇮🇷' },
+  { code:'sw-KE', name:'Kiswahili (KE)',     flag:'🇰🇪' },
+  { code:'am-ET', name:'Amharic (ET)',       flag:'🇪🇹' },
+  { code:'zu-ZA', name:'isiZulu (ZA)',       flag:'🇿🇦' },
+  { code:'yo-NG', name:'Yoruba (NG)',        flag:'🇳🇬' },
+  { code:'ig-NG', name:'Igbo (NG)',          flag:'🇳🇬' },
+  { code:'ha-NG', name:'Hausa (NG)',         flag:'🇳🇬' },
+  { code:'so-SO', name:'Soomaali (SO)',      flag:'🇸🇴' },
+  { code:'rw-RW', name:'Kinyarwanda (RW)',   flag:'🇷🇼' },
+  { code:'mg-MG', name:'Malagasy (MG)',      flag:'🇲🇬' },
+  { code:'uz-UZ', name:"O'zbek (UZ)",        flag:'🇺🇿' },
+  { code:'kk-KZ', name:'Қазақша (KZ)',       flag:'🇰🇿' },
+  { code:'ky-KG', name:'Кыргызча (KG)',      flag:'🇰🇬' },
+  // Pacific & Other (6)
+  { code:'haw-US', name:'Hawaiian (US)',     flag:'🇺🇸' },
+  { code:'mi-NZ',  name:'Māori (NZ)',        flag:'🇳🇿' },
+  { code:'sm-WS',  name:'Samoan (WS)',       flag:'🇼🇸' },
+  { code:'to-TO',  name:'Tongan (TO)',       flag:'🇹🇴' },
+  { code:'fj-FJ',  name:'Fijian (FJ)',       flag:'🇫🇯' },
+  { code:'cy-GB',  name:'Cymraeg (GB)',      flag:'🇬🇧' },
+];
+
+// Build a flag element: <img> from flagcdn on Windows, emoji span on Mac
+function makeFlagEl(langCode, size) {
+  size = size || 16;
+  const lang = SETTINGS_LANGUAGES.find(l => l.code === langCode);
+  if (!lang) return '';
+  if (IS_WIN) {
+    const cc = langCode.split('-')[1] ? langCode.split('-')[1].toLowerCase() : '';
+    return cc
+      ? `<img class="cfd-flag-img" src="https://flagcdn.com/${size}x12/${cc}.png" width="${size}" height="12" alt="">`
+      : '';
+  }
+  return `<span class="cfd-flag-emoji">${lang.flag}</span>`;
+}
+
+// Populate a native <select> element with language options (text labels only — no emoji on Windows)
+function populateLangSelect(selectEl) {
+  selectEl.innerHTML = '';
+  SETTINGS_LANGUAGES.forEach(l => {
+    const opt = document.createElement('option');
+    opt.value = l.code;
+    // On Windows emoji flags are invisible in native selects, use plain names only
+    opt.textContent = IS_WIN ? l.name : (l.flag + '\u00A0' + l.name);
+    selectEl.appendChild(opt);
+  });
+}
+
+// ── Custom Flag Dropdown for the Voice & Language panel ────────────────────
+function buildCustomLangDropdown() {
+  const wrapper  = document.getElementById('lang-cfd-wrapper');
+  const list     = document.getElementById('lang-cfd-list');
+  const selected = document.getElementById('lang-cfd-selected');
+  const hiddenSel = document.getElementById('lang-select');
+
+  // Populate the hidden native select
+  populateLangSelect(hiddenSel);
+
+  // Build dropdown items
+  list.innerHTML = '';
+  SETTINGS_LANGUAGES.forEach(l => {
+    const item = document.createElement('div');
+    item.className = 'cfd-item';
+    item.dataset.code = l.code;
+    item.innerHTML = makeFlagEl(l.code) + `<span>${l.name}</span>`;
+    item.addEventListener('click', () => {
+      setCfdValue(l.code);
+      wrapper.classList.remove('open');
+      markDirty();
+    });
+    list.appendChild(item);
+  });
+
+  // Toggle open/close
+  selected.addEventListener('click', e => {
+    e.stopPropagation();
+    wrapper.classList.toggle('open');
+  });
+
+  // Close when clicking outside
+  document.addEventListener('click', () => wrapper.classList.remove('open'));
+}
+
+function setCfdValue(code) {
+  const lang = SETTINGS_LANGUAGES.find(l => l.code === code) || SETTINGS_LANGUAGES[0];
+  // Update displayed flag + name
+  document.getElementById('lang-cfd-flag').innerHTML = makeFlagEl(lang.code);
+  document.getElementById('lang-cfd-name').textContent = lang.name;
+  // Sync hidden select
+  const hiddenSel = document.getElementById('lang-select');
+  hiddenSel.value = lang.code;
+  // Mark active item in list
+  document.querySelectorAll('#lang-cfd-list .cfd-item').forEach(item => {
+    item.classList.toggle('active', item.dataset.code === lang.code);
+  });
+}
+
+// Initialise the custom dropdown once DOM is ready — called inside loadConfig()
+let _cfdBuilt = false;
+function ensureCfdBuilt() {
+  if (_cfdBuilt) return;
+  _cfdBuilt = true;
+  buildCustomLangDropdown();
+}
 
 // ── Panel switching ─────────────────────────────────────────────
 const PANELS = {
@@ -1100,13 +1356,16 @@ async function loadConfig() {
 
   document.getElementById('toggle-autolunch').checked = cfg.autoLaunch !== false;
 
+  // Build + sync custom flag dropdown (safe to call multiple times)
+  ensureCfdBuilt();
   const lang = cfg.language || 'en-US';
-  const sel = document.getElementById('lang-select');
-  if ([...sel.options].some(o => o.value === lang)) sel.value = lang;
+  setCfdValue(lang);
 
   const timeout = String(cfg.silenceTimeout !== undefined ? cfg.silenceTimeout : '15');
   const timeoutSel = document.getElementById('silence-timeout');
   if ([...timeoutSel.options].some(o => o.value === timeout)) timeoutSel.value = timeout;
+  
+  document.getElementById('toggle-sim-typing').checked = cfg.simulateTyping === true;
 
   // Load microphone list and restore saved selection
   loadMicList(false, cfg.selectedMicId || '');
@@ -1178,9 +1437,17 @@ function addReplacementRow(sayVal, replaceVal) {
 
 function addLangHotkeyRow(comboVal = '', langVal = 'bn-BD') {
   const list = document.getElementById('lang-hotkeys-list');
-  const cloneSelect = document.getElementById('lang-select').cloneNode(true);
-  cloneSelect.id = ''; 
+  // Clone the hidden select shell (will be empty) then populate it properly
+  const cloneSelect = document.createElement('select');
+  cloneSelect.id = '';
   cloneSelect.className = 'lang-select val-lang';
+  // Always use text-only labels for the hotkey row selects (works on Win + Mac)
+  SETTINGS_LANGUAGES.forEach(l => {
+    const opt = document.createElement('option');
+    opt.value = l.code;
+    opt.textContent = IS_WIN ? l.name : (l.flag + '\u00A0' + l.name);
+    cloneSelect.appendChild(opt);
+  });
 
   const row = document.createElement('div');
   row.className = 'settings-row lang-hotkey-row';
@@ -1319,6 +1586,71 @@ document.addEventListener('DOMContentLoaded', () => {
     body.addEventListener('input', markDirty);
     body.addEventListener('change', markDirty);
   }
+
+  const btnExport = document.getElementById('btn-export-settings');
+  if (btnExport) {
+    btnExport.addEventListener('click', async () => {
+      // Prompt main to export the config
+      const res = await window.electronAPI.exportSettings();
+      const statusTxt = document.getElementById('backup-status-text');
+      if (res && res.ok) {
+        statusTxt.textContent = 'Settings exported successfully!';
+        statusTxt.style.color = 'var(--accent2)';
+      } else if (res && res.cancelled) {
+        statusTxt.textContent = 'Export cancelled.';
+        statusTxt.style.color = 'var(--muted)';
+      } else {
+        statusTxt.textContent = 'Export failed.';
+        statusTxt.style.color = '#ff6b6b';
+      }
+      setTimeout(() => {
+        statusTxt.textContent = 'Backup or restore shortcuts and configurations';
+        statusTxt.style.color = 'var(--muted)';
+      }, 4000);
+    });
+  }
+
+  const btnImport = document.getElementById('btn-import-settings');
+  if (btnImport) {
+    btnImport.addEventListener('click', async () => {
+      const res = await window.electronAPI.importSettingsPick();
+      const statusTxt = document.getElementById('backup-status-text');
+      if (res && res.error) {
+        statusTxt.textContent = 'Failed: ' + res.error;
+        statusTxt.style.color = '#ff6b6b';
+      } else if (res && res.cancelled) {
+        statusTxt.textContent = 'Import cancelled.';
+        statusTxt.style.color = 'var(--muted)';
+      } else if (res && res.config) {
+        // Validate platform hotkeys
+        const platform = window.electronAPI.platform;
+        let requiresSave = false;
+        
+        // Show conflicts if any
+        if (res.conflicts && res.conflicts.length > 0) {
+          alert("Imported Shortcuts Conflict! You must reassign shortcuts matching your OS.");
+          // Update the UI immediately so they show up red.
+          // In a more complex app, we'd render a modal. Here we'll just set the variables and let the user see them in red.
+          // For simplicity, we commit the import directly since config store is separate, 
+          // and we'll reload the app UI. Actually let's just commit it directly and reload.
+        }
+        
+        const commitRes = await window.electronAPI.importSettingsCommit(res.config);
+        if (commitRes && commitRes.ok) {
+           statusTxt.textContent = 'Import successful! Reloading...';
+           statusTxt.style.color = 'var(--accent2)';
+           setTimeout(() => {
+             // Reload settings page to reflect new config
+             loadConfig();
+           }, 1000);
+        }
+      }
+      setTimeout(() => {
+        statusTxt.textContent = 'Backup or restore shortcuts and configurations';
+        statusTxt.style.color = 'var(--muted)';
+      }, 4000);
+    });
+  }
 });
 
 // ── Save ────────────────────────────────────────────────────────
@@ -1355,6 +1687,7 @@ function saveSettings() {
     autoLaunch:     document.getElementById('toggle-autolunch').checked,
     language:       document.getElementById('lang-select').value,
     silenceTimeout: parseInt(document.getElementById('silence-timeout').value, 10),
+    simulateTyping: document.getElementById('toggle-sim-typing').checked,
     theme:          document.getElementById('theme-select').value,
     visualizerType: document.getElementById('visualizer-style') ? document.getElementById('visualizer-style').value : 'wave',
     micSensitivity: document.getElementById('mic-sensitivity') ? parseFloat(document.getElementById('mic-sensitivity').value) : 1.0,

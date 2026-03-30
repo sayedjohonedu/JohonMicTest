@@ -26,6 +26,7 @@ contextBridge.exposeInMainWorld('junoAPI', {
   toggleFavorite:    (lang) => ipcRenderer.send('toggle-favorite', lang),
   getConfig:         ()     => ipcRenderer.invoke('get-config'),
   openSettings:      ()     => ipcRenderer.send('open-settings'),
+  requestResize:     (height) => ipcRenderer.send('overlay-request-resize', height),
   openUrl:           (url)  => ipcRenderer.send('open-url', url),
   setMiniMode:       (mini) => ipcRenderer.send('set-mini-mode', mini),
   onSetLanguage:     (cb)   => onChannel('set-language',        (_, lang) => cb(lang)),

@@ -36,8 +36,8 @@
             ws.onmessage = (event) => {
                 const data = JSON.parse(event.data);
                 if (data.command === 'start') {
-                    if (typeof data.timeout === 'number') {
-                        SILENCE_TIMEOUT_MS = data.timeout * 1000;
+                    if (data.timeout !== undefined) {
+                        SILENCE_TIMEOUT_MS = parseInt(data.timeout, 10) * 1000;
                     }
                     startListening(data.language || 'en-US');
                 } else if (data.command === 'stop') {
@@ -147,6 +147,7 @@
                         try {
                             recognition = createRecognition();
                             recognition.start();
+                            armSilenceTimer(); // Re-arm after restart so silence timeout still works
                         } catch (e) {
                             console.error('Restart failed', e);
                         }
