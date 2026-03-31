@@ -1,3 +1,11 @@
+# Juno Voice v1.2.2 🎙️✨
+
+### 🔧 What's New in v1.2.2
+*   **Windows Emoji Consistency:** Overhauled Windows emoji support across the app. Fixed a CDN issue where emojis in the picker were defaulting to native Windows rendering (causing flags to appear as letters and some modern emojis to render as square boxes). 
+*   **Intelligent Emoticon Injection:** Updated the text injection system to automatically protect Emojis from simulated keystrokes, enforcing lightning-fast direct pasting for all multi-byte emoji codes. You will no longer encounter garbled emojis even if "Simulate Typing" is toggled on.
+
+---
+
 # Juno Voice v1.2.1 🎙️✨
 
 ### 🔧 What's New in v1.2.1

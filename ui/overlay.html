@@ -5,7 +5,6 @@
 <title>Juno Listening</title>
 <style>
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-
   :root {
     --accent:  #7C6FFF;
     --accent-rgb: 124, 111, 255;
@@ -16,7 +15,7 @@
     --text:    #F0F0F5;
     --muted:   rgba(255,255,255,0.40);
     --radius:  18px;
-    --font:    -apple-system, 'SF Pro Display', 'Segoe UI', system-ui, sans-serif;
+    --font:    -apple-system, 'SF Pro Display', 'Segoe UI', 'Apple Color Emoji', 'Segoe UI Emoji', system-ui, sans-serif;
   }
 
   [data-theme="light"] {
@@ -2368,12 +2367,15 @@ function toggleEmojiPanel() {
 // Load Twemoji from CDN for consistent Apple-style emoji on all platforms
 (function loadTwemoji() {
   const script = document.createElement('script');
-  script.src = 'https://cdn.jsdelivr.net/gh/jdecked/twemoji@15.1.0/dist/twemoji.min.js';
+  script.src = 'https://unpkg.com/@twemoji/api@15.1.0/dist/twemoji.min.js';
   script.crossOrigin = 'anonymous';
   script.onload = () => {
     window.twemojiReady = true;
     // Re-render emoji grid if it's open
-    if (isEmojiOpen) buildEmojiGrid(emojiAll);
+    if (isEmojiOpen) {
+      const list = getEmojiList();
+      buildEmojiGrid(list);
+    }
   };
   document.head.appendChild(script);
 })();

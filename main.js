@@ -1108,7 +1108,10 @@ function injectCharDirect(chars) {
 function injectText(text) {
   // Check user preference for typing vs pasting
   const isSimTyping = store.get('simulateTyping');
-  if (isSimTyping) {
+  // If simulated typing is enabled, and the text is purely ASCII (no emojis), simulate it.
+  // Emojis/Unicode surrogate pairs break robot.typeString and output garbage characters, so force paste for those.
+  const isAscii = /^[\x00-\x7F]*$/.test(text);
+  if (isSimTyping && isAscii) {
     try {
       robot.setKeyboardDelay(0);
       robot.typeString(text);
