@@ -8,6 +8,7 @@
 
   :root {
     --accent:  #7C6FFF;
+    --accent-rgb: 124, 111, 255;
     --red:     #FF5F57;
     --bg:      rgba(20, 20, 26, 0.92);
     --surface: rgba(255,255,255,0.07);
@@ -24,6 +25,66 @@
     --border:  rgba(0,0,0,0.11);
     --text:    #111114;
     --muted:   rgba(0,0,0,0.5);
+  }
+
+  [data-theme="bumble"] {
+    --accent:  #F59E0B;
+    --accent-rgb: 245, 158, 11;
+    --bg:      rgba(15, 23, 26, 0.95);
+    --surface: rgba(255, 255, 255, 0.05);
+    --border:  rgba(245, 158, 11, 0.15);
+    --text:    #F8FAFC;
+    --muted:   rgba(255, 255, 255, 0.45);
+  }
+
+  [data-theme="ocean"] {
+    --accent:  #06B6D4;
+    --accent-rgb: 6, 182, 212;
+    --bg:      rgba(8, 18, 36, 0.95);
+    --surface: rgba(6, 182, 212, 0.06);
+    --border:  rgba(6, 182, 212, 0.15);
+    --text:    #E0F7FA;
+    --muted:   rgba(224, 247, 250, 0.45);
+  }
+
+  [data-theme="sage"] {
+    --accent:  #10B981;
+    --accent-rgb: 16, 185, 129;
+    --bg:      rgba(8, 20, 16, 0.95);
+    --surface: rgba(16, 185, 129, 0.06);
+    --border:  rgba(16, 185, 129, 0.15);
+    --text:    #ECFDF5;
+    --muted:   rgba(236, 253, 245, 0.45);
+  }
+
+  [data-theme="rose"] {
+    --accent:  #F43F5E;
+    --accent-rgb: 244, 63, 94;
+    --bg:      rgba(18, 8, 14, 0.95);
+    --surface: rgba(244, 63, 94, 0.06);
+    --border:  rgba(244, 63, 94, 0.15);
+    --text:    #FFF1F2;
+    --muted:   rgba(255, 241, 242, 0.45);
+  }
+
+  [data-theme="ember"] {
+    --accent:  #F97316;
+    --accent-rgb: 249, 115, 22;
+    --bg:      rgba(14, 8, 2, 0.95);
+    --surface: rgba(249, 115, 22, 0.06);
+    --border:  rgba(249, 115, 22, 0.15);
+    --text:    #FFF7ED;
+    --muted:   rgba(255, 247, 237, 0.45);
+  }
+
+  [data-theme="arctic"] {
+    --accent:  #6366F1;
+    --accent-rgb: 99, 102, 241;
+    --bg:      rgba(240, 242, 248, 0.94);
+    --surface: rgba(0, 0, 0, 0.04);
+    --border:  rgba(99, 102, 241, 0.15);
+    --text:    #0F172A;
+    --muted:   rgba(15, 23, 42, 0.50);
   }
 
   html, body {
@@ -47,7 +108,7 @@
     flex-direction: column;
     font-family: var(--font);
     color: var(--text);
-    /* overflow: visible — let dropdown escape */
+    overflow: hidden; /* panels must not bleed below window edge */
   }
 
   /* ── Title bar ── */
@@ -243,8 +304,8 @@
     cursor: pointer;
     transition: background 0.1s;
   }
-  .lang-item:hover  { background: rgba(124,111,255,0.22); }
-  .lang-item.active { background: rgba(124,111,255,0.14); font-weight: 600; }
+  .lang-item:hover  { background: rgba(var(--accent-rgb),0.22); }
+  .lang-item.active { background: rgba(var(--accent-rgb),0.14); font-weight: 600; }
   .lang-item .li-fav {
     font-size: 15px; flex-shrink: 0; margin-right: 2px;
     cursor: pointer; transition: transform 0.1s, color 0.1s;
@@ -285,8 +346,21 @@
   }
 
   /* ── Waveform ── */
-  #waveform-wrap { flex: 0 0 32px; padding: 0 14px; }
-  #waveform { width: 100%; height: 32px; display: block; }
+  #waveform-wrap { 
+    flex: 0 0 32px; 
+    padding: 0 14px; 
+    position: relative; /* relative anchor for absolute canvas */
+  }
+  #waveform { 
+    position: absolute; 
+    top: -55px; 
+    left: 14px; 
+    width: calc(100% - 28px); 
+    height: 142px; /* 32 + 55 + 55 */
+    display: block; 
+    pointer-events: none; /* so punctuation clicks work through it */
+    z-index: 10;
+  }
 
   .divider { flex: 0 0 1px; background: var(--border); margin: 0 14px; }
 
@@ -296,6 +370,7 @@
     padding: 7px 10px 9px;
     display: flex; flex-direction: column; gap: 5px;
     border-radius: 0 0 var(--radius) var(--radius);
+    transition: padding-bottom 0.2s;
   }
   .punct-row {
     display: flex; gap: 4px; justify-content: center;
@@ -313,19 +388,107 @@
     user-select: none;
     -webkit-user-select: none;
   }
-  .punct-btn:hover  { background: rgba(124,111,255,0.3); border-color: var(--accent); }
+  .punct-btn:hover  { background: rgba(var(--accent-rgb),0.3); border-color: var(--accent); }
   .punct-btn:active { transform: scale(0.88); }
-  .punct-btn.flash  { background: rgba(124,111,255,0.5); border-color: var(--accent); }
+  .punct-btn.flash  { background: rgba(var(--accent-rgb),0.5); border-color: var(--accent); }
 
   /* Enter button — slightly wider, purple accent */
   .punct-btn.enter-btn {
     flex: 1.8;
     max-width: 72px;
     font-size: 16px;
-    background: rgba(124,111,255,0.12);
-    border-color: rgba(124,111,255,0.3);
+    background: rgba(var(--accent-rgb),0.12);
+    border-color: rgba(var(--accent-rgb),0.3);
   }
-  .punct-btn.enter-btn:hover { background: rgba(124,111,255,0.35); }
+  .punct-btn.enter-btn:hover { background: rgba(var(--accent-rgb),0.35); }
+
+
+  /* Shuffle button — warm orange, always on the left so it's clearly a utility not a char */
+  .punct-btn.shuffle-btn {
+    flex: 1;
+    max-width: 38px;
+    font-size: 14px;
+    background: rgba(255,165,0,0.10);
+    border-color: rgba(255,165,0,0.28);
+    color: #FFA500;
+    transition: background 0.15s, transform 0.12s, color 0.15s, border-color 0.15s;
+  }
+  .punct-btn.shuffle-btn:hover { background: rgba(255,165,0,0.25); border-color: rgba(255,165,0,0.55); color: #FFB833; }
+  .punct-btn.shuffle-btn:active { transform: scale(0.85) rotate(30deg); }
+  .punct-btn.shuffle-btn.spinning { animation: shuffleSpin 0.3s ease; }
+  @keyframes shuffleSpin {
+    0%   { transform: scale(0.88) rotate(0deg); }
+    60%  { transform: scale(0.88) rotate(150deg); }
+    100% { transform: scale(1)    rotate(180deg); }
+  }
+  [data-theme="light"] .punct-btn.shuffle-btn {
+    background: rgba(200,120,0,0.07); border-color: rgba(200,120,0,0.2); color: #B87000;
+  }
+  [data-theme="light"] .punct-btn.shuffle-btn:hover { background: rgba(200,120,0,0.16); }
+
+  /* Expand keyboard button — keyboard icon only */
+  .punct-btn.expand-kb-btn {
+    flex: 1.8;
+    max-width: 60px;
+    font-size: 18px;
+    background: rgba(var(--accent-rgb),0.12);
+    border-color: rgba(var(--accent-rgb),0.30);
+    color: var(--accent);
+    transition: background 0.15s, transform 0.1s, border-color 0.15s, box-shadow 0.2s;
+  }
+  .punct-btn.expand-kb-btn:hover {
+    background: rgba(var(--accent-rgb),0.28);
+    border-color: var(--accent);
+    box-shadow: 0 0 8px rgba(var(--accent-rgb),0.3);
+  }
+  .punct-btn.expand-kb-btn:active { transform: scale(0.88); }
+  .punct-btn.expand-kb-btn.active-kb {
+    background: rgba(var(--accent-rgb),0.35);
+    border-color: var(--accent);
+    color: var(--accent);
+    box-shadow: 0 0 12px rgba(var(--accent-rgb),0.5);
+    animation: kbPulse 2s ease-in-out infinite;
+  }
+  @keyframes kbPulse {
+    0%, 100% { box-shadow: 0 0 8px rgba(var(--accent-rgb),0.4); }
+    50%       { box-shadow: 0 0 16px rgba(var(--accent-rgb),0.7); }
+  }
+  [data-theme="light"] .punct-btn.expand-kb-btn {
+    background: rgba(var(--accent-rgb),0.08);
+    border-color: rgba(var(--accent-rgb),0.25);
+  }
+
+  /* Emoji toggle button on keyboard mod-row — highlighted when active */
+  .kb-key.emoji-toggle-key.emoji-active {
+    background: rgba(255, 200, 0, 0.25);
+    border-color: rgba(255, 200, 0, 0.6);
+    box-shadow: 0 0 10px rgba(255, 200, 0, 0.4);
+  }
+
+  /* Page indicator dots for shuffle */
+  #page-dots {
+    display: flex; align-items: center; justify-content: center;
+    gap: 4px;
+    height: 10px;
+    padding: 0 2px;
+  }
+  .page-dot {
+    width: 4px; height: 4px; border-radius: 50%;
+    background: rgba(255,255,255,0.2);
+    transition: background 0.2s, transform 0.2s, width 0.2s;
+  }
+  .page-dot.active {
+    background: var(--accent);
+    width: 10px;
+    border-radius: 3px;
+  }
+  [data-theme="light"] .page-dot { background: rgba(0,0,0,0.15); }
+  [data-theme="light"] .page-dot.active { background: var(--accent); }
+
+  /* Extra char row (row 3 of punct) — shown when a special page is active */
+  #prow-extra {
+    display: none; gap: 4px; justify-content: center;
+  }
 
   /* Backspace button — red tone so it's clearly destructive */
   .punct-btn.back-btn {
@@ -409,7 +572,7 @@
   #footer {
     display: flex; align-items: center; justify-content: center;
     gap: 12px;
-    margin: 12px -16px -16px -16px;
+    margin-top: auto;
     padding: 8px 16px;
     background: rgba(255,255,255,0.03);
     border-top: 1px solid var(--border);
@@ -430,6 +593,188 @@
   #footer a:hover { opacity: 1; }
   .footer-sep { color: var(--muted); opacity: 0.5; }
   [data-theme="light"] #footer { background: rgba(0,0,0,0.02); }
+
+  /* ═══════════════════════════════════════════════════════════════
+   * PHASE 2 — Full Keyboard Tray
+   * ═══════════════════════════════════════════════════════════════ */
+  #keyboard-panel {
+    flex: 0 0 auto;
+    padding: 6px 8px 8px;
+    display: flex; flex-direction: column; gap: 4px;
+    background: rgba(0,0,0,0.15);
+    border-top: 1px solid var(--border);
+    /* Hidden by default — revealed when isKbExpanded = true */
+    max-height: 0;
+    overflow: hidden;
+    opacity: 0;
+    transition: max-height 0.28s cubic-bezier(0.4,0,0.2,1),
+                opacity    0.22s ease,
+                padding    0.28s ease;
+    padding-top: 0; padding-bottom: 0;
+  }
+  #keyboard-panel.open {
+    max-height: 260px;
+    opacity: 1;
+    padding: 6px 8px 8px;
+  }
+  [data-theme="light"] #keyboard-panel { background: rgba(0,0,0,0.04); }
+
+  /* Keyboard row */
+  .kb-row {
+    display: flex; gap: 3px; justify-content: center;
+  }
+
+  /* Base key */
+  .kb-key {
+    flex: 1;
+    min-width: 0;
+    height: 32px;
+    display: flex; align-items: center; justify-content: center;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    font-size: 13px; font-weight: 500;
+    color: var(--text);
+    cursor: pointer;
+    transition: background 0.1s, transform 0.07s, border-color 0.1s, color 0.1s;
+    -webkit-app-region: no-drag;
+    user-select: none; -webkit-user-select: none;
+    position: relative;
+    overflow: hidden;
+  }
+  .kb-key:hover  { background: rgba(var(--accent-rgb),0.22); border-color: rgba(var(--accent-rgb),0.4); }
+  .kb-key:active { transform: scale(0.87); }
+  .kb-key.flash  { background: rgba(var(--accent-rgb),0.4); border-color: var(--accent); }
+
+  /* Number row keys — slightly shorter label */
+  .kb-key.num-key { font-size: 12px; }
+
+  /* Wide special keys */
+  .kb-key.tab-key   { flex: 1.5; font-size: 10px; color: var(--muted); }
+  .kb-key.caps-key  { flex: 1.8; font-size: 10px; color: var(--muted); }
+  .kb-key.shift-key { flex: 2.2; font-size: 16px; color: var(--muted); transition: background 0.12s, border-color 0.12s, color 0.12s, transform 0.07s, box-shadow 0.15s; }
+  .kb-key.enter-key { flex: 2.0; font-size: 14px; background: rgba(var(--accent-rgb),0.1); border-color: rgba(var(--accent-rgb),0.25); }
+  .kb-key.enter-key:hover { background: rgba(var(--accent-rgb),0.3); }
+  .kb-key.del-key   { flex: 1.6; font-size: 14px; background: rgba(255,95,87,0.07); border-color: rgba(255,95,87,0.2); color: #FF8A85; }
+  .kb-key.del-key:hover { background: rgba(255,95,87,0.2); border-color: #FF5F57; color: #FF5F57; }
+  .kb-key.space-key { flex: 4; font-size: 10px; color: var(--muted); letter-spacing: 1px; }
+  .kb-key.ctrl-key  { flex: 1.4; font-size: 10px; color: var(--muted); }
+  .kb-key.alt-key   { flex: 1.2; font-size: 10px; color: var(--muted); }
+  .kb-key.emoji-toggle-key { flex: 1.4; font-size: 14px; }
+
+  /* ── Modifier states (Tap-latch, Double-lock) ── */
+  .shift-key.mod-once { background: rgba(var(--accent-rgb),0.2); border-color: var(--accent); color: var(--accent); box-shadow: 0 0 8px rgba(var(--accent-rgb),0.4); }
+  .shift-key.mod-lock { background: rgba(var(--accent-rgb),0.35); border-color: var(--accent); color: var(--accent); box-shadow: 0 0 14px rgba(var(--accent-rgb),0.6); }
+
+  .ctrl-key.mod-once { background: rgba(0,210,200,0.2); border-color: rgba(0,220,210,0.5); color: #00dcd6; box-shadow: 0 0 8px rgba(0,210,200,0.4); }
+  .ctrl-key.mod-lock { background: rgba(0,210,200,0.35); border-color: rgba(0,220,210,0.7); color: #00dcd6; box-shadow: 0 0 14px rgba(0,210,200,0.6); }
+
+  .alt-key.mod-once { background: rgba(210,100,200,0.2); border-color: rgba(220,110,210,0.5); color: #dc8cd6; box-shadow: 0 0 8px rgba(210,100,200,0.4); }
+  .alt-key.mod-lock { background: rgba(210,100,200,0.35); border-color: rgba(220,110,210,0.7); color: #dc8cd6; box-shadow: 0 0 14px rgba(210,100,200,0.6); }
+
+  /* Sub-label shown on keys when Ctrl or Alt is held */
+  .kb-key .kb-sub {
+    position: absolute;
+    bottom: 1px; right: 3px;
+    font-size: 7px;
+    color: rgba(0,220,210,0.6);
+    line-height: 1;
+    pointer-events: none;
+    display: none;
+  }
+  .mod-active-mode .kb-key .kb-sub { display: block; }
+
+  [data-theme="light"] .kb-key {
+    background: rgba(0,0,0,0.06);
+    border-color: rgba(0,0,0,0.12);
+  }
+  [data-theme="light"] .kb-key:hover { background: rgba(var(--accent-rgb),0.12); }
+
+  /* ═══════════════════════════════════════════════════════════════
+   * PHASE 3 — Emoji Panel
+   * ═══════════════════════════════════════════════════════════════ */
+  #emoji-panel {
+    flex: 0 0 auto;
+    padding: 0 8px;
+    max-height: 0;
+    overflow: hidden;
+    opacity: 0;
+    transition: max-height 0.28s cubic-bezier(0.4,0,0.2,1), opacity 0.22s ease, padding 0.28s ease;
+    padding-top: 0; padding-bottom: 0;
+    background: rgba(0,0,0,0.12);
+    border-top: 1px solid transparent;
+  }
+  #emoji-panel.open {
+    max-height: 270px;
+    opacity: 1;
+    padding: 6px 8px;
+    border-color: var(--border);
+  }
+
+  #emoji-cat-tabs {
+    display: flex;
+    gap: 3px;
+    margin-bottom: 5px;
+    overflow-x: auto;
+    scrollbar-width: none;
+    -webkit-app-region: no-drag;
+    flex-shrink: 0;
+  }
+  #emoji-cat-tabs::-webkit-scrollbar { display: none; }
+  .emoji-cat-tab {
+    flex: 1 0 0;
+    min-width: 28px;
+    background: none;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--muted);
+    font-size: 16px;
+    padding: 3px 0;
+    cursor: pointer;
+    transition: background 0.12s, color 0.12s;
+    -webkit-app-region: no-drag;
+    text-align: center;
+    line-height: 1;
+  }
+  .emoji-cat-tab:hover { background: rgba(var(--accent-rgb),0.15); }
+  .emoji-cat-tab.active { background: rgba(var(--accent-rgb),0.35); color: var(--text); border-color: rgba(var(--accent-rgb),0.5); }
+
+
+
+  #emoji-grid {
+    display: grid;
+    grid-template-columns: repeat(10, 1fr);
+    gap: 2px;
+    overflow-y: auto;
+    max-height: 168px;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(255,255,255,0.12) transparent;
+  }
+  #emoji-grid::-webkit-scrollbar { width: 3px; }
+  #emoji-grid::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.15); border-radius: 2px; }
+  .emoji-cat-label {
+    grid-column: 1 / -1;
+    font-size: 9px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--muted);
+    padding: 4px 2px 2px;
+    font-weight: 600;
+  }
+
+  .emoji-btn {
+    aspect-ratio: 1;
+    display: flex; align-items: center; justify-content: center;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 18px;
+    transition: background 0.1s, transform 0.07s;
+    -webkit-app-region: no-drag;
+    user-select: none;
+  }
+  .emoji-btn img { width: 22px; height: 22px; display: block; }
+  .emoji-btn:hover  { background: rgba(var(--accent-rgb),0.2); }
+  .emoji-btn:active { transform: scale(0.85); }
 </style>
 </head>
 <body>
@@ -469,8 +814,30 @@
   <div id="punct-panel">
     <div class="punct-row" id="prow1"></div>
     <div class="punct-row" id="prow2"></div>
+    <div class="punct-row" id="prow-extra"></div>
+    <div id="page-dots"></div>
     <div class="shortcut-sep">Shortcuts</div>
     <div class="punct-row" id="prow3"></div>
+  </div>
+
+  <!-- Full keyboard tray (Phase 2) — hidden until expand-kb-btn pressed -->
+  <div id="keyboard-panel">
+    <!-- Number row -->
+    <div class="kb-row" id="kb-row-num"></div>
+    <!-- QWERTY top row -->
+    <div class="kb-row" id="kb-row-q"></div>
+    <!-- Home row -->
+    <div class="kb-row" id="kb-row-a"></div>
+    <!-- Bottom row -->
+    <div class="kb-row" id="kb-row-z"></div>
+    <!-- Modifier / Space row -->
+    <div class="kb-row" id="kb-row-mod"></div>
+  </div>
+
+  <!-- Emoji picker panel (Phase 3) — hidden until emoji-toggle-key pressed -->
+  <div id="emoji-panel">
+    <div id="emoji-cat-tabs"></div>
+    <div id="emoji-grid"></div>
   </div>
 
   <div id="footer">
@@ -617,6 +984,8 @@ let dropdownOpen    = false;
 let isSpeaking      = false;
 let clearTimer      = null;
 let favorites       = [];
+let specialPage     = 0; // 0 = off, 1–4 = active special char page
+let isKbExpanded    = false; // Phase 2 state (set up now, used in Phase 2)
 
 const phraseEl      = document.getElementById('phrase-text');
 const interimEl     = document.getElementById('interim-text');
@@ -627,9 +996,19 @@ const dropdown      = document.getElementById('lang-dropdown');
 const miniFlagEl    = document.getElementById('mini-lang-flag');
 const prow1         = document.getElementById('prow1');
 const prow2         = document.getElementById('prow2');
+const prowExtra     = document.getElementById('prow-extra');
+const pageDots      = document.getElementById('page-dots');
 const prow3         = document.getElementById('prow3');
 const canvas        = document.getElementById('waveform');
 const ctx           = canvas.getContext('2d');
+
+// ── Special character pages ───────────────────────────────────
+const SPECIAL_CHAR_PAGES = [
+  { label: 'Math',       chars: ['÷','×','±','∞','√','π','∑','∆','≈','≠','≤','≥'] },
+  { label: 'Currency',   chars: ['€','£','¥','₹','₿','¢','₩','₪','₫','฿','₺','₽'] },
+  { label: 'Arrows',     chars: ['→','←','↑','↓','↔','↩','↪','⇒','⇐','⇑','⇓','↗'] },
+  { label: 'Symbols',    chars: ['©','®','™','°','§','¶','†','‡','•','◦','‣','⁕'] },
+];
 
 // ── Init ──────────────────────────────────────────────────────
 window.junoAPI.getConfig().then(cfg => {
@@ -679,20 +1058,57 @@ const SHORTCUTS = [
 
 function buildPunctuation(chars) {
   const mid = Math.ceil(chars.length / 2);
-  prow1.innerHTML = '';
-  prow2.innerHTML = '';
-  prow3.innerHTML = '';
-
-  // Row 1: first half of punct chars  +  ⌫ Backspace (destructive, red)
+  prow1.innerHTML  = '';
+  prow2.innerHTML  = '';
+  prow3.innerHTML  = '';
+  // Row 1: first half of punct chars  +  ⌫ Backspace
   chars.slice(0, mid).forEach(c => prow1.appendChild(mkBtn(c)));
   prow1.appendChild(mkBackspaceBtn());
 
-  // Row 2: second half of punct chars  +  ↵ Enter/Return (action, purple)
+  // Row 2: ⇅ Shuffle (left) + second half of punct chars + ↵ Enter + ⌨ Expand-Keyboard
+  prow2.appendChild(mkShuffleBtn()); // Shuffle goes FIRST — distinct position on the left
   chars.slice(mid).forEach(c => prow2.appendChild(mkBtn(c)));
   prow2.appendChild(mkEnterBtn());
+  prow2.appendChild(mkExpandKbBtn());
+
+  // Extra row + page dots — driven by specialPage state
+  buildExtraRow();
+  buildPageDots();
 
   // Row 3: keyboard shortcut buttons (same for every language)
   SHORTCUTS.forEach(s => prow3.appendChild(mkKbdBtn(s)));
+}
+
+// Build the extra character row based on current specialPage
+function buildExtraRow() {
+  prowExtra.innerHTML = '';
+  if (specialPage === 0) {
+    prowExtra.style.display = 'none';
+    // Row disappearing — tell main to shrink back
+    if (window.junoAPI && window.junoAPI.setPunctExtraHeight) {
+      window.junoAPI.setPunctExtraHeight(0);
+    }
+    return;
+  }
+  prowExtra.style.display = 'flex';
+  const page = SPECIAL_CHAR_PAGES[specialPage - 1];
+  page.chars.forEach(c => prowExtra.appendChild(mkExtraBtn(c)));
+  // Row appeared — tell main to grow by one row height (28px row + 5px gap)
+  if (window.junoAPI && window.junoAPI.setPunctExtraHeight) {
+    window.junoAPI.setPunctExtraHeight(33);
+  }
+}
+
+// Build the iOS-style page indicator dots
+function buildPageDots() {
+  pageDots.innerHTML = '';
+  // Dot 0 = main punct (grey when special page active, accent when on main)
+  const totalDots = SPECIAL_CHAR_PAGES.length + 1; // +1 for base page
+  for (let i = 0; i < totalDots; i++) {
+    const d = document.createElement('span');
+    d.className = 'page-dot' + (i === specialPage ? ' active' : '');
+    pageDots.appendChild(d);
+  }
 }
 
 function mkBtn(char) {
@@ -710,6 +1126,71 @@ function mkBtn(char) {
   });
   return b;
 }
+
+// Special character button — no trailing space (these are symbols, not words)
+function mkExtraBtn(char) {
+  const b = document.createElement('button');
+  b.className = 'punct-btn';
+  b.textContent = char;
+  b.title = char;
+  b.style.fontSize = '13px';
+  b.addEventListener('mousedown', e => {
+    e.preventDefault(); e.stopPropagation();
+    window.junoAPI.injectPunct(char);
+    flash(b);
+  });
+  return b;
+}
+
+// Shuffle button — cycles through special character pages
+function mkShuffleBtn() {
+  const b = document.createElement('button');
+  b.className = 'punct-btn shuffle-btn';
+  b.textContent = '⇅';
+  b.title = 'Cycle special characters (Math, Currency, Arrows, Symbols)';
+  b.addEventListener('mousedown', e => {
+    e.preventDefault(); e.stopPropagation();
+    // Cycle: 0→1→2→3→4→0
+    specialPage = (specialPage + 1) % (SPECIAL_CHAR_PAGES.length + 1);
+    buildExtraRow();
+    buildPageDots();
+    // Spin animation
+    b.classList.remove('spinning');
+    void b.offsetWidth; // force reflow
+    b.classList.add('spinning');
+    setTimeout(() => b.classList.remove('spinning'), 320);
+    flash(b);
+  });
+  return b;
+}
+
+// Expand-keyboard button — SVG keyboard icon for crisp rendering
+function mkExpandKbBtn() {
+  const b = document.createElement('button');
+  b.className = 'punct-btn expand-kb-btn' + (isKbExpanded ? ' active-kb' : '');
+  // SVG keyboard icon — visually clear at any DPI
+  b.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="14" viewBox="0 0 24 17" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="display:block;margin:auto;pointer-events:none">
+    <rect x="1" y="1" width="22" height="15" rx="2.5"/>
+    <line x1="5" y1="5.5" x2="5" y2="5.5" stroke-width="2.2" stroke-linecap="round"/>
+    <line x1="9" y1="5.5" x2="9" y2="5.5" stroke-width="2.2" stroke-linecap="round"/>
+    <line x1="13" y1="5.5" x2="13" y2="5.5" stroke-width="2.2" stroke-linecap="round"/>
+    <line x1="17" y1="5.5" x2="17" y2="5.5" stroke-width="2.2" stroke-linecap="round"/>
+    <line x1="5" y1="9.5" x2="5" y2="9.5" stroke-width="2.2" stroke-linecap="round"/>
+    <line x1="9" y1="9.5" x2="9" y2="9.5" stroke-width="2.2" stroke-linecap="round"/>
+    <line x1="13" y1="9.5" x2="13" y2="9.5" stroke-width="2.2" stroke-linecap="round"/>
+    <line x1="17" y1="9.5" x2="17" y2="9.5" stroke-width="2.2" stroke-linecap="round"/>
+    <line x1="7" y1="13.5" x2="15" y2="13.5" stroke-width="2" stroke-linecap="round"/>
+  </svg>`;
+  b.title = 'Expand / collapse full keyboard';
+  b.id = 'expand-kb-btn';
+  b.addEventListener('mousedown', e => {
+    e.preventDefault(); e.stopPropagation();
+    toggleKeyboard();
+    flash(b);
+  });
+  return b;
+}
+
 
 function mkEnterBtn() {
   const b = document.createElement('button');
@@ -844,19 +1325,25 @@ function buildDropdown() {
 function positionDropdown() {
   const anchor = (isMiniMode && miniFlagEl) ? miniFlagEl : langBtn;
   const rect = anchor.getBoundingClientRect();
-  const ddH  = Math.min(480, LANGUAGES.length * 24);  // estimated height
   
-  // Try to open above first, otherwise below
   const spaceAbove = rect.top;
   const spaceBelow = window.innerHeight - rect.bottom;
 
-  if (spaceAbove > ddH || spaceAbove > spaceBelow) {
+  let maxH = 0;
+  if (spaceAbove > spaceBelow) {
     // Open above
-    dropdown.style.top    = (rect.top - ddH - 6) + 'px';
+    maxH = Math.max(0, spaceAbove - 10);
+    dropdown.style.top = 'auto';
+    dropdown.style.bottom = (window.innerHeight - rect.top + 6) + 'px';
   } else {
     // Open below
-    dropdown.style.top    = (rect.bottom + 6) + 'px';
+    maxH = Math.max(0, spaceBelow - 10);
+    dropdown.style.top = (rect.bottom + 6) + 'px';
+    dropdown.style.bottom = 'auto';
   }
+  
+  // Constrain to available window height so it scrolls
+  dropdown.style.maxHeight = maxH + 'px';
   dropdown.style.right  = (window.innerWidth - rect.right) + 'px';
   dropdown.style.left   = 'auto';
 }
@@ -926,6 +1413,7 @@ function applyOverlayTheme(themeVal) {
     t = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
   }
   document.documentElement.setAttribute('data-theme', t);
+  window.junoRgb = getComputedStyle(document.documentElement).getPropertyValue('--accent-rgb').trim() || '124, 111, 255';
 }
 
 // Listen for OS theme changes while overlay is active
@@ -949,7 +1437,6 @@ window.junoAPI.onSessionStart((data) => {
   });
 
   // Reset live word count badge for this session
-  // Reset live word count badge for this session
   try {
     const badge = document.getElementById('wc-badge');
     const separator = document.getElementById('wc-separator');
@@ -964,6 +1451,10 @@ window.junoAPI.onSessionStart((data) => {
   phraseEl.textContent  = '';
   interimEl.textContent = '';
   phraseEl.classList.remove('fading');
+  
+  // Reset the status label immediately so it doesn't get stuck on "Stopped (silence)"
+  document.getElementById('status-label').textContent = 'Listening…';
+
   if (data && data.lang) setLanguage(data.lang, false);
 });
 
@@ -990,6 +1481,33 @@ window.junoAPI.onInterim((text) => {
   interimEl.textContent = text || '';
   isSpeaking = !!text;
 });
+
+// Extend overlay disappearance time when interacting with keyboard/punctuation
+function extendOverlayDelay() {
+  if (phraseEl.textContent && !isSpeaking) {
+    clearTimer && clearTimeout(clearTimer);
+    phraseEl.classList.remove('fading');
+    clearTimer = setTimeout(() => {
+      phraseEl.classList.add('fading');
+      setTimeout(() => {
+        phraseEl.textContent = '';
+        phraseEl.classList.remove('fading');
+      }, 320);
+    }, 1800);
+  }
+}
+
+document.body.addEventListener('mousedown', (e) => {
+  // Any click in the UI resets the silence timeout so it won't drop connection
+  if (window.junoAPI && window.junoAPI.resetSilence) {
+    window.junoAPI.resetSilence();
+  }
+  
+  const btn = e.target.closest('.punct-btn, .kb-key, .emoji-btn, .kbd-btn');
+  if (btn) {
+    extendOverlayDelay();
+  }
+}, true);
 
 window.junoAPI.onStatus((s) => {
   document.getElementById('status-label').textContent =
@@ -1054,10 +1572,11 @@ new ResizeObserver(resizeCanvas).observe(canvas);
 
 function getNeonGradient(c, w) {
   const g = c.createLinearGradient(0, 0, w, 0);
-  g.addColorStop(0,    'rgba(124,111,255,0)');
-  g.addColorStop(0.15, 'rgba(124,111,255,0.85)');
-  g.addColorStop(0.85, 'rgba(124,111,255,0.85)');
-  g.addColorStop(1,    'rgba(124,111,255,0)');
+  const rgb = window.junoRgb || '124, 111, 255';
+  g.addColorStop(0,    `rgba(${rgb},0)`);
+  g.addColorStop(0.15, `rgba(${rgb},0.85)`);
+  g.addColorStop(0.85, `rgba(${rgb},0.85)`);
+  g.addColorStop(1,    `rgba(${rgb},0)`);
   return g;
 }
 
@@ -1109,7 +1628,7 @@ function drawTypeWave(c, w, h, isMini) {
   c.strokeStyle = getNeonGradient(c, w);
   c.lineWidth   = isSpeaking ? (isMini ? 2 : 2.2) : (isMini ? 1.2 : 1.4);
   c.shadowBlur  = isSpeaking ? 10 : 3;
-  c.shadowColor = 'rgba(124,111,255,0.55)';
+  c.shadowColor = `rgba(${window.junoRgb || '124, 111, 255'},0.55)`;
   c.stroke();
 }
 
@@ -1125,7 +1644,7 @@ function drawTypeBars(c, w, h, isMini) {
 
   c.fillStyle = getNeonGradient(c, w);
   c.shadowBlur = isSpeaking ? 8 : 2;
-  c.shadowColor = 'rgba(124,111,255,0.5)';
+  c.shadowColor = `rgba(${window.junoRgb || '124, 111, 255'},0.5)`;
 
   for (let i = 0; i < barCount; i++) {
     const height = minH + smoothedBins[i] * maxH;
@@ -1141,29 +1660,30 @@ function drawTypeBars(c, w, h, isMini) {
 function drawTypePulse(c, w, h, isMini) {
   const cx = w / 2;
   const cy = h / 2;
-  const maxR = isMini ? h * 0.4 : h * 0.8;
+  // With h=142, h/2=71. r2 scales by 1.5, so maxR shouldn't exceed ~40px
+  const maxR = isMini ? 12 : 36;
   const minR = isMini ? 3 : 8;
   
   c.shadowBlur = isSpeaking ? 15 : 5;
-  c.shadowColor = 'rgba(124,111,255,0.8)';
-  c.strokeStyle = 'rgba(124,111,255,0.9)';
+  c.shadowColor = `rgba(${window.junoRgb || '124, 111, 255'},0.8)`;
+  c.strokeStyle = `rgba(${window.junoRgb || '124, 111, 255'},0.9)`;
   c.lineWidth = isMini ? 2 : 3;
   
   const r1 = minR + smoothedVol * maxR;
-  const r2 = minR + smoothedVol * maxR * 1.5;
+  const r2 = minR + smoothedVol * maxR * 1.6;
 
-  c.beginPath(); c.arc(cx, cy, r1, 0, Math.PI*2); c.stroke();
+  c.beginPath(); c.arc(cx, cy, Math.max(0, r1), 0, Math.PI*2); c.stroke();
   
   if (smoothedVol > 0.1) {
-    c.strokeStyle = `rgba(124,111,255,${0.5 * smoothedVol})`;
-    c.beginPath(); c.arc(cx, cy, r2, 0, Math.PI*2); c.stroke();
+    c.strokeStyle = `rgba(${window.junoRgb || '124, 111, 255'},${0.5 * smoothedVol})`;
+    c.beginPath(); c.arc(cx, cy, Math.max(0, r2), 0, Math.PI*2); c.stroke();
   }
 }
 
 function drawTypeParticles(c, w, h, isMini) {
   c.shadowBlur = isSpeaking ? 6 : 2;
-  c.shadowColor = 'rgba(124,111,255,0.6)';
-  c.fillStyle = 'rgba(124,111,255,0.9)';
+  c.shadowColor = `rgba(${window.junoRgb || '124, 111, 255'},0.6)`;
+  c.fillStyle = `rgba(${window.junoRgb || '124, 111, 255'},0.9)`;
   
   const pSize = isMini ? 2 : 3;
   
@@ -1173,10 +1693,10 @@ function drawTypeParticles(c, w, h, isMini) {
     
     p.offset += p.speed;
     const px = (p.x * w) + Math.sin(p.offset) * (10 + binVal*20);
-    const py = (h/2) + Math.cos(p.offset) * (isMini ? 4 : 15) * (1 + binVal*(isMini?5:10));
+    const py = (h/2) + Math.cos(p.offset) * (isMini ? 4 : 12) * (1 + binVal*(isMini?5:4.5));
     
     c.beginPath();
-    c.arc(px, py, pSize + binVal*2, 0, Math.PI*2);
+    c.arc(Math.max(0, px), Math.max(0, Math.min(h, py)), pSize + binVal*2, 0, Math.PI*2);
     c.fill();
   });
 }
@@ -1185,7 +1705,7 @@ function drawTypeLine(c, w, h, isMini) {
   const count = 15;
   const totalPts = count * 2 - 1; // 14..0..14
   const step = w / (totalPts - 1);
-  const maxH = isMini ? h*0.4 : h*0.6;
+  const maxH = isMini ? h*0.4 : (h/2 * 0.9); // max amplitude limited to fit within half height safely
   const minH = isMini ? 1 : 2;
   
   c.beginPath();
@@ -1202,7 +1722,7 @@ function drawTypeLine(c, w, h, isMini) {
   c.strokeStyle = getNeonGradient(c, w);
   c.lineWidth = isMini ? 2 : 3;
   c.shadowBlur = isSpeaking ? 10 : 3;
-  c.shadowColor = 'rgba(124,111,255,0.6)';
+  c.shadowColor = `rgba(${window.junoRgb || '124, 111, 255'},0.6)`;
   c.stroke();
 }
 
@@ -1213,7 +1733,7 @@ function drawTypeMatrix(c, w, h, isMini) {
   const playArea = w * 0.6; 
   const startX = (w - playArea) / 2;
   const bW = playArea / barCount;
-  const bH = (h * 0.6) / blocksPerBar;
+  const bH = (isMini ? h * 0.6 : h * 0.4) / blocksPerBar;
   
   for (let i = 0; i < barCount; i++) {
     const fillBlocks = Math.max(isSpeaking ? 1 : 0, Math.round(smoothedBins[i] * blocksPerBar));
@@ -1224,9 +1744,10 @@ function drawTypeMatrix(c, w, h, isMini) {
       
       const x = startX + i * bW;
       const y = h/2 + (isMini ? 5 : 10) - (j * bH) - bH;
-      c.fillStyle = isSpeaking ? `rgba(124,111,255,${0.3 + (j / blocksPerBar)*0.7})` : `rgba(124,111,255,0.1)`;
+      const rgb = window.junoRgb || '124, 111, 255';
+      c.fillStyle = isSpeaking ? `rgba(${rgb},${0.3 + (j / blocksPerBar)*0.7})` : `rgba(${rgb},0.1)`;
       c.shadowBlur = isSpeaking ? 4 : 0;
-      c.shadowColor = 'rgba(124,111,255,0.5)';
+      c.shadowColor = `rgba(${rgb},0.5)`;
       c.fillRect(x + gap/2, y + gap/2, bW - gap, bH - gap);
     }
   }
@@ -1298,6 +1819,561 @@ const transcriptRo = new ResizeObserver(entries => {
   }
 });
 if (transcriptArea) transcriptRo.observe(transcriptArea);
+
+// ═══════════════════════════════════════════════════════════
+// PHASE 2 — Full Keyboard Implementation
+// ═══════════════════════════════════════════════════════════
+
+// ── Keyboard layout definition ──────────────────────────────
+const KB_NUM_ROW  = ['`','1','2','3','4','5','6','7','8','9','0','-','='];
+const KB_Q_ROW    = ['q','w','e','r','t','y','u','i','o','p','[',']','\\'];
+const KB_A_ROW    = ['a','s','d','f','g','h','j','k','l',';',"'"];
+const KB_Z_ROW    = ['z','x','c','v','b','n','m',',','.','/' ];
+
+// Shift-state → uppercase/symbol maps
+const SHIFT_MAP = {
+  '`':'~','1':'!','2':'@','3':'#','4':'$','5':'%','6':'^','7':'&','8':'*','9':'(','0':')','-':'_','=':'+',
+  '[':'{',']':'}','\\':'|',';':':','\'':'"',',':'<','.':'>','/':'?',
+};
+// robotjs key name map (keys that differ from their glyph)
+const ROBOTJS_KEY_MAP = {
+  '`':'`', '\\':'\\', '[':'[', ']':']', ';':';', "'":"'", ',':',', '.':'.', '/':'/', '=':'=', '-':'-',
+  ' ':'space', '\n':'enter',
+};
+
+// ── Modifier state machine ──────────────────────────────────
+const MOD_NONE = 0, MOD_ONCE = 1, MOD_LOCK = 2;
+const modStates = {
+  shift: { state: MOD_NONE, lastClick: 0 },
+  ctrl:  { state: MOD_NONE, lastClick: 0 },
+  alt:   { state: MOD_NONE, lastClick: 0 }
+};
+
+let isEmojiOpen = false;
+
+function getShiftChar(label) {
+  if (modStates.shift.state === MOD_NONE) return label;
+  if (SHIFT_MAP[label]) return SHIFT_MAP[label];
+  return label.toUpperCase();
+}
+
+function getRobotKey(label) {
+  if (/^[a-z]$/.test(label)) return label;
+  return ROBOTJS_KEY_MAP[label] || label;
+}
+
+function onModClick(modName) {
+  const now = Date.now();
+  const mod = modStates[modName];
+  const timeSinceLastClick = now - mod.lastClick;
+  mod.lastClick = now;
+
+  if (mod.state === MOD_NONE) {
+    mod.state = MOD_ONCE;
+  } else if (mod.state === MOD_ONCE) {
+    if (timeSinceLastClick < 400) {
+      mod.state = MOD_LOCK;
+    } else {
+      mod.state = MOD_NONE;
+    }
+  } else if (mod.state === MOD_LOCK) {
+    mod.state = MOD_NONE;
+  }
+  
+  updateModKeys();
+  if (modName === 'shift') updateKbKeyLabels();
+}
+
+function updateModKeys() {
+  ['shift', 'ctrl', 'alt'].forEach(name => {
+    document.querySelectorAll(`.${name}-key`).forEach(el => {
+      el.classList.remove('mod-once', 'mod-lock');
+      if (modStates[name].state === MOD_ONCE) el.classList.add('mod-once');
+      else if (modStates[name].state === MOD_LOCK) el.classList.add('mod-lock');
+      
+      if (name === 'shift') {
+        el.textContent = (modStates.shift.state === MOD_LOCK) ? '⇪' : '⇧';
+      }
+    });
+  });
+
+  const kbPanel = document.getElementById('keyboard-panel');
+  if (kbPanel) {
+    const isAnyActive = modStates.ctrl.state !== MOD_NONE || modStates.alt.state !== MOD_NONE;
+    kbPanel.classList.toggle('mod-active-mode', isAnyActive);
+  }
+}
+
+function updateKbKeyLabels() {
+  document.querySelectorAll('.kb-key[data-char]').forEach(el => {
+    const orig = el.dataset.char;
+    el.textContent = getShiftChar(orig);
+  });
+}
+
+function consumeMods() {
+  let changed = false;
+  if (modStates.shift.state === MOD_ONCE) { modStates.shift.state = MOD_NONE; changed = true; }
+  if (modStates.ctrl.state === MOD_ONCE) { modStates.ctrl.state = MOD_NONE; changed = true; }
+  if (modStates.alt.state === MOD_ONCE) { modStates.alt.state = MOD_NONE; changed = true; }
+  
+  if (changed) {
+    updateModKeys();
+    updateKbKeyLabels();
+  }
+}
+
+// ── Build the full keyboard ─────────────────────────────────
+function buildKeyboard() {
+  const numRow = document.getElementById('kb-row-num');
+  const qRow   = document.getElementById('kb-row-q');
+  const aRow   = document.getElementById('kb-row-a');
+  const zRow   = document.getElementById('kb-row-z');
+  const modRow = document.getElementById('kb-row-mod');
+
+  if (!numRow) return; // guard if HTML not ready
+
+  numRow.innerHTML = '';
+  qRow.innerHTML   = '';
+  aRow.innerHTML   = '';
+  zRow.innerHTML   = '';
+  modRow.innerHTML = '';
+
+  // Number row + Delete key
+  KB_NUM_ROW.forEach(c => numRow.appendChild(mkKbLetterKey(c, 'num-key')));
+  numRow.appendChild(mkKbSpecialKey('⌫', 'del-key', () => {
+    window.junoAPI.injectBackspace();
+  }));
+
+  // QWERTY row + Tab
+  const tabKey = mkKbSpecialKey('Tab', 'tab-key', () => { window.junoAPI.injectRawKey('tab'); });
+  qRow.insertBefore(tabKey, qRow.firstChild);
+  qRow.appendChild(tabKey); // actually pre-pend
+  KB_Q_ROW.forEach(c => qRow.appendChild(mkKbLetterKey(c)));
+  // re-insert tab at front
+  qRow.insertBefore(tabKey, qRow.firstChild);
+
+  // Home row + Enter key
+  KB_A_ROW.forEach(c => aRow.appendChild(mkKbLetterKey(c)));
+  aRow.appendChild(mkKbSpecialKey('↵', 'enter-key', () => { window.junoAPI.injectEnter(); }));
+
+  // Bottom row with Shift on both sides
+  const shiftL = mkShiftKey();
+  const shiftR = mkShiftKey();
+  zRow.appendChild(shiftL);
+  KB_Z_ROW.forEach(c => zRow.appendChild(mkKbLetterKey(c)));
+  zRow.appendChild(shiftR);
+
+  // Modifier row: Ctrl | Alt/Opt | Space | 😊 emoji | ⌨ close
+  modRow.appendChild(mkCtrlKey());
+  modRow.appendChild(mkAltKey());
+  modRow.appendChild(mkKbSpecialKey('Space', 'space-key',
+    () => { window.junoAPI.injectPunct(' '); }));
+  modRow.appendChild(mkEmojiToggleKey());
+  modRow.appendChild(mkKbSpecialKey('✕', 'tab-key',
+    () => { toggleKeyboard(); }, 'Close keyboard'));
+}
+
+function mkKbLetterKey(char, extraClass = '') {
+  const b = document.createElement('button');
+  b.className = 'kb-key' + (extraClass ? ' ' + extraClass : '');
+  b.dataset.char = char; // preserve original for shift mapping
+  b.textContent = char;
+  b.addEventListener('mousedown', e => {
+    e.preventDefault(); e.stopPropagation();
+    const robotKey  = getRobotKey(char.toLowerCase());
+    
+    const isShift = modStates.shift.state !== MOD_NONE;
+    const isCtrl  = modStates.ctrl.state !== MOD_NONE;
+    const isAlt   = modStates.alt.state !== MOD_NONE;
+
+    const mods = {};
+    if (isCtrl) mods.ctrl = true;
+    if (isAlt)  mods.alt = true;
+    if (isShift && /^[a-z]$/.test(char)) mods.shift = true;
+
+    // Symbol injected directly if shift map triggered, unless ctrl or alt active
+    if (!isCtrl && !isAlt && isShift && SHIFT_MAP[char]) {
+      window.junoAPI.injectPunct(SHIFT_MAP[char]);
+    } else if (isCtrl || isAlt || /^[a-z]$/.test(char)) {
+      window.junoAPI.injectRawKey(robotKey, mods);
+    } else {
+      window.junoAPI.injectPunct(char);
+    }
+
+    consumeMods();
+    flash(b);
+  });
+  return b;
+}
+
+function mkKbSpecialKey(label, extraClass, action, title = '') {
+  const b = document.createElement('button');
+  b.className = 'kb-key ' + extraClass;
+  b.textContent = label;
+  if (title) b.title = title;
+  b.addEventListener('mousedown', e => {
+    e.preventDefault(); e.stopPropagation();
+    action();
+    flash(b);
+  });
+  return b;
+}
+
+function mkShiftKey() {
+  const b = document.createElement('button');
+  b.className = 'kb-key shift-key';
+  b.textContent = '⇧';
+  b.title = 'Shift — click once for one-shot, double-click to lock';
+  b.addEventListener('mousedown', e => {
+    e.preventDefault(); e.stopPropagation();
+    onModClick('shift');
+  });
+  return b;
+}
+
+function mkCtrlKey() {
+  const b = document.createElement('button');
+  b.className = 'kb-key ctrl-key';
+  b.textContent = IS_MAC ? '⌃ Cmd' : 'Ctrl'; // Mac uses Cmd generically
+  b.title = 'Ctrl/Cmd — tap once to queue, double click to lock';
+  b.addEventListener('mousedown', e => {
+    e.preventDefault(); e.stopPropagation();
+    onModClick('ctrl');
+    flash(b);
+  });
+  return b;
+}
+
+function mkAltKey() {
+  const b = document.createElement('button');
+  b.className = 'kb-key alt-key';
+  b.textContent = IS_MAC ? '⌥ Opt' : 'Alt';
+  b.title = 'Alt/Option — tap once to queue, double click to lock';
+  b.addEventListener('mousedown', e => {
+    e.preventDefault(); e.stopPropagation();
+    onModClick('alt');
+    flash(b);
+  });
+  return b;
+}
+
+function mkEmojiToggleKey() {
+  const b = document.createElement('button');
+  b.className = 'kb-key emoji-toggle-key';
+  b.textContent = '😊';
+  b.title = 'Open emoji picker';
+  b.id = 'emoji-toggle-key';
+  b.addEventListener('mousedown', e => {
+    e.preventDefault(); e.stopPropagation();
+    toggleEmojiPanel();
+    flash(b);
+  });
+  return b;
+}
+// Full keyboard toggle
+function toggleKeyboard() {
+  isKbExpanded = !isKbExpanded;
+  const panel  = document.getElementById('keyboard-panel');
+  const btn    = document.getElementById('expand-kb-btn');
+
+  if (panel) {
+    if (isKbExpanded) {
+      buildKeyboard();
+      panel.classList.add('open');
+    } else {
+      panel.classList.remove('open');
+      // Close emoji panel too when keyboard closes
+      if (isEmojiOpen) {
+        isEmojiOpen = true; // force toggle to close
+        toggleEmojiPanel();
+      }
+    }
+  }
+
+  if (btn) btn.classList.toggle('active-kb', isKbExpanded);
+  window.junoAPI.setOverlayKeyboardSize(isKbExpanded);
+}
+
+// ═══════════════════════════════════════════════════════════
+// PHASE 3 — Emoji Picker
+// ═══════════════════════════════════════════════════════════
+
+// Full emoji dataset — categorized, matches standard iPhone/PC emoji keyboards
+const EMOJI_CATEGORIES = [
+  { id: 'smileys', icon: '😀', label: 'Smileys', emojis: [
+    '😀','😃','😄','😁','😆','😅','🤣','😂','🙂','🙃','🫠','😉','😊','😇',
+    '🥰','😍','🤩','😘','😗','☺️','😚','😙','🥲','😋','😛','😜','🤪','😝',
+    '🤑','🤗','🤭','🫡','🤫','🤔','🫢','🤐','🤨','😐','😑','😶','🫥','😏',
+    '😒','🙄','😬','🤥','😌','😔','😪','🤤','😴','😷','🤒','🤕','🤢','🤮',
+    '🤧','🥵','🥶','🥴','😵','🤯','🤠','🥸','😎','🤓','🧐','😕','🫤','😟',
+    '🙁','☹️','😮','😯','😲','😳','🥺','🥹','😦','😧','😨','😰','😥','😢',
+    '😭','😱','😖','😣','😞','😓','😩','😫','🥱','😤','😡','😠','🤬','😈',
+    '👿','💀','☠️','💩','🤡','👹','👺','👻','👽','👾','🤖','😺','😸','😹',
+    '😻','😼','😽','🙀','😿','😾',
+    '🙈','🙉','🙊',
+    '💋','💌','💘','💝','💖','💗','💓','💞','💕','💟','❣️','💔',
+    '❤️‍🔥','❤️‍🩹','❤️','🩷','🧡','💛','💚','💙','🩵','💜','🤎','🖤','🩶','🤍',
+    '💯','💢','💥','💫','💦','💨','🕳️','💬','💭','💤',
+  ]},
+  { id: 'people', icon: '👋', label: 'People', emojis: [
+    '👋','🤚','🖐️','✋','🖖','🫱','🫲','🫳','🫴','👌','🤌','🤏','✌️','🤞',
+    '🫰','🤟','🤘','🤙','👈','👉','👆','🖕','👇','☝️','🫵','👍','👎','✊',
+    '👊','🤛','🤜','👏','🙌','🫶','👐','🤲','🤝','🙏','✍️','💅','🤳','💪',
+    '🦾','🦿','🦵','🦶','👂','🦻','👃','🫀','🫁','🧠','🦷','🦴','👀','👁️',
+    '👅','👄','🫦','👶','🧒','👦','👧','🧑','👱','👨','🧔','👩','🧓','👴',
+    '👵','🙍','🙎','🙅','🙆','💁','🙋','🧏','🙇','🤦','🤷','👮','🕵️','💂',
+    '🥷','👷','🫅','🤴','👸','👳','👲','🧕','🤵','👰','🤰','🫄','🤱','👼',
+    '🎅','🤶','🧙','🧝','🧛','🧟','🧞','🧜','🧚','🧌','👫','👬','👭','💏',
+    '💑','👪','🗣️','👤','👥','🫂','👣',
+    // Skin tone variants
+    '✋🏻','✋🏼','✋🏽','✋🏾','✋🏿',
+    '👍🏻','👍🏼','👍🏽','👍🏾','👍🏿',
+    '👎🏻','👎🏼','👎🏽','👎🏾','👎🏿',
+    '👊🏻','👊🏼','👊🏽','👊🏾','👊🏿',
+    '👏🏻','👏🏼','👏🏽','👏🏾','👏🏿',
+    '🙏🏻','🙏🏼','🙏🏽','🙏🏾','🙏🏿',
+    '💪🏻','💪🏼','💪🏽','💪🏾','💪🏿',
+    '🤳🏻','🤳🏼','🤳🏽','🤳🏾','🤳🏿',
+  ]},
+  { id: 'animals', icon: '🐶', label: 'Animals', emojis: [
+    '🐶','🐱','🐭','🐹','🐰','🦊','🐻','🐼','🐻‍❄️','🐨','🐯','🦁','🐮','🐷',
+    '🐸','🐵','🙈','🙉','🙊','🐔','🐧','🐦','🐤','🦆','🦅','🦉','🦇','🐺',
+    '🐗','🐴','🦄','🐝','🪱','🐛','🦋','🐌','🐞','🐜','🪰','🪲','🪳','🦟',
+    '🦗','🕷️','🕸️','🦂','🐢','🐍','🦎','🦖','🦕','🐙','🦑','🦐','🦞','🦀',
+    '🪸','🐡','🐠','🐟','🐬','🐳','🐋','🦈','🐊','🐅','🐆','🦓','🦍','🦧',
+    '🦣','🐘','🦛','🦏','🐪','🐫','🦒','🦘','🦬','🐃','🐂','🐄','🐎','🐖',
+    '🐏','🐑','🦙','🐐','🦌','🐕','🐩','🦮','🐕‍🦺','🐈','🐈‍⬛','🪶','🐓','🦃',
+    '🦤','🦚','🦜','🦢','🦩','🕊️','🐇','🦝','🦨','🦡','🦫','🦦','🦥','🐁',
+    '🐀','🐿️','🦔','🐾','🐉','🐲','🌵','🎄','🌲','🌳','🌴','🪵','🌱','🌿',
+    '☘️','🍀','🎍','🪴','🎋','🍃','🍂','🍁','🪺','🪹','🍄','🌾','💐','🌷',
+    '🌹','🥀','🌺','🌸','🌼','🌻','🌞','🌝','🌛','🌜','🌚','🌕','🌖','🌗',
+    '🌘','🌑','🌒','🌓','🌔','🌙','🌟','⭐','🌠','🎑','☁️','⛅','🌤️','🌦️',
+    '🌧️','⛈️','🌩️','🌨️','⛄','☃️','💨','💧','💦','☔','☂️','🌊','🌫️',
+  ]},
+  { id: 'food', icon: '🍎', label: 'Food', emojis: [
+    '🍏','🍎','🍐','🍊','🍋','🍌','🍉','🍇','🍓','🫐','🍈','🍒','🍑','🥭',
+    '🍍','🥥','🥝','🍅','🍆','🥑','🫛','🥦','🥬','🥒','🌶️','🫑','🥑','🧄',
+    '🧅','🥔','🍠','🥐','🥯','🍞','🥖','🥨','🧀','🥚','🍳','🧈','🥞','🧇',
+    '🥓','🥩','🍗','🍖','🦴','🌭','🍔','🍟','🍕','🫓','🥙','🧆','🥚','🌮',
+    '🌯','🫔','🥗','🥘','🫕','🥫','🍝','🍜','🍛','🍣','🍱','🥟','🦪','🍤',
+    '🍙','🍚','🍘','🍥','🥮','🍡','🧁','🍰','🎂','🍮','🍭','🍬','🍫','🍿',
+    '🍩','🍪','🌰','🥜','🍯','🧃','🥛','🍼','☕','🍵','🧉','🍺','🍻','🥂',
+    '🍷','🥃','🍸','🍹','🧊','🥄','🍴','🍽️','🥢','🧋','🫙',
+  ]},
+  { id: 'travel', icon: '✈️', label: 'Travel', emojis: [
+    '🚗','🚕','🚙','🚌','🚎','🏎️','🚓','🚑','🚒','🚐','🛻','🚚','🚛','🚜',
+    '🏍️','🛵','🛺','🚲','🛴','🛹','🛼','🚏','🛣️','🛤️','⛽','🚧','⚓','🛟',
+    '🚢','✈️','🛩️','🛫','🛬','🪂','💺','🚁','🚟','🚠','🚡','🛰️','🚀','🛸',
+    '🪐','🌍','🌎','🌏','🗺️','🧭','🏔️','⛰️','🌋','🗻','🏕️','🏖️','🏜️',
+    '🏝️','🏞️','🏟️','🏛️','🏗️','🧱','🪨','🪵','🏘️','🏚️','🏠','🏡','🏢',
+    '🏣','🏤','🏥','🏦','🏨','🏩','🏪','🏫','🏬','🏭','🏯','🏰','💒','🗼',
+    '🗽','⛪','🕌','🛕','🕍','✡️','☪️','🕋','⛩️','🗾','🎌','🏳️','🏴',
+    '🌁','🌃','🏙️','🌄','🌅','🌆','🌇','🌉','♣️','🎠','🎡','🎢','💈','🎪',
+  ]},
+  { id: 'activities', icon: '⚽', label: 'Activities', emojis: [
+    '⚽','🏀','🏈','⚾','🥎','🎾','🏐','🏉','🥏','🎱','🏓','🏸','🏒','🏑',
+    '🥍','🏏','🪃','🥅','⛳','🪁','🏹','🎣','🤿','🥊','🥋','🎽','🛹','🛼',
+    '🛷','⛸️','🥌','🎿','⛷️','🏂','🪂','🏋️','🤼','🤸','⛹️','🤺','🏇','🏊',
+    '🤽','🚣','🧗','🚵','🚴','🏆','🥇','🥈','🥉','🏅','🎖️','🏵️','🎗️',
+    '🎫','🎟️','🎪','🤹','🎭','🩰','🎨','🖼️','🎰','🎲','🧩','🪅','🪆','♟️',
+    '🎯','🎳','🎮','🎸','🎹','🪘','🥁','🎷','🎺','🪗','🎻','🪕','🎙️','🎚️',
+    '🎛️','📻','🎵','🎶','🎼','🎤','🎧','📯','🎹','🪗','🎸','🎻',
+    '🎬','🎥','📽️','🎦','📺','📷','📸','📹','📼','🔭','🔬','🩺',
+  ]},
+  { id: 'objects', icon: '💡', label: 'Objects', emojis: [
+    '📱','📲','💻','🖥️','🖨️','⌨️','🖱️','🖲️','💽','💾','💿','📀','🧮','📞',
+    '☎️','📟','📠','📺','📻','🧭','⏱️','⏲️','⏰','🕰️','⌚','📡','🔋','🪫',
+    '🔌','💡','🔦','🕯️','🪔','🧱','🪞','🪟','🛏️','🛋️','🪑','🚽','🪠','🚿',
+    '🛁','🪤','🪒','🧴','🧷','🧹','🧺','🧻','🪣','🧼','🫧','🪥','🪑','🧽',
+    '🧯','🛒','🚪','🪞','🪟','🧸','🪆','🖼️','🪄','🪅','🎁','🎀','🧧','🎈',
+    '🎉','🎊','🎋','🎍','🎎','🎐','🧨','✨','🎇','🎆','🎑','🎃','🎄','🎆',
+    '📦','📫','📪','📬','📭','📮','🗳️','✏️','✒️','🖊️','🖋️','📝','📁','📂',
+    '🗂️','📅','📆','🗒️','🗓️','📇','📈','📉','📊','📋','📌','📍','✂️','🗃️',
+    '🗄️','🗑️','🔒','🔓','🔏','🔐','🔑','🗝️','🔨','🪓','⛏️','⚒️','🛠️',
+    '🗡️','⚔️','🛡️','🔧','🔩','⚙️','🗜️','⚖️','🦯','🔗','⛓️','🪝','🧲',
+    '🪜','🧰','🪤','🧲','🔭','🔬','🩺','💊','💉','🩹','🩼','🩺','🏥','🪬',
+    '🪩','💈','⚗️','🔭','🔬','🕳️','🩸','💧','🌡️','🪈',
+  ]},
+  { id: 'symbols', icon: '♾️', label: 'Symbols', emojis: [
+    '❤️','🧡','💛','💚','💙','💜','🖤','🤍','🤎','❤️‍🔥','💔','❣️','💕','💞',
+    '💓','💗','💖','💘','💝','💟','☮️','✝️','☪️','🕉️','☸️','✡️','🔯','🕎',
+    '☯️','☦️','🛐','⛎','♈','♉','♊','♋','♌','♍','♎','♏','♐','♑','♒','♓',
+    '⛎','🔀','🔁','🔂','▶️','⏩','⏭️','⏯️','◀️','⏪','⏮️','🔼','⏫','🔽',
+    '⏬','⏸️','⏹️','⏺️','⏏️','🎦','🔅','🔆','📶','📳','📴','📵','📳','♀️',
+    '♂️','⚧️','✖️','➕','➖','➗','🟰','♾️','‼️','⁉️','❓','❔','❕','❗',
+    '🔟','🔠','🔡','🔢','🔣','🔤','🅰️','🅱️','🆎','🆑','🅾️','🆘','❌','⭕',
+    '🛑','⛔','📛','🚫','💯','💢','♨️','🚷','🚯','🚳','🚱','🔞','📵','🚭',
+    '❎','✅','🔃','🔄','🔙','🔚','🔛','🔜','🔝','🛐','🔱','⚜️','🔰','♻️',
+    '✅','🈯','💹','❇️','✳️','❎','🌐','💠','Ⓜ️','🌀','💤','🏧','🚾','♿',
+    '🅿️','🛗','🈳','🈹','🈚','🈲','🉐','🈵','🈴','🈺','🈷️','✴️','🆚','💮',
+    '🉑','💳','🔴','🟠','🟡','🟢','🔵','🟣','⚫','⚪','🟤','🔶','🔷','🔸',
+    '🔹','🔺','🔻','💠','🔘','🔲','🔳','▪️','▫️','◾','◽','◼️','◻️','🟥',
+    '🟧','🟨','🟩','🟦','🟪','⬛','⬜','🔑','🗝️','🔐','🔒','🔓','🪪',
+    '#️⃣','*️⃣','0️⃣','1️⃣','2️⃣','3️⃣','4️⃣','5️⃣','6️⃣','7️⃣','8️⃣','9️⃣','🔟',
+  ]},
+  { id: 'flags', icon: '🏳️', label: 'Flags', emojis: [
+    '🏳️','🏴','🏴‍☠️','🚩','🎌','🏁',
+    '🏳️‍🌈','🏳️‍⚧️',
+    // Country flags — full list
+    '🇦🇫','🇦🇱','🇩🇿','🇦🇩','🇦🇴','🇦🇬','🇦🇷','🇦🇲','🇦🇺','🇦🇹',
+    '🇦🇿','🇧🇸','🇧🇭','🇧🇩','🇧🇧','🇧🇾','🇧🇪','🇧🇿','🇧🇯','🇧🇹',
+    '🇧🇴','🇧🇦','🇧🇼','🇧🇷','🇧🇳','🇧🇬','🇧🇫','🇧🇮','🇨🇻','🇨🇦',
+    '🇰🇭','🇨🇲','🇰🇾','🇨🇫','🇹🇩','🇨🇱','🇨🇳','🇨🇴','🇰🇲','🇨🇬',
+    '🇨🇩','🇨🇷','🇨🇮','🇭🇷','🇨🇺','🇨🇾','🇨🇿','🇩🇰','🇩🇯','🇩🇲',
+    '🇩🇴','🇪🇨','🇪🇬','🇸🇻','🇬🇶','🇪🇷','🇪🇪','🇸🇿','🇪🇹','🇫🇯',
+    '🇫🇮','🇫🇷','🇬🇦','🇬🇲','🇬🇪','🇩🇪','🇬🇭','🇬🇷','🇬🇩','🇬🇹',
+    '🇬🇳','🇬🇼','🇬🇾','🇭🇹','🇭🇳','🇭🇰','🇭🇺','🇮🇸','🇮🇳','🇮🇩',
+    '🇮🇷','🇮🇶','🇮🇪','🇮🇱','🇮🇹','🇯🇲','🇯🇵','🇯🇴','🇰🇿','🇰🇪',
+    '🇰🇮','🇽🇰','🇰🇼','🇰🇬','🇱🇦','🇱🇻','🇱🇧','🇱🇸','🇱🇷','🇱🇾',
+    '🇱🇮','🇱🇹','🇱🇺','🇲🇴','🇲🇬','🇲🇼','🇲🇾','🇲🇻','🇲🇱','🇲🇹',
+    '🇲🇭','🇲🇷','🇲🇺','🇲🇽','🇫🇲','🇲🇩','🇲🇨','🇲🇳','🇲🇪','🇲🇦',
+    '🇲🇿','🇲🇲','🇳🇦','🇳🇷','🇳🇵','🇳🇱','🇳🇿','🇳🇮','🇳🇪','🇳🇬',
+    '🇲🇰','🇳🇴','🇴🇲','🇵🇰','🇵🇼','🇵🇸','🇵🇦','🇵🇬','🇵🇾','🇵🇪',
+    '🇵🇭','🇵🇱','🇵🇹','🇶🇦','🇷🇴','🇷🇺','🇷🇼','🇰🇳','🇱🇨','🇻🇨',
+    '🇼🇸','🇸🇲','🇸🇹','🇸🇦','🇸🇳','🇷🇸','🇸🇨','🇸🇱','🇸🇬','🇸🇰',
+    '🇸🇮','🇸🇧','🇸🇴','🇿🇦','🇸🇸','🇪🇸','🇱🇰','🇸🇩','🇸🇷','🇸🇪',
+    '🇨🇭','🇸🇾','🇹🇼','🇹🇯','🇹🇿','🇹🇭','🇹🇱','🇹🇬','🇹🇴','🇹🇹',
+    '🇹🇳','🇹🇷','🇹🇲','🇹🇻','🇺🇬','🇺🇦','🇦🇪','🇬🇧','🏴󠁧󠁢󠁥󠁮󠁧󠁿','🏴󠁧󠁢󠁳󠁣󠁴󠁿','🏴󠁧󠁢󠁷󠁬󠁳󠁿',
+    '🇺🇸','🇺🇾','🇺🇿','🇻🇺','🇻🇦','🇻🇪','🇻🇳','🇾🇪','🇿🇲','🇿🇼',
+    // UN & other territories
+    '🇦🇨','🇧🇻','🇨🇽','🇨🇨','🇬🇮','🇬🇬','🇮🇲','🇯🇪','🇲🇫','🇵🇳',
+    '🇸🇭','🇹🇫','🇺🇲','🇻🇬','🇻🇮','🇪🇭','🇮🇴','🇦🇶',
+  ]},
+];
+
+// Flat list for search
+const EMOJI_ALL_FLAT = EMOJI_CATEGORIES.flatMap(c => c.emojis);
+
+let currentEmojiCat = 'recent'; // Default to recent
+let recentEmojis = JSON.parse(localStorage.getItem('juno_recent_emojis') || '["👍","❤️","😂","🔥","✨","👀","🙌","💯","🤔","🤷‍♂️"]');
+
+function buildEmojiCatTabs() {
+  const bar = document.getElementById('emoji-cat-tabs');
+  if (!bar) return;
+  bar.innerHTML = '';
+
+  const recentBtn = document.createElement('button');
+  recentBtn.className = 'emoji-cat-tab' + (currentEmojiCat === 'recent' ? ' active' : '');
+  recentBtn.textContent = '🕒';
+  recentBtn.title = 'Recent';
+  recentBtn.dataset.cat = 'recent';
+  bar.appendChild(recentBtn);
+
+  const allBtn = document.createElement('button');
+  allBtn.className = 'emoji-cat-tab' + (currentEmojiCat === 'all' ? ' active' : '');
+  allBtn.textContent = '✨'; // Star for 'All' since search is gone
+  allBtn.title = 'All Categories';
+  allBtn.dataset.cat = 'all';
+  bar.appendChild(allBtn);
+
+  EMOJI_CATEGORIES.forEach(cat => {
+    const t = document.createElement('button');
+    t.className = 'emoji-cat-tab' + (currentEmojiCat === cat.id ? ' active' : '');
+    t.textContent = cat.icon;
+    t.title = cat.label;
+    t.dataset.cat = cat.id;
+    bar.appendChild(t);
+  });
+
+  bar.addEventListener('mousedown', e => {
+    e.preventDefault();
+    const tab = e.target.closest('.emoji-cat-tab');
+    if (!tab) return;
+    currentEmojiCat = tab.dataset.cat;
+    bar.querySelectorAll('.emoji-cat-tab').forEach(b => b.classList.remove('active'));
+    tab.classList.add('active');
+    buildEmojiGrid(getEmojiList());
+  });
+}
+
+function getEmojiList() {
+  if (currentEmojiCat === 'recent') return recentEmojis;
+  if (currentEmojiCat === 'all') return EMOJI_ALL_FLAT;
+  const cat = EMOJI_CATEGORIES.find(c => c.id === currentEmojiCat);
+  return cat ? cat.emojis : EMOJI_ALL_FLAT;
+}
+
+function buildEmojiGrid(list) {
+  const grid = document.getElementById('emoji-grid');
+  if (!grid) return;
+  grid.innerHTML = '';
+  // If showing 'all', render by category with labels
+  const isAll = currentEmojiCat === 'all' && list === EMOJI_ALL_FLAT;
+  if (isAll) {
+    EMOJI_CATEGORIES.forEach(cat => {
+      const label = document.createElement('div');
+      label.className = 'emoji-cat-label';
+      label.textContent = cat.icon + ' ' + cat.label;
+      grid.appendChild(label);
+      cat.emojis.forEach(em => appendEmojiBtn(grid, em));
+    });
+  } else {
+    list.forEach(em => appendEmojiBtn(grid, em));
+  }
+}
+
+function appendEmojiBtn(grid, em) {
+  const btn = document.createElement('div');
+  btn.className = 'emoji-btn';
+  btn.title = em;
+  if (window.twemoji) {
+    btn.innerHTML = window.twemoji.parse(em, {
+      folder: 'svg', ext: '.svg',
+      base: 'https://cdn.jsdelivr.net/gh/jdecked/twemoji@15.1.0/assets/',
+      attributes: () => ({ width: '22', height: '22' })
+    });
+  } else {
+    btn.textContent = em;
+  }
+  btn.addEventListener('mousedown', e => {
+    e.preventDefault(); e.stopPropagation();
+    window.junoAPI.injectPunct(em);
+    
+    // Update recents
+    recentEmojis = recentEmojis.filter(x => x !== em);
+    recentEmojis.unshift(em);
+    if (recentEmojis.length > 50) recentEmojis.pop();
+    localStorage.setItem('juno_recent_emojis', JSON.stringify(recentEmojis));
+
+    btn.style.transform = 'scale(0.8)';
+    setTimeout(() => btn.style.transform = '', 120);
+  });
+  grid.appendChild(btn);
+}
+
+function toggleEmojiPanel() {
+  const panel = document.getElementById('emoji-panel');
+  const btn   = document.getElementById('emoji-toggle-key');
+  if (!panel) return;
+  isEmojiOpen = !isEmojiOpen;
+  if (isEmojiOpen) {
+    buildEmojiCatTabs();
+    buildEmojiGrid(getEmojiList());
+    panel.classList.add('open');
+    if (btn) btn.classList.add('emoji-active');
+  } else {
+    panel.classList.remove('open');
+    if (btn) btn.classList.remove('emoji-active');
+  }
+  // Tell main process to grow/shrink window for emoji panel
+  window.junoAPI.setOverlayEmojiSize(isEmojiOpen);
+}
+
+
+
+// Load Twemoji from CDN for consistent Apple-style emoji on all platforms
+(function loadTwemoji() {
+  const script = document.createElement('script');
+  script.src = 'https://cdn.jsdelivr.net/gh/jdecked/twemoji@15.1.0/dist/twemoji.min.js';
+  script.crossOrigin = 'anonymous';
+  script.onload = () => {
+    window.twemojiReady = true;
+    // Re-render emoji grid if it's open
+    if (isEmojiOpen) buildEmojiGrid(emojiAll);
+  };
+  document.head.appendChild(script);
+})();
 
 </script>
 </body>

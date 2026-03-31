@@ -11,6 +11,7 @@
 
 :root {
   --accent:    #6C63FF;
+  --accent-rgb: 108, 99, 255;
   --accent2:   #A78BFA;
   --bg:        #111114;
   --sidebar:   #18181c;
@@ -36,6 +37,96 @@
   --text:      #111114;
   --muted:     rgba(0,0,0,0.55);
   --muted2:    rgba(0,0,0,0.7);
+}
+
+[data-theme="bumble"] {
+  --accent:    #F59E0B;
+  --accent-rgb: 245, 158, 11;
+  --accent2:   #fcd34d;
+  --bg:        #0f172a;
+  --sidebar:   #0f1729;
+  --card:      #1e293b;
+  --card2:     #1a2540;
+  --border:    rgba(245, 158, 11, 0.2);
+  --border2:   rgba(245, 158, 11, 0.1);
+  --text:      #f8fafc;
+  --muted:     rgba(255, 255, 255, 0.45);
+  --muted2:    rgba(255, 255, 255, 0.65);
+}
+
+[data-theme="ocean"] {
+  --accent:    #06B6D4;
+  --accent-rgb: 6, 182, 212;
+  --accent2:   #67e8f9;
+  --bg:        #08121e;
+  --sidebar:   #0a1628;
+  --card:      #0f2136;
+  --card2:     #132840;
+  --border:    rgba(6, 182, 212, 0.2);
+  --border2:   rgba(6, 182, 212, 0.1);
+  --text:      #e0f7fa;
+  --muted:     rgba(224, 247, 250, 0.45);
+  --muted2:    rgba(224, 247, 250, 0.65);
+}
+
+[data-theme="sage"] {
+  --accent:    #10B981;
+  --accent-rgb: 16, 185, 129;
+  --accent2:   #6ee7b7;
+  --bg:        #081410;
+  --sidebar:   #0a1a14;
+  --card:      #102318;
+  --card2:     #132b1e;
+  --border:    rgba(16, 185, 129, 0.2);
+  --border2:   rgba(16, 185, 129, 0.1);
+  --text:      #ecfdf5;
+  --muted:     rgba(236, 253, 245, 0.45);
+  --muted2:    rgba(236, 253, 245, 0.65);
+}
+
+[data-theme="rose"] {
+  --accent:    #F43F5E;
+  --accent-rgb: 244, 63, 94;
+  --accent2:   #fb7185;
+  --bg:        #12080e;
+  --sidebar:   #180b12;
+  --card:      #220f18;
+  --card2:     #2a1220;
+  --border:    rgba(244, 63, 94, 0.2);
+  --border2:   rgba(244, 63, 94, 0.1);
+  --text:      #fff1f2;
+  --muted:     rgba(255, 241, 242, 0.45);
+  --muted2:    rgba(255, 241, 242, 0.65);
+}
+
+[data-theme="ember"] {
+  --accent:    #F97316;
+  --accent-rgb: 249, 115, 22;
+  --accent2:   #fdba74;
+  --bg:        #0e0802;
+  --sidebar:   #130c04;
+  --card:      #1c1006;
+  --card2:     #24140a;
+  --border:    rgba(249, 115, 22, 0.2);
+  --border2:   rgba(249, 115, 22, 0.1);
+  --text:      #fff7ed;
+  --muted:     rgba(255, 247, 237, 0.45);
+  --muted2:    rgba(255, 247, 237, 0.65);
+}
+
+[data-theme="arctic"] {
+  --accent:    #6366F1;
+  --accent-rgb: 99, 102, 241;
+  --accent2:   #a5b4fc;
+  --bg:        #f0f2f8;
+  --sidebar:   #e8eaf4;
+  --card:      #ffffff;
+  --card2:     #f4f5fb;
+  --border:    rgba(0, 0, 0, 0.08);
+  --border2:   rgba(0, 0, 0, 0.12);
+  --text:      #0f172a;
+  --muted:     rgba(15, 23, 42, 0.50);
+  --muted2:    rgba(15, 23, 42, 0.70);
 }
 
 html, body {
@@ -419,6 +510,12 @@ textarea.replace-input:focus {
               <option value="system">System</option>
               <option value="dark">Dark</option>
               <option value="light">Light</option>
+              <option value="bumble">🐝 Bumble</option>
+              <option value="ocean">🌊 Ocean</option>
+              <option value="sage">🌿 Sage</option>
+              <option value="rose">🌸 Rose</option>
+              <option value="ember">🔥 Ember</option>
+              <option value="arctic">❄️ Arctic</option>
             </select>
           </div>
           <!-- VISUALIZER STYLE -->

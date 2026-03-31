@@ -109,8 +109,6 @@
             r.maxAlternatives = 1;
 
             r.onresult = (event) => {
-                armSilenceTimer(); // Reset 15s clock every time we hear something
-
                 let finalTranscript   = '';
                 let interimTranscript = '';
 
@@ -120,6 +118,11 @@
                     } else {
                         interimTranscript += event.results[i][0].transcript;
                     }
+                }
+
+                // Only reset the 15s clock if we actually heard words/text (prevents background noise empty results from keeping it alive indefinitely)
+                if (interimTranscript.trim() || finalTranscript.trim()) {
+                    armSilenceTimer();
                 }
 
                 // Always broadcast interim for live waveform/typing effect
@@ -147,7 +150,8 @@
                         try {
                             recognition = createRecognition();
                             recognition.start();
-                            armSilenceTimer(); // Re-arm after restart so silence timeout still works
+                            // Do NOT call armSilenceTimer() here. Let the existing timer continue to track 
+                            // total contiguous silence, otherwise Chrome's internal timeouts will keep resetting our 15s!
                         } catch (e) {
                             console.error('Restart failed', e);
                         }

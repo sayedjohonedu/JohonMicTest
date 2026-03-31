@@ -33,4 +33,9 @@ contextBridge.exposeInMainWorld('junoAPI', {
   onSessionWordCount:(cb)   => onChannel('session-word-count',  (_, n)    => cb(n)),
   onAudioData:       (cb)   => onChannel('audio-data',          (_, data) => cb(data)),
   onConfigUpdate:    (cb)   => onChannel('config-updated',      (_, cfg)  => cb(cfg)),
+  injectRawKey:      (key, modifiers) => ipcRenderer.send('inject-raw-key', { key, modifiers: modifiers || {} }),
+  setOverlayKeyboardSize: (open) => ipcRenderer.send('set-overlay-keyboard-size', { open }),
+  setPunctExtraHeight: (h) => ipcRenderer.send('overlay-set-punct-extra', h),
+  setOverlayEmojiSize: (open) => ipcRenderer.send('overlay-set-emoji-size', open),
+  resetSilence:      ()     => ipcRenderer.send('reset-silence'),
 });

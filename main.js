@@ -490,27 +490,51 @@ ipcMain.on('open-settings', () => {
   showSettings();
 });
 
+// Overlay: Reset silence timeout on generic UI interactions
+ipcMain.on('reset-silence', () => {
+  resetSilenceTimer();
+});
+
+// ── Unified overlay height tracker ────────────────────────────────────────
+// Each panel contributes its own slice; we recombine on every change so they
+// never overwrite each other.
+const OV = {
+  FULL_W:        420,
+  BASE_H:        302, // Matches actual DOM height without extra space
+  transcriptH:   0,   // extra pixels beyond the reference transcript height
+  punctH:        0,   // extra row shown in punct-panel (0 or 33)
+  keyboardH:     0,   // full keyboard tray (0 or 191)
+  emojiH:        0,   // emoji picker panel (0 or 215)
+};
+function applyOverlaySize() {
+  if (!overlayWindow || overlayWindow.isDestroyed()) return;
+  if (store.get('overlayMini')) return; // mini mode fixed by set-mini-mode
+  const h = OV.BASE_H + OV.transcriptH + OV.punctH + OV.keyboardH + OV.emojiH;
+  overlayWindow.setResizable(true);
+  overlayWindow.setMinimumSize(OV.FULL_W, h);
+  overlayWindow.setSize(OV.FULL_W, h);
+  overlayWindow.setResizable(false);
+}
+
 // Overlay: Dynamic resize for transcript text expansion
 ipcMain.on('overlay-request-resize', (event, transcriptHeight) => {
-  if (!overlayWindow || !isListening) return; // Prevent hidden windows from waking up on resize
-  const isMini = store.get('overlayMini');
-  if (isMini) return; // Mini mode is fixed height
-
-  const FULL_W = 420;
-  const BASE_H = 312;
+  if (!overlayWindow || !isListening) return;
+  if (store.get('overlayMini')) return;
   const BASE_TRANSCRIPT_H = 52;
-  
-  let extraHeight = transcriptHeight - BASE_TRANSCRIPT_H;
-  if (extraHeight < 0) extraHeight = 0;
-  const maxExtra = 400; // Limit extension so it doesn't overflow screen
-  if (extraHeight > maxExtra) extraHeight = maxExtra;
+  OV.transcriptH = Math.min(400, Math.max(0, transcriptHeight - BASE_TRANSCRIPT_H));
+  applyOverlaySize();
+});
 
-  const newHeight = BASE_H + extraHeight;
-  
-  overlayWindow.setResizable(true);
-  overlayWindow.setMinimumSize(FULL_W, newHeight);
-  overlayWindow.setSize(FULL_W, newHeight);
-  overlayWindow.setResizable(false);
+// Overlay: punct-panel extra row appeared / disappeared
+ipcMain.on('overlay-set-punct-extra', (event, extraH) => {
+  OV.punctH = Math.max(0, extraH || 0);
+  applyOverlaySize();
+});
+
+// Overlay: emoji picker panel opened / closed
+ipcMain.on('overlay-set-emoji-size', (event, open) => {
+  OV.emojiH = open ? 215 : 0;
+  applyOverlaySize();
 });
 
 // Overlay: toggle mini/pill mode
@@ -518,7 +542,6 @@ ipcMain.on('overlay-request-resize', (event, transcriptHeight) => {
 ipcMain.on('set-mini-mode', (event, isMini) => {
   if (!overlayWindow) return;
 
-  const FULL_W = 420, FULL_H = 312;
   const MINI_W = 280, MINI_H = 38;
 
   // Save the position we're LEAVING
@@ -533,10 +556,15 @@ ipcMain.on('set-mini-mode', (event, isMini) => {
   store.set('overlayMini', isMini);
 
   // Resize
-  overlayWindow.setResizable(true);
-  overlayWindow.setMinimumSize(isMini ? MINI_W : FULL_W, isMini ? MINI_H : FULL_H);
-  overlayWindow.setSize(isMini ? MINI_W : FULL_W, isMini ? MINI_H : FULL_H);
-  overlayWindow.setResizable(false);
+  if (isMini) {
+    overlayWindow.setResizable(true);
+    overlayWindow.setMinimumSize(MINI_W, MINI_H);
+    overlayWindow.setSize(MINI_W, MINI_H);
+    overlayWindow.setResizable(false);
+  } else {
+    // Restore to full — use unified tracker so keyboard/punct heights are preserved
+    applyOverlaySize();
+  }
 
   // Restore the saved position for the mode we're ENTERING
   const savedPos = isMini
@@ -593,6 +621,26 @@ ipcMain.on('inject-copy',       () => { resetSilenceTimer(); robustKeyTap('c', K
 ipcMain.on('inject-cut',        () => { resetSilenceTimer(); robustKeyTap('x', KBD_MOD); });
 ipcMain.on('inject-paste',      () => { resetSilenceTimer(); robustKeyTap('v', KBD_MOD); });
 ipcMain.on('inject-undo',       () => { resetSilenceTimer(); robustKeyTap('z', KBD_MOD); });
+
+// Overlay: full keyboard — raw key injection with optional modifiers
+// Modifiers object: { shift: bool, ctrl: bool, alt: bool }
+ipcMain.on('inject-raw-key', (event, { key, modifiers = {} }) => {
+  resetSilenceTimer();
+  try {
+    const mods = [];
+    if (modifiers.ctrl)  mods.push(KBD_MOD); // command on Mac, control on Win
+    if (modifiers.alt)   mods.push(process.platform === 'darwin' ? 'alt' : 'alt');
+    if (modifiers.shift) mods.push('shift');
+    robustKeyTap(key, mods.length > 0 ? mods : undefined);
+  } catch(e) { safeLog('[inject-raw-key] error:', e.message); }
+});
+
+// Overlay: resize window for full keyboard open/close
+ipcMain.on('set-overlay-keyboard-size', (event, { open }) => {
+  if (store.get('overlayMini')) return; // keyboard not shown in mini mode
+  OV.keyboardH = open ? 191 : 0;
+  applyOverlaySize();
+});
 
 // Overlay: user changed language from the language picker
 ipcMain.on('overlay-change-language', (event, lang) => {
@@ -728,8 +776,8 @@ let lastPhraseTimestamp = 0; // For smart spacing between pauses
 
 function createOverlay() {
   overlayWindow = new BrowserWindow({
-    width: 420,
-    height: 312,
+    width: OV.FULL_W || 420,
+    height: OV.BASE_H || 318,
     transparent: true,
     frame: false,
     backgroundColor: '#00000000',
@@ -1199,10 +1247,11 @@ function toggleListening(forceLang = null) {
       // re-shown after a silence timeout (the session-start IPC may arrive before
       // the renderer is fully ready, causing a race condition).
       overlayWindow.webContents.executeJavaScript(`
-        var p=document.getElementById('phrase-text'),i=document.getElementById('interim-text');
+        var p=document.getElementById('phrase-text'),i=document.getElementById('interim-text'),s=document.getElementById('status-label');
         if(p)p.textContent='';
         if(i)i.textContent='';
         if(p)p.classList.remove('fading');
+        if(s)s.textContent='Listening…';
       `).catch(()=>{});
 
       const posKey = isMini ? 'overlayMiniPosition' : 'overlayPosition';
