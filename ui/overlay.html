@@ -1038,9 +1038,12 @@ function setLanguage(code, notify=true) {
 
 // Clicking the pill flag opens the same language dropdown as the full-mode button
 if (miniFlagEl) {
-  miniFlagEl.addEventListener('click', (e) => {
+  miniFlagEl.addEventListener('mousedown', (e) => {
+    e.preventDefault();
     e.stopPropagation();
-    langBtn.click(); // re-use existing toggle logic
+    // Use mousedown instead of click to trigger dropdown immediately and reliably
+    const clickEvent = new MouseEvent('mousedown', { bubbles: true });
+    langBtn.dispatchEvent(clickEvent); 
   });
 }
 

@@ -510,10 +510,9 @@ function applyOverlaySize() {
   if (!overlayWindow || overlayWindow.isDestroyed()) return;
   if (store.get('overlayMini')) return; // mini mode fixed by set-mini-mode
   const h = OV.BASE_H + OV.transcriptH + OV.punctH + OV.keyboardH + OV.emojiH;
-  overlayWindow.setResizable(true);
   overlayWindow.setMinimumSize(OV.FULL_W, h);
   overlayWindow.setSize(OV.FULL_W, h);
-  overlayWindow.setResizable(false);
+  if (process.platform === 'win32') overlayWindow.setFocusable(false);
 }
 
 // Overlay: Dynamic resize for transcript text expansion
@@ -557,10 +556,9 @@ ipcMain.on('set-mini-mode', (event, isMini) => {
 
   // Resize
   if (isMini) {
-    overlayWindow.setResizable(true);
     overlayWindow.setMinimumSize(MINI_W, MINI_H);
     overlayWindow.setSize(MINI_W, MINI_H);
-    overlayWindow.setResizable(false);
+    if (process.platform === 'win32') overlayWindow.setFocusable(false);
   } else {
     // Restore to full — use unified tracker so keyboard/punct heights are preserved
     applyOverlaySize();
@@ -1237,10 +1235,9 @@ function toggleListening(forceLang = null) {
     if (overlayWindow) {
       overlayWindow.webContents.send('session-start', { lang });
       // Apply the correct window size for the current mode
-      overlayWindow.setResizable(true);
       overlayWindow.setMinimumSize(isMini ? MINI_W : FULL_W, isMini ? MINI_H : FULL_H);
       overlayWindow.setSize(isMini ? MINI_W : FULL_W, isMini ? MINI_H : FULL_H);
-      overlayWindow.setResizable(false);
+      if (process.platform === 'win32') overlayWindow.setFocusable(false);
       overlayWindow.showInactive();
       // Clear any stale transcript text immediately in the renderer process.
       // This prevents old text from persisting on Windows when the overlay is

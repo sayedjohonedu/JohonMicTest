@@ -1,3 +1,11 @@
+# Juno Voice v1.2.1 🎙️✨
+
+### 🔧 What's New in v1.2.1
+*   **Focus-Stealing Bug Fix:** Resolved a critical issue under Windows and macOS where clicking the overlay panel (e.g. punctuation buttons, modifier keys, mini mode toggle) would inadvertently steal focus from your active writing application. You can now use all visual features and the full keyboard seamlessly without interrupting your workflow.
+*   **Performance Improvements:** Removed unneeded OS-level window restyling calls to optimize dynamic resizing performance.
+
+---
+
 # Juno Voice v1.2.0 is Here! 🎙️✨
 
 We are incredibly excited to introduce the biggest update to Juno Voice yet. This release completely supercharges your dictation workflow with an array of premium features and polish designed for power users on both macOS and Windows.
