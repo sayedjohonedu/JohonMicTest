@@ -16,7 +16,7 @@ function safeLog(...args) {
   }
 }
 
-async function launchChromeBridge(url) {
+async function launchChromeBridge(url, forceVisible = false) {
   isClosing = false;
   
   // Close existing browser if any
@@ -33,33 +33,51 @@ async function launchChromeBridge(url) {
     throw new Error('Chrome not found. Please install Google Chrome.');
   }
 
+  const useHeadless = !forceVisible && !process.env.JUNO_FORCE_VISIBLE;
+  const chromeArgs = [
+    '--use-fake-ui-for-media-stream',
+    '--no-first-run',
+    '--no-default-browser-check',
+    '--disable-extensions',
+    '--disable-default-apps',
+    '--no-sandbox',
+    '--disable-setuid-sandbox',
+    '--mute-audio',
+    '--disable-background-timer-throttling',
+    '--disable-backgrounding-occluded-windows',
+    '--disable-renderer-backgrounding',
+    '--hide-scrollbars'
+  ];
+
+  if (useHeadless) {
+    chromeArgs.push('--headless=new');
+  } else {
+    // PRD recommended off-screen positioning for STT stability
+    chromeArgs.push('--window-position=-9999,0');
+    chromeArgs.push('--window-size=1,1');
+  }
+
   try {
     browser = await puppeteer.launch({
       executablePath: chromePath,
-      headless: 'new', // Specifically force new headless mode
-      args: [
-        '--headless=new', // Redundant but safe
-        '--use-fake-ui-for-media-stream',
-        '--no-first-run',
-        '--no-default-browser-check',
-        '--disable-extensions',
-        '--disable-default-apps',
-        '--no-sandbox',
-        '--disable-setuid-sandbox',
-        '--mute-audio',
-        '--disable-background-timer-throttling',
-        '--disable-backgrounding-occluded-windows',
-        '--disable-renderer-backgrounding',
-        '--hide-scrollbars'
-      ],
+      headless: useHeadless ? 'new' : false,
+      args: chromeArgs,
       userDataDir: path.join(app.getPath('userData'), 'chrome-bridge-data')
     });
 
     page = await browser.newPage();
     
-    // Watchdog: auto-restart on disconnect disabled as per user feedback 
+    // Watchdog: auto-restart on disconnect
     browser.on('disconnected', async () => {
       safeLog('Chrome bridge disconnected.');
+      if (!isClosing) {
+        // Attempt a single restart if it wasn't intentional
+        setTimeout(() => {
+          if (!isClosing && !browser) {
+            launchChromeBridge(url).catch(() => {});
+          }
+        }, 3000);
+      }
       browser = null;
       page = null;
     });

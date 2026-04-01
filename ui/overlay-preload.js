@@ -29,6 +29,7 @@ contextBridge.exposeInMainWorld('junoAPI', {
   requestResize:     (height) => ipcRenderer.send('overlay-request-resize', height),
   openUrl:           (url)  => ipcRenderer.send('open-url', url),
   setMiniMode:       (mini) => ipcRenderer.send('set-mini-mode', mini),
+  setDropdownOpen:   (open) => ipcRenderer.send('set-dropdown-open', open),
   onSetLanguage:     (cb)   => onChannel('set-language',        (_, lang) => cb(lang)),
   onSessionWordCount:(cb)   => onChannel('session-word-count',  (_, n)    => cb(n)),
   onAudioData:       (cb)   => onChannel('audio-data',          (_, data) => cb(data)),
@@ -38,4 +39,7 @@ contextBridge.exposeInMainWorld('junoAPI', {
   setPunctExtraHeight: (h) => ipcRenderer.send('overlay-set-punct-extra', h),
   setOverlayEmojiSize: (open) => ipcRenderer.send('overlay-set-emoji-size', open),
   resetSilence:      ()     => ipcRenderer.send('reset-silence'),
+  resetModifiers:    ()     => ipcRenderer.send('reset-modifiers'),
+  startDrag:         ()     => ipcRenderer.send('window-drag'),
+  stopDrag:          ()     => ipcRenderer.send('window-drag-stop'),
 });

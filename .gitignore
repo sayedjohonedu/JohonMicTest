@@ -3,3 +3,6 @@ dist/
 .chrome-bridge-data/
 .DS_Store
 dist_actions/
+
+.gemini/
+gha-creds-*.json
