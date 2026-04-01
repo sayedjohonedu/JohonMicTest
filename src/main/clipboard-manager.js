@@ -2,6 +2,9 @@ const { clipboard } = require('electron');
 const robot = require('robotjs');
 const store = require('../../store/config');
 
+const IS_WIN = process.platform === 'win32';
+const IS_MAC = process.platform === 'darwin';
+
 class ClipboardManager {
   constructor() {
     this.originalClipboardText = '';
@@ -16,10 +19,28 @@ class ClipboardManager {
     });
   }
 
-  injectText(text) {
-    if (process.platform === 'darwin') this.resetModifiers();
+  // ── Windows-safe Ctrl+V paste ────────────────────────────────────────────
+  // robot.keyTap('v', 'control') is unreliable on Windows.
+  // The keyToggle down/up sequence (same as robustKeyTap uses) works correctly.
+  _doPaste() {
+    if (IS_WIN) {
+      robot.keyToggle('control', 'down');
+      robot.keyToggle('v', 'down');
+      robot.keyToggle('v', 'up');
+      robot.keyToggle('control', 'up');
+    } else {
+      robot.keyTap('v', 'command');
+    }
+  }
 
-    if (store.get('simulateTyping') && /^[\x00-\x7F]*$/.test(text) && text.length > 1) {
+  injectText(text) {
+    if (IS_MAC) this.resetModifiers();
+
+    // simulateTyping via robot.typeString — only on macOS.
+    // On Windows, typeString causes repeating characters in apps like Telegram
+    // because of how Windows input hooks interact with robotjs key events.
+    // Always use clipboard paste on Windows for reliable injection everywhere.
+    if (IS_MAC && store.get('simulateTyping') && /^[\x00-\x7F]*$/.test(text) && text.length > 1) {
       setTimeout(() => {
         try {
           robot.setKeyboardDelay(0);
@@ -44,22 +65,22 @@ class ClipboardManager {
 
     clipboard.writeText(text);
 
-    const pasteDelay = process.platform === 'darwin' ? 60 : 100;
-    const KBD_MOD = process.platform === 'darwin' ? 'command' : 'control';
+    // Windows needs a slightly longer settle before paste to ensure clipboard is ready
+    const pasteDelay = IS_WIN ? 120 : 60;
 
     setTimeout(() => {
       try {
-        robot.keyTap('v', KBD_MOD);
+        this._doPaste();
       } catch (e) {
         console.error('Paste failed:', e);
       }
 
-      // Schedule restoration after paste has time to complete
+      // Restore original clipboard after paste completes
       this.clipboardRestoreTimeout = setTimeout(() => {
         clipboard.writeText(this.originalClipboardText);
         this.isClipboardDirty = false;
         this.clipboardRestoreTimeout = null;
-      }, 300);
+      }, 350);
     }, pasteDelay);
   }
 
@@ -67,13 +88,13 @@ class ClipboardManager {
     if (!chars) return;
     robot.setKeyboardDelay(0);
 
-    // Layout-safe characters that can be reliably typed with keyTap
+    // Layout-safe single characters (a-z, 0-9, space) tap directly — no clipboard needed
     const layoutSafe = /^[a-z0-9 ]$/i;
-    
+
     if (chars.length === 1 && layoutSafe.test(chars)) {
       setTimeout(() => {
         try {
-          if (process.platform === 'darwin') this.resetModifiers();
+          if (IS_MAC) this.resetModifiers();
           const keyName = chars === ' ' ? 'space' : chars.toLowerCase();
           robot.keyTap(keyName);
         } catch (e) {
@@ -84,7 +105,7 @@ class ClipboardManager {
       return;
     }
 
-    // For all punctuation and special symbols, use robust clipboard paste
+    // Punctuation, numbers (sent as string), emoji → clipboard paste
     this.injectText(chars);
   }
 }
