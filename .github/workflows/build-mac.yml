@@ -14,9 +14,6 @@ jobs:
       GH_TOKEN: ${{ secrets.RELEASE_TOKEN }}
       GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN }}
       CSC_IDENTITY_AUTO_DISCOVERY: false
-      # Skip postinstall electron-rebuild in CI — electron-builder handles it
-      ELECTRON_SKIP_BINARY_DOWNLOAD: 0
-      npm_config_ignore_scripts: false
 
     steps:
       - name: Check out Git repository
@@ -28,13 +25,11 @@ jobs:
           node-version: 20
           cache: 'npm'
 
-      - name: Install Dependencies
+      - name: Install Dependencies (skip postinstall rebuild)
         run: npm ci --ignore-scripts
 
       - name: Rebuild native modules for Electron (Mac)
         run: npx @electron/rebuild --force
-        env:
-          npm_config_arch: x64
 
       - name: Build & Publish Mac .dmg to Releases
         run: npm run build:mac -- --publish always
