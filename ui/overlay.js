@@ -278,6 +278,7 @@ if (isWin) {
 
 window.junoAPI.getConfig().then(cfg => {
   if (cfg.favorites) favorites = cfg.favorites;
+  if (cfg.visualizerType) visualizerType = cfg.visualizerType;
   setLanguage(cfg.language || 'en-US', false);
   if (cfg.overlayMini) applyMiniMode(true, false);
 });
@@ -549,7 +550,7 @@ function applyOverlayTheme(themeVal) {
   window.junoRgb = getComputedStyle(document.documentElement).getPropertyValue('--accent-rgb').trim() || '124, 111, 255';
 }
 window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => { window.junoAPI.getConfig().then(cfg => { if ((cfg.theme || 'system') === 'system') applyOverlayTheme('system'); }); });
-window.junoAPI.onConfigUpdate && window.junoAPI.onConfigUpdate((cfg) => { if (cfg.theme && typeof applyOverlayTheme === 'function') applyOverlayTheme(cfg.theme); });
+window.junoAPI.onConfigUpdate && window.junoAPI.onConfigUpdate((cfg) => { if (cfg.theme && typeof applyOverlayTheme === 'function') applyOverlayTheme(cfg.theme); if (cfg.visualizerType) visualizerType = cfg.visualizerType; });
 
 window.junoAPI.onSessionStart((data) => {
   window.junoAPI.getConfig().then(cfg => applyOverlayTheme(cfg.theme));
