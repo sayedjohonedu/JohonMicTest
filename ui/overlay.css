@@ -252,8 +252,17 @@ html, body {
   padding: 2px 4px;
   transition: background 0.15s;
   -webkit-app-region: no-drag;
+  outline: none;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-appearance: none;
+  appearance: none;
+  border: none;
+  user-select: none;
+  -webkit-user-select: none;
 }
-#mini-lang-flag:hover { background: rgba(255,255,255,0.12); }
+#mini-lang-flag:hover  { background: rgba(255,255,255,0.12); }
+#mini-lang-flag:active { background: rgba(255,255,255,0.18); outline: none; }
+#mini-lang-flag:focus  { outline: none; box-shadow: none; }
 
 /* Language dropdown */
 #lang-dropdown {

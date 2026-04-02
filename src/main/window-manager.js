@@ -69,8 +69,12 @@ function createOverlay() {
   overlayWindow.loadFile(path.join(__dirname, '../../ui', 'overlay.html'));
   
   overlayWindow.on('moved', () => {
-    const pos = overlayWindow.getPosition();
-    store.set('overlayPosition', { x: pos[0], y: pos[1] });
+    if (overlayWindow && !overlayWindow.isDestroyed()) {
+      const pos = overlayWindow.getPosition();
+      // Always save to standard overlayPosition so dragged location translates globally
+      // across both mini and standard mode.
+      store.set('overlayPosition', { x: pos[0], y: pos[1] });
+    }
   });
 
   overlayWindow.on('closed', () => overlayWindow = null);

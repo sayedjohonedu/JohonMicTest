@@ -166,8 +166,7 @@ function setupIpcHandlers(toggleListening, registerHotkeys, getWsClient, resetSi
     if (!overlayWindow) return;
     const MINI_W = 280, MINI_H = 38;
     const pos = overlayWindow.getPosition();
-    if (isMini) store.set('overlayPosition', { x: pos[0], y: pos[1] });
-    else store.set('overlayMiniPosition', { x: pos[0], y: pos[1] });
+    store.set('overlayPosition', { x: pos[0], y: pos[1] });
     store.set('overlayMini', isMini);
     if (isMini) {
       // Reset all panel heights so the full overlay recalculates cleanly on expand
@@ -181,7 +180,7 @@ function setupIpcHandlers(toggleListening, registerHotkeys, getWsClient, resetSi
     } else {
       applyOverlaySize();
     }
-    const savedPos = isMini ? store.get('overlayMiniPosition') : store.get('overlayPosition');
+    const savedPos = store.get('overlayPosition');
     if (savedPos && typeof savedPos.x === 'number') overlayWindow.setPosition(savedPos.x, savedPos.y);
   });
 
@@ -191,11 +190,22 @@ function setupIpcHandlers(toggleListening, registerHotkeys, getWsClient, resetSi
     if (store.get('overlayMini')) {
       const MINI_W = 280, MINI_H = 38, DROPDOWN_H = 350;
       if (isOpen) {
+        // Disable native shadow entirely when window is expanded purely for the dropdown,
+        // this prevents Windows DWM and macOS WindowServer from drawing a giant box shadow.
+        overlayWindow.setHasShadow(false);
         overlayWindow.setMinimumSize(MINI_W, DROPDOWN_H);
         overlayWindow.setSize(MINI_W, DROPDOWN_H);
       } else {
         overlayWindow.setMinimumSize(MINI_W, MINI_H);
         overlayWindow.setSize(MINI_W, MINI_H);
+        setTimeout(() => { 
+          if (!overlayWindow.isDestroyed()) overlayWindow.setHasShadow(true); 
+        }, 50);
+      }
+      if (process.platform === 'darwin') {
+        setTimeout(() => {
+          if (!overlayWindow.isDestroyed()) overlayWindow.invalidateShadow();
+        }, 50);
       }
     }
   });

@@ -8,6 +8,18 @@ const PUNCT_CYRILLIC = ['.','?','!',',','«','»',';',':','—','…','(',')' ];
 const PUNCT_KHMER  = ['।','?','!',',','"','"',';',':','…','(',')','-' ];
 const PUNCT_THAI   = ['.','?','!',',','"','"',';',':','…','(',')','-' ];
 
+// Prevent window focus stealing on stray clicks or double taps
+document.addEventListener('mousedown', (e) => {
+  // Allow default behavior only in scrollable containers so the scrollbar works
+  if (!e.target.closest('#lang-dropdown, #emoji-grid')) {
+    e.preventDefault();
+  }
+}, { passive: false });
+
+document.addEventListener('dblclick', (e) => {
+  e.preventDefault();
+}, { passive: false });
+
 const LANGUAGES = [
   { code:'en-US', name:'English (US)',       flag:'🇺🇸', native:'English',       punct:PUNCT_LATIN },
   { code:'en-GB', name:'English (UK)',       flag:'🇬🇧', native:'English',       punct:PUNCT_LATIN },
