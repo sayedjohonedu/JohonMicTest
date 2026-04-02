@@ -13,9 +13,11 @@
         let currentLang = 'en-US';
         let isActive = false;        // Are we supposed to be listening?
         let isRestarting = false;    // Prevent double-starts during restart
+        let restartTimer = null;     // Stored so stopListening() can cancel it
         let silenceTimer = null;
         let SILENCE_TIMEOUT_MS = 15000;
         let selectedDeviceId = null; // null = use Chrome default (system default mic)
+        let watchdogTimer = null;    // Detects frozen recognition (isActive=true but dead)
         
         // --- Web Audio API for Visualizer ---
         let audioCtx = null;
@@ -44,6 +46,11 @@
                     stopListening();
                 } else if (data.command === 'ping') {
                     if (isActive) armSilenceTimer();
+                } else if (data.command === 'set-timeout') {
+                    // Live update of silence timeout without stop/start
+                    const newMs = parseInt(data.timeout || 0, 10) * 1000;
+                    SILENCE_TIMEOUT_MS = newMs;
+                    if (isActive) armSilenceTimer(); // Re-arm with new value
                 } else if (data.command === 'get-devices') {
                     // Enumerate audio input devices and send list back
                     enumerateDevices();
@@ -145,7 +152,13 @@
                 // Chrome stopped on its own (timeout, network blip, etc.)
                 // We want to be active — restart immediately.
                 isRestarting = true;
-                setTimeout(() => {
+                // BUGFIX: Store the timer ID so stopListening() can cancel this
+                // before it fires. Previously, a stop during this 400ms window
+                // would set isRestarting=false, then this callback would run
+                // and call recognition.start() on a stopped session, or set
+                // isRestarting=true permanently if it threw an error.
+                restartTimer = setTimeout(() => {
+                    restartTimer = null;
                     if (isActive) {
                         try {
                             recognition = createRecognition();
@@ -154,6 +167,8 @@
                             // total contiguous silence, otherwise Chrome's internal timeouts will keep resetting our 15s!
                         } catch (e) {
                             console.error('Restart failed', e);
+                            // Even if start() throws, clear the restarting flag
+                            // so the watchdog can kick in on the next cycle.
                         }
                     }
                     isRestarting = false;
@@ -234,6 +249,40 @@
                 });
         }
 
+        // --- Watchdog ---
+        // Runs every 90s while active. Detects the frozen state where isActive=true
+        // but recognition has died and isRestarting got permanently stuck or reset
+        // without recognition restarting (the key symptom the user reported).
+        function armWatchdog() {
+            clearWatchdog();
+            watchdogTimer = setInterval(() => {
+                if (!isActive) { clearWatchdog(); return; }
+                // If we're supposed to be active but recognition is null and
+                // we're not already in a restart cycle, something went wrong.
+                if (!isRestarting && !recognition) {
+                    console.warn('[Juno Watchdog] Recognition appears dead. Force-restarting.');
+                    // Send a status ping so the overlay knows we detected the issue
+                    if (ws && ws.readyState === WebSocket.OPEN) {
+                        ws.send(JSON.stringify({ type: 'status', message: 'watchdog-restart' }));
+                    }
+                    isRestarting = false;
+                    try {
+                        recognition = createRecognition();
+                        recognition.start();
+                    } catch (e) {
+                        console.error('[Juno Watchdog] Force-restart failed:', e);
+                    }
+                }
+            }, 90000); // Check every 90 seconds
+        }
+
+        function clearWatchdog() {
+            if (watchdogTimer) {
+                clearInterval(watchdogTimer);
+                watchdogTimer = null;
+            }
+        }
+
         function startListening(lang) {
             currentLang = lang || currentLang;
             if (isActive) return; // Already listening
@@ -243,13 +292,22 @@
                 recognition = createRecognition();
                 recognition.start();
                 armSilenceTimer();
+                armWatchdog();
             });
         }
 
         function stopListening() {
             isActive = false;
             isRestarting = false;
+            // BUGFIX: Cancel any pending restart timer so it cannot fire
+            // after we've stopped and potentially start recognition again
+            // on a session that should be stopped.
+            if (restartTimer) {
+                clearTimeout(restartTimer);
+                restartTimer = null;
+            }
             clearSilenceTimer();
+            clearWatchdog();
             if (analyserInterval) {
                 clearInterval(analyserInterval);
                 analyserInterval = null;

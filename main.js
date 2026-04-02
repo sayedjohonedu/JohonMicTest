@@ -225,6 +225,12 @@ function applyTextReplacements(text) {
 function setupWebSocketServer(server) {
   wss = new WebSocket.Server({ server });
   wss.on('connection', (ws) => {
+    // BUGFIX: Terminate old wsClient before reassigning. When Chrome bridge
+    // crashes and reconnects, the old socket must be killed so its buffered
+    // messages don't trigger toggleListening() on a stale connection.
+    if (wsClient && wsClient !== ws) {
+      try { wsClient.terminate(); } catch (e) {}
+    }
     wsClient = ws;
     const savedMicId = store.get('selectedMicId');
     if (savedMicId) ws.send(JSON.stringify({ command: 'set-device', deviceId: savedMicId }));

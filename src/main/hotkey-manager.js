@@ -58,40 +58,81 @@ function registerHotkeys(toggleListening) {
   uIOhook.removeAllListeners('mousedown');
   uIOhook.removeAllListeners('mouseup');
 
-  const middleMouseAction = store.get('middleMouseAction') || 'none';
+  const mouseAction = store.get('mouseAction') || 'none';
+  const mouseButton = parseInt(store.get('mouseButton') || '3', 10);
 
-  let middleMouseLastPress = 0;
+  // Track exact press time so we can validate actual hold duration on mouseup
+  let mousePressTime = 0;
+  let mouseSafetyTimer = null; // Auto-cancel if mouseup is swallowed (macOS Bluetooth issue)
+  
+  // For double click
+  let lastClickTime = 0;
 
-  if (middleMouseAction !== 'none') {
+  const cancelMouseTimers = () => {
+    if (middleMouseTimer) { clearTimeout(middleMouseTimer); middleMouseTimer = null; }
+    if (mouseSafetyTimer) { clearTimeout(mouseSafetyTimer); mouseSafetyTimer = null; }
+    mousePressTime = 0;
+  };
+
+  if (mouseAction !== 'none') {
     uIOhook.on('mousedown', (e) => {
-      // button 3 is usually middle mouse button for uiohook-napi
-      if (e.button !== 3) return;
+      if (e.button !== mouseButton) return;
 
       const now = Date.now();
-      if (now - middleMouseLastPress < 300) return; // Debounce double clicks
-      middleMouseLastPress = now;
 
-      if (middleMouseTimer) {
-        clearTimeout(middleMouseTimer);
-        middleMouseTimer = null;
+      // Double Click handling (ignores mouseup entirely)
+      if (mouseAction === 'double_click') {
+        if (now - lastClickTime < 400) {
+          toggleListening();
+          lastClickTime = 0; // reset
+        } else {
+          lastClickTime = now;
+        }
+        return; // Skip hold/click logic
       }
 
-      if (middleMouseAction === 'click') {
+      // Single Click / Hold handling
+      // Ignore if already tracking a press (double-fire protection)
+      if (mousePressTime > 0) return;
+
+      // Cancel any lingering timers from previous press
+      cancelMouseTimers();
+      mousePressTime = now;
+
+      if (mouseAction === 'click') {
         toggleListening();
-      } else if (middleMouseAction === 'hold_1' || middleMouseAction === 'hold_2') {
-        const holdDur = middleMouseAction === 'hold_2' ? 2000 : 1000;
+        mousePressTime = 0;
+      } else if (mouseAction === 'hold_1' || mouseAction === 'hold_2') {
+        const holdDur = mouseAction === 'hold_2' ? 2000 : 1000;
+
+        // Main hold timer — fires if held long enough
         middleMouseTimer = setTimeout(() => {
-          toggleListening();
           middleMouseTimer = null;
+          // Safety check: only fire if we still think button is held
+          if (mousePressTime > 0) {
+            toggleListening();
+            mousePressTime = 0;
+          }
         }, holdDur);
+
+        // Safety auto-cancel
+        mouseSafetyTimer = setTimeout(() => {
+          mouseSafetyTimer = null;
+          cancelMouseTimers();
+        }, holdDur + 500);
       }
     });
 
     uIOhook.on('mouseup', (e) => {
-      if (e.button !== 3) return;
-      if (middleMouseTimer) {
-        clearTimeout(middleMouseTimer);
-        middleMouseTimer = null;
+      if (e.button !== mouseButton) return;
+      if (mouseAction === 'double_click') return; // Handled purely via mousedown
+
+      const heldFor = mousePressTime > 0 ? Date.now() - mousePressTime : 0;
+      cancelMouseTimers();
+
+      const holdDur = mouseAction === 'hold_2' ? 2000 : 1000;
+      if ((mouseAction === 'hold_1' || mouseAction === 'hold_2') && heldFor > 0 && heldFor < holdDur) {
+        // Quick release — this was a tap, not a hold.
       }
     });
   }

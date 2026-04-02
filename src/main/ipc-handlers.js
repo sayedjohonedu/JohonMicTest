@@ -165,9 +165,13 @@ function setupIpcHandlers(toggleListening, registerHotkeys, getWsClient, resetSi
     const overlayWindow = getOverlayWindow();
     if (!overlayWindow) return;
     const MINI_W = 280, MINI_H = 38;
+
+    // Save current position BEFORE any resize so we can restore it
+    // (setSize/setMinimumSize can nudge the window on some platforms)
     const pos = overlayWindow.getPosition();
     store.set('overlayPosition', { x: pos[0], y: pos[1] });
     store.set('overlayMini', isMini);
+
     if (isMini) {
       // Reset all panel heights so the full overlay recalculates cleanly on expand
       OV.keyboardH  = 0;
@@ -180,8 +184,9 @@ function setupIpcHandlers(toggleListening, registerHotkeys, getWsClient, resetSi
     } else {
       applyOverlaySize();
     }
-    const savedPos = store.get('overlayPosition');
-    if (savedPos && typeof savedPos.x === 'number') overlayWindow.setPosition(savedPos.x, savedPos.y);
+
+    // Restore position immediately after resize so the window stays anchored
+    overlayWindow.setPosition(pos[0], pos[1]);
   });
 
   ipcMain.on('set-dropdown-open', (event, isOpen) => {
