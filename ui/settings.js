@@ -264,6 +264,7 @@ window.clearHoldKey = function() { if (recordingMode === 'hold') stopRecording(t
 
 window.syncHotkeyEnable = function() { document.getElementById('row-hotkey-combo').classList.toggle('disabled-row', !document.getElementById('toggle-hotkey').checked); };
 window.syncHoldEnable = function() { const on = document.getElementById('toggle-holdkey').checked; document.getElementById('row-hold-key').classList.toggle('disabled-row', !on); document.getElementById('row-hold-dur').classList.toggle('disabled-row', !on); };
+window.syncSilenceEnable = function() { document.getElementById('row-silence-timeout').classList.toggle('disabled-row', !document.getElementById('toggle-silence').checked); };
 window.syncReplaceEnable = function() { document.getElementById('row-replacements').classList.toggle('disabled-row', !document.getElementById('toggle-replace').checked); };
 
 function applyTheme(t) { if (t === 'system') t = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'; document.documentElement.setAttribute('data-theme', t); }
@@ -279,7 +280,7 @@ async function loadConfig() {
   const dS = document.getElementById('hold-duration'); if ([...dS.options].some(o => o.value === String(cfg.holdDuration || '2'))) dS.value = String(cfg.holdDuration || '2');
   const mmA = document.getElementById('middle-mouse-action'); if (mmA) mmA.value = cfg.middleMouseAction || 'none';
   document.getElementById('toggle-autolunch').checked = cfg.autoLaunch !== false; ensureCfdBuilt(); setCfdValue(cfg.language || 'en-US');
-  const tS = document.getElementById('silence-timeout'); if ([...tS.options].some(o => o.value === String(cfg.silenceTimeout ?? '15'))) tS.value = String(cfg.silenceTimeout ?? '15');
+  document.getElementById('toggle-silence').checked = cfg.silenceTimeoutEnabled !== false; syncSilenceEnable(); document.getElementById('silence-timeout-val').value = String(cfg.silenceTimeoutVal ?? '1'); const tU = document.getElementById('silence-timeout-unit'); if ([...tU.options].some(o => o.value === String(cfg.silenceTimeoutUnit || 'sec'))) tU.value = String(cfg.silenceTimeoutUnit || 'sec');
   document.getElementById('toggle-sim-typing').checked = cfg.simulateTyping === true; loadMicList(false, cfg.selectedMicId || '');
   document.getElementById('toggle-replace').checked = cfg.textReplaceEnabled === true; syncReplaceEnable();
   const rL = document.getElementById('replacement-list'); rL.innerHTML = ''; if (!(cfg.textReplacements || []).length) addReplacementRow('', ''); else cfg.textReplacements.forEach(r => addReplacementRow(r.say || '', r.replace || ''));
@@ -342,7 +343,12 @@ window.saveSettings = function() {
   if (recordingMode) stopRecording(true); const b = document.getElementById('btn-save'); b.disabled = true;
   const reps = [], lH = []; document.querySelectorAll('#replacement-list .replace-row').forEach(r => { const s = r.querySelector('.val-say').value.trim(), rep = r.querySelector('.val-replace').value.trim(); if (s) reps.push({ say:s, replace:rep }); });
   document.querySelectorAll('#lang-hotkeys-list .lang-hotkey-row').forEach(r => { const c = r.querySelector('.val-combo').dataset.rawCombo, l = r.querySelector('.val-lang').value; if (c && l) lH.push({ combo:c, lang:l }); });
-  window.electronAPI.saveConfig({ hotkey: pendingHotkey || DEFAULT_HOTKEY, hotkeyEnabled: document.getElementById('toggle-hotkey').checked, holdKey: pendingHoldKey || 'Alt', holdKeyEnabled: document.getElementById('toggle-holdkey').checked, holdDuration: parseFloat(document.getElementById('hold-duration').value), middleMouseAction: document.getElementById('middle-mouse-action')?.value || 'none', autoLaunch: document.getElementById('toggle-autolunch').checked, language: document.getElementById('lang-select').value, silenceTimeout: parseInt(document.getElementById('silence-timeout').value, 10), simulateTyping: document.getElementById('toggle-sim-typing').checked, theme: document.getElementById('theme-select').value, visualizerType: document.getElementById('visualizer-style')?.value || 'wave', micSensitivity: parseFloat(document.getElementById('mic-sensitivity')?.value || 1.0), textReplaceEnabled: document.getElementById('toggle-replace').checked, textReplacements: reps, langHotkeys: lH });
+  const silenceEnabled = document.getElementById('toggle-silence').checked;
+  const silenceVal = parseFloat(document.getElementById('silence-timeout-val').value) || 1;
+  const silenceUnit = document.getElementById('silence-timeout-unit').value;
+  let silenceMult = 1; if (silenceUnit === 'min') silenceMult = 60; else if (silenceUnit === 'hr') silenceMult = 3600; else if (silenceUnit === 'days') silenceMult = 86400;
+  const silenceSecs = silenceEnabled ? (silenceVal * silenceMult) : 0;
+  window.electronAPI.saveConfig({ hotkey: pendingHotkey || DEFAULT_HOTKEY, hotkeyEnabled: document.getElementById('toggle-hotkey').checked, holdKey: pendingHoldKey || 'Alt', holdKeyEnabled: document.getElementById('toggle-holdkey').checked, holdDuration: parseFloat(document.getElementById('hold-duration').value), middleMouseAction: document.getElementById('middle-mouse-action')?.value || 'none', autoLaunch: document.getElementById('toggle-autolunch').checked, language: document.getElementById('lang-select').value, silenceTimeoutEnabled: silenceEnabled, silenceTimeoutVal: silenceVal, silenceTimeoutUnit: silenceUnit, silenceTimeout: silenceSecs, simulateTyping: document.getElementById('toggle-sim-typing').checked, theme: document.getElementById('theme-select').value, visualizerType: document.getElementById('visualizer-style')?.value || 'wave', micSensitivity: parseFloat(document.getElementById('mic-sensitivity')?.value || 1.0), textReplaceEnabled: document.getElementById('toggle-replace').checked, textReplacements: reps, langHotkeys: lH });
   b.disabled = false; clearDirty();
 };
 

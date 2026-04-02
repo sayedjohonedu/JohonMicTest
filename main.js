@@ -80,14 +80,22 @@ function toggleListening(forceLang = null) {
     lastPhraseTimestamp = 0;
     const lang = forceLang || store.get('language') || 'en-US';
     currentSessionLang = lang;
-    const silenceTimeout = store.get('silenceTimeout') || 15;
+    const silenceTimeout = store.get('silenceTimeout') ?? 1;
 
     if (overlayWindow) {
       overlayWindow.webContents.send('session-start', { lang });
-      applyOverlaySize();
+      // Apply correct size BEFORE showing
+      if (store.get('overlayMini')) {
+        overlayWindow.setMinimumSize(280, 38);
+        overlayWindow.setSize(280, 38);
+      } else {
+        applyOverlaySize();
+      }
       overlayWindow.showInactive();
-      const pos = store.get(store.get('overlayMini') ? 'overlayMiniPosition' : 'overlayPosition');
-      if (pos) overlayWindow.setPosition(pos.x, pos.y); else overlayWindow.center();
+      // Always use single unified position key
+      const pos = store.get('overlayPosition');
+      if (pos && typeof pos.x === 'number') overlayWindow.setPosition(pos.x, pos.y);
+      else overlayWindow.center();
     }
     try {
       wsClient.send(JSON.stringify({ command: 'start', language: lang, timeout: silenceTimeout }));
@@ -117,7 +125,7 @@ function switchTrayLanguage(langCode) {
       wsClient.send(JSON.stringify({ command: 'stop' }));
       setTimeout(() => {
         if (isListening && wsClient && wsClient.readyState === WebSocket.OPEN) {
-          wsClient.send(JSON.stringify({ command: 'start', language: langCode, timeout: store.get('silenceTimeout') || 15 }));
+          wsClient.send(JSON.stringify({ command: 'start', language: langCode, timeout: store.get('silenceTimeout') ?? 1 }));
         }
       }, 200);
     } catch (e) {

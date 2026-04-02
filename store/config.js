@@ -69,9 +69,21 @@ const schema = {
     default: 'system'   // 'system' | 'dark' | 'light'
   },
   // ── Voice Behaviour ───────────────────────────────────────
+  silenceTimeoutEnabled: {
+    type: 'boolean',
+    default: true
+  },
+  silenceTimeoutVal: {
+    type: 'number',
+    default: 1
+  },
+  silenceTimeoutUnit: {
+    type: 'string',
+    default: 'sec'
+  },
   silenceTimeout: {
     type: 'number',
-    default: 15       // seconds (0 = infinite)
+    default: 1       // calculated seconds (0 = disabled/infinite)
   },
   // ── Overlay mode ─────────────────────────────────────────
   overlayMini: {
