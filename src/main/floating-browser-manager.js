@@ -1,4 +1,4 @@
-const { BrowserWindow, WebContentsView, ipcMain, session, dialog, app } = require('electron');
+const { BrowserWindow, WebContentsView, ipcMain, session, dialog, app, Menu, MenuItem, clipboard } = require('electron');
 const path = require('path');
 const store = require('../../store/config');
 
@@ -60,6 +60,7 @@ function createTab(url = 'https://google.com') {
       partition: 'persist:floating-browser',
       contextIsolation: true,
       nodeIntegration: false,
+      preload: path.join(__dirname, '../../ui', 'browser-view-preload.js')
     }
   });
 
@@ -105,6 +106,76 @@ function createTab(url = 'https://google.com') {
   // Reset silence timer when user interacts with the browser content
   view.webContents.on('before-input-event', () => {
     if (_resetSilenceTimer) _resetSilenceTimer();
+  });
+
+  // Context Menu
+  view.webContents.on('context-menu', (event, params) => {
+    const menu = new Menu();
+
+    if (params.linkURL) {
+      menu.append(new MenuItem({
+        label: 'Copy Link Address',
+        click: () => clipboard.writeText(params.linkURL)
+      }));
+    }
+
+    if (params.hasImageContents) {
+      menu.append(new MenuItem({
+        label: 'Copy Image',
+        role: 'copyImage'
+      }));
+    }
+
+    if (params.selectionText) {
+      menu.append(new MenuItem({
+        label: 'Copy',
+        role: 'copy'
+      }));
+      menu.append(new MenuItem({
+        label: 'Search Google for "' + (params.selectionText.length > 15 ? params.selectionText.substring(0, 15) + '...' : params.selectionText) + '"',
+        click: () => {
+          const searchUrl = 'https://www.google.com/search?q=' + encodeURIComponent(params.selectionText);
+          createTab(searchUrl);
+          resizeAllViews();
+          saveState();
+        }
+      }));
+    }
+
+    if (params.isEditable) {
+      menu.append(new MenuItem({ label: 'Undo', role: 'undo' }));
+      menu.append(new MenuItem({ label: 'Redo', role: 'redo' }));
+      menu.append(new MenuItem({ type: 'separator' }));
+      menu.append(new MenuItem({ label: 'Cut', role: 'cut' }));
+      menu.append(new MenuItem({ label: 'Copy', role: 'copy' }));
+      menu.append(new MenuItem({ label: 'Paste', role: 'paste' }));
+      menu.append(new MenuItem({ label: 'Paste and Match Style', role: 'pasteAndMatchStyle' }));
+      menu.append(new MenuItem({ label: 'Select All', role: 'selectAll' }));
+    }
+
+    if (!params.isEditable && !params.selectionText && !params.linkURL && !params.hasImageContents) {
+      menu.append(new MenuItem({
+        label: 'Back',
+        click: () => view.webContents.goBack(),
+        enabled: view.webContents.canGoBack()
+      }));
+      menu.append(new MenuItem({
+        label: 'Forward',
+        click: () => view.webContents.goForward(),
+        enabled: view.webContents.canGoForward()
+      }));
+      menu.append(new MenuItem({
+        label: 'Reload',
+        click: () => view.webContents.reload()
+      }));
+      menu.append(new MenuItem({ type: 'separator' }));
+      menu.append(new MenuItem({
+        label: 'Inspect',
+        click: () => view.webContents.inspectElement(params.x, params.y)
+      }));
+    }
+
+    menu.popup({ window: floatingWindow });
   });
 
   const tab = { id, view, url, title: 'New Tab' };
