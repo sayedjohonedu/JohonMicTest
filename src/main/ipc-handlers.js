@@ -5,10 +5,13 @@ const store = require('../../store/config');
 const { verifyLicense } = require('./licensing');
 const { applyOverlaySize, getOverlayWindow, getSettingsWindow, OV } = require('./window-manager');
 const { uIOhook } = require('uiohook-napi');
+const { setupFloatingBrowserIpc } = require('./floating-browser-manager');
 
 let pendingMicListResolve = null;
 
-function setupIpcHandlers(toggleListening, registerHotkeys, getWsClient, resetSilenceTimer, showSettings, robustKeyTap, injectCharDirect, injectText, switchTrayLanguage, resetModifiers) {
+function setupIpcHandlers(toggleListening, registerHotkeys, getWsClient, resetSilenceTimer, showSettings, robustKeyTap, injectCharDirect, injectText, switchTrayLanguage, resetModifiers, _resetSilenceTimerForBrowser) {
+  
+  setupFloatingBrowserIpc(_resetSilenceTimerForBrowser || resetSilenceTimer);
   
   ipcMain.on('save-config', (event, config) => {
     store.set(config);

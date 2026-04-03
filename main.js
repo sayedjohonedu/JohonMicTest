@@ -12,6 +12,7 @@ const clipboardManager = require('./src/main/clipboard-manager');
 
 // Import modules
 const { createOverlay, showSettings, applyOverlaySize, getOverlayWindow, getSettingsWindow } = require('./src/main/window-manager');
+const { onOverlayShow, onOverlayHide } = require('./src/main/floating-browser-manager');
 const { registerHotkeys, stopUiohook } = require('./src/main/hotkey-manager');
 const { checkAuthStatus } = require('./src/main/licensing');
 const { setupUpdater } = require('./src/main/updater');
@@ -97,12 +98,16 @@ function toggleListening(forceLang = null) {
       if (pos && typeof pos.x === 'number') overlayWindow.setPosition(pos.x, pos.y);
       else overlayWindow.center();
     }
+    // Restore floating browser if it was open last session
+    onOverlayShow();
     try {
       wsClient.send(JSON.stringify({ command: 'start', language: lang, timeout: silenceTimeout }));
     } catch (e) {
       console.error('Failed to send start command:', e);
     }
   } else {
+    // Save browser open state before hiding overlay
+    onOverlayHide();
     if (overlayWindow) overlayWindow.hide();
     try {
       wsClient.send(JSON.stringify({ command: 'stop' }));
@@ -333,7 +338,7 @@ app.whenReady().then(() => {
   });
   registerHotkeys(toggleListening);
   setupHttpServer();
-  setupIpcHandlers(toggleListening, registerHotkeys, () => wsClient, resetSilenceTimer, showSettings, robustKeyTap, clipboardManager.injectCharDirect.bind(clipboardManager), clipboardManager.injectText.bind(clipboardManager), switchTrayLanguage, resetModifiers);
+  setupIpcHandlers(toggleListening, registerHotkeys, () => wsClient, resetSilenceTimer, showSettings, robustKeyTap, clipboardManager.injectCharDirect.bind(clipboardManager), clipboardManager.injectText.bind(clipboardManager), switchTrayLanguage, resetModifiers, resetSilenceTimer);
   setupUpdater(getSettingsWindow);  // pass getter so updater always gets current window, not null
   setTimeout(() => showSettings(), 1000);
 });

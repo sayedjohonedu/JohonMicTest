@@ -405,12 +405,16 @@ function positionDropdown() {
   const rect = anchor.getBoundingClientRect();
   
   if (isMiniMode) {
-    // In mini mode, the main process expands the window height to ~350px downwards
+    // In mini mode, anchor to LEFT side of the flag button so it doesn't get clipped.
+    // The main process expands the window height to ~350px downwards.
     dropdown.style.top = (rect.bottom + 6) + 'px';
     dropdown.style.bottom = 'auto';
     dropdown.style.maxHeight = '280px';
-    dropdown.style.right = Math.max(0, 280 - rect.right) + 'px';
-    dropdown.style.left = 'auto';
+    // Anchor left to the flag button's left edge, but clamp so it doesn't overflow the window width
+    const dropW = 260; // matches min-width in CSS
+    const leftPos = Math.max(4, Math.min(rect.left, window.innerWidth - dropW - 4));
+    dropdown.style.left = leftPos + 'px';
+    dropdown.style.right = 'auto';
     return;
   }
   
@@ -477,11 +481,12 @@ function applyMiniMode(mini, notify = true) {
 
 document.body.addEventListener('mousedown', (e) => {
   if (window.junoAPI && window.junoAPI.resetSilence) window.junoAPI.resetSilence();
-  const target = e.target.closest('.punct-btn, .kb-key, .emoji-btn, .kbd-btn, #mini-btn, #expand-btn, #settings-btn, #dot-close');
+  const target = e.target.closest('.punct-btn, .kb-key, .emoji-btn, .kbd-btn, #mini-btn, #expand-btn, #settings-btn, #browser-btn, #mini-browser-btn, #dot-close');
   if (target) {
     e.preventDefault(); flash(target);
     if (target.id === 'dot-close') window.junoAPI.stopListening();
     else if (target.id === 'settings-btn') { e.stopPropagation(); window.junoAPI.openSettings(); }
+    else if (target.id === 'browser-btn' || target.id === 'mini-browser-btn') { e.stopPropagation(); window.junoAPI.toggleFloatingBrowser(); }
     else if (target.id === 'mini-btn') { e.stopPropagation(); applyMiniMode(true); }
     else if (target.id === 'expand-btn') { e.stopPropagation(); applyMiniMode(false); }
     else if (target.classList.contains('punct-btn')) {

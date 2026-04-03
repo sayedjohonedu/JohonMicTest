@@ -392,6 +392,20 @@ window.doImportReplacements = async function() {
 };
 
 window.factoryReset = async function() { if (confirm("Are you sure?")) await window.electronAPI.factoryReset(); };
+window.browserReset = async function() {
+  if (!confirm("This will clear all browser data — logged-in accounts, cookies, tabs, and history. Are you sure?")) return;
+  const btn = document.getElementById('btn-browser-reset');
+  if (btn) { btn.textContent = 'Resetting…'; btn.disabled = true; }
+  try {
+    await window.electronAPI.hardResetBrowser();
+    if (btn) { btn.innerHTML = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg> Done`; btn.style.color = '#4ade80'; btn.style.borderColor = 'rgba(74,222,128,0.3)'; }
+    setTimeout(() => {
+      if (btn) { btn.innerHTML = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg> Reset Browser Data`; btn.style.color = 'var(--accent)'; btn.style.borderColor = 'rgba(124,111,255,0.2)'; btn.disabled = false; }
+    }, 2500);
+  } catch(e) {
+    if (btn) { btn.textContent = 'Reset Failed'; btn.disabled = false; }
+  }
+};
 window.closeImportModal = function() { document.getElementById('import-modal').classList.remove('open'); pendingImport = null; };
 window.confirmImport = async function(mode) {
   if (!pendingImport) return; const items = pendingImport; closeImportModal();

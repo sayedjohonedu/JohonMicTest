@@ -29,6 +29,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   importSettingsPick:        ()           => ipcRenderer.invoke('import-settings-pick'),
   importSettingsCommit:      (payload)    => ipcRenderer.invoke('import-settings-commit', payload),
   factoryReset:              ()           => ipcRenderer.invoke('app-factory-reset'),
+  hardResetBrowser:          ()           => ipcRenderer.invoke('floating-browser-hard-reset'),
   getMicList:                ()           => ipcRenderer.invoke('get-mic-list'),
   setMic:                    (deviceId)   => ipcRenderer.send('set-mic', deviceId),
 });

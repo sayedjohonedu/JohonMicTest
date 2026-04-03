@@ -164,8 +164,8 @@ html, body {
 #lang-flag    { font-size: 14px; line-height: 1; }
 #lang-chevron { font-size: 9px; color: var(--muted); margin-left: 1px; }
 
-/* ── Settings Button ── */
-#settings-btn {
+/* ── Settings & Browser Buttons ── */
+#settings-btn, #browser-btn {
   display: flex; align-items: center; justify-content: center;
   background: transparent;
   border: none;
@@ -176,9 +176,10 @@ html, body {
   flex-shrink: 0;
   -webkit-app-region: no-drag;
 }
-#settings-btn:hover { background: var(--surface); color: var(--text); transform: scale(1.05); }
-#settings-btn:active { transform: scale(0.95); }
-[data-theme="light"] #settings-btn:hover { background: rgba(0,0,0,0.08); }
+#settings-btn:hover, #browser-btn:hover { background: var(--surface); color: var(--text); transform: scale(1.05); }
+#settings-btn:active, #browser-btn:active { transform: scale(0.95); }
+[data-theme="light"] #settings-btn:hover,
+[data-theme="light"] #browser-btn:hover { background: rgba(0,0,0,0.08); }
 
 /* ── Mini / Compact button ── */
 #mini-btn, #expand-btn {
@@ -218,6 +219,7 @@ html, body {
 #card.mini-mode #status-label,
 #card.mini-mode #lang-wrapper,
 #card.mini-mode #settings-btn,
+#card.mini-mode #browser-btn,
 #card.mini-mode #mini-btn,
 #card.mini-mode #transcript-area,
 #card.mini-mode #waveform-wrap,
@@ -225,9 +227,10 @@ html, body {
 #card.mini-mode #punct-panel,
 #card.mini-mode #footer { display: none !important; }
 
-#card.mini-mode #expand-btn       { display: flex !important; }
-#card.mini-mode #mini-wave-wrap   { display: flex !important; }
-#card.mini-mode #mini-lang-flag   { display: flex !important; }
+#card.mini-mode #expand-btn        { display: flex !important; }
+#card.mini-mode #mini-wave-wrap    { display: flex !important; }
+#card.mini-mode #mini-lang-flag    { display: flex !important; }
+#card.mini-mode #mini-browser-btn  { display: flex !important; }
 
 #mini-wave-wrap {
   display: none;
@@ -264,18 +267,37 @@ html, body {
 #mini-lang-flag:active { background: rgba(255,255,255,0.18); outline: none; }
 #mini-lang-flag:focus  { outline: none; box-shadow: none; }
 
+/* ── Mini browser button (pill mode only) ── */
+#mini-browser-btn {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  width: 24px; height: 24px;
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  color: var(--muted);
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background 0.15s, color 0.15s;
+  -webkit-app-region: no-drag;
+}
+#mini-browser-btn:hover  { background: rgba(255,255,255,0.12); color: var(--text); }
+#mini-browser-btn:active { transform: scale(0.9); }
+#mini-browser-btn.browser-active { color: var(--accent); }
+
 /* Language dropdown */
 #lang-dropdown {
   position: fixed;
-  min-width: 210px;
+  min-width: 260px;
   max-height: 480px;
   overflow-y: auto;
-  background: rgba(26, 26, 34, 0.98);
+  background: rgba(26, 26, 34, 0.97);
   backdrop-filter: blur(40px);
   -webkit-backdrop-filter: blur(40px);
-  border: 1px solid var(--border);
+  border: 1px solid rgba(255,255,255,0.08);
   border-radius: 13px;
-  box-shadow: 0 20px 50px rgba(0,0,0,0.75), 0 0 0 0.5px rgba(255,255,255,0.07) inset;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.55), 0 0 0 0.5px rgba(255,255,255,0.06) inset;
   z-index: 9999;
   display: none;
   scrollbar-width: thin;

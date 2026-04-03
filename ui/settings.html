@@ -474,10 +474,15 @@
           </div>
         </div>
 
-        <!-- Factory Reset Section -->
-        <div style="margin-top:24px; text-align:center; padding-top:16px; border-top:1px solid var(--border);">
+        <!-- Reset Section -->
+        <div style="margin-top:24px; text-align:center; padding-top:16px; border-top:1px solid var(--border); display:flex; flex-wrap:wrap; gap:10px; justify-content:center; align-items:center;">
+          <button id="btn-browser-reset" onclick="browserReset()" style="background:rgba(124,111,255,0.08); color:var(--accent); border:1px solid rgba(124,111,255,0.2); border-radius:6px; padding:6px 14px; font-size:11.5px; cursor:pointer; font-weight:600; font-family:var(--font); transition:all 0.15s; display:flex; align-items:center; gap:6px;">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+            Reset Browser Data
+          </button>
           <button id="btn-factory-reset" onclick="factoryReset()" style="background:rgba(255,71,87,0.1); color:#ff4757; border:1px solid rgba(255,71,87,0.2); border-radius:6px; padding:6px 14px; font-size:11.5px; cursor:pointer; font-weight:600; font-family:var(--font); transition:all 0.15s;">Factory Reset / Wipe Data</button>
         </div>
+
 
       </div>
     
