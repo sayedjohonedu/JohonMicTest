@@ -43,4 +43,5 @@ contextBridge.exposeInMainWorld('junoAPI', {
   startDrag:         ()     => ipcRenderer.send('window-drag'),
   stopDrag:          ()     => ipcRenderer.send('window-drag-stop'),
   toggleFloatingBrowser: () => ipcRenderer.send('toggle-floating-browser'),
+  openTranslator:        () => ipcRenderer.send('open-translator'),
 });

@@ -9,10 +9,11 @@ const { setupFloatingBrowserIpc } = require('./floating-browser-manager');
 
 let pendingMicListResolve = null;
 
-function setupIpcHandlers(toggleListening, registerHotkeys, getWsClient, resetSilenceTimer, showSettings, robustKeyTap, injectCharDirect, injectText, switchTrayLanguage, resetModifiers, _resetSilenceTimerForBrowser) {
+function setupIpcHandlers(toggleListening, registerHotkeys, getWsClient, resetSilenceTimer, showSettings, robustKeyTap, injectCharDirect, injectText, switchTrayLanguage, resetModifiers, _resetSilenceTimerForBrowser, translatorCtx) {
   
   setupFloatingBrowserIpc(_resetSilenceTimerForBrowser || resetSilenceTimer);
-  
+  if (translatorCtx) setupTranslatorIpc(translatorCtx, robustKeyTap);
+
   ipcMain.on('save-config', (event, config) => {
     store.set(config);
     registerHotkeys(toggleListening);
@@ -378,6 +379,230 @@ function handleMicListMessage(devices) {
     pendingMicListResolve(devices);
     pendingMicListResolve = null;
   }
+}
+
+/* ─── Translator IPC ──────────────────────────────────────────── */
+function setupTranslatorIpc({ openTranslator, closeTranslatorAndRestoreOverlay, toggleListening: tglListen }, robustKeyTap) {
+  const KBD_MOD = process.platform === 'darwin' ? 'command' : 'control';
+
+  // Translate — Regular (google-translate-api-x) or AI (LLM)
+  ipcMain.handle('translator-do-translate', async (event, payload) => {
+    const { text, src, tgt, mode, profile, systemPrompt, systemInstructions } = payload;
+    if (mode === 'ai' && profile) {
+      return await callLlmTranslate({ text, tgt, profile, systemPrompt, systemInstructions });
+    } else {
+      return await callGoogleTranslate({ text, src, tgt });
+    }
+  });
+
+  // Humanize — AI only
+  ipcMain.handle('translator-do-humanize', async (event, { text, profile, systemInstructions }) => {
+    if (!profile) return { error: 'No API profile configured' };
+    const prompt = 'Rewrite the following text to sound more natural, human, and conversational. Preserve the original meaning and keep it in the same language. Do not translate or change the language.';
+    return await callLlmRaw({ text, profile, systemPrompt: prompt, systemInstructions });
+  });
+
+  // Paste output to last focused app
+  // Strategy: hide/minimize translator briefly so the target app regains focus, then paste
+  ipcMain.on('translator-paste-output', (event, text) => {
+    if (!text) return;
+    const { app } = require('electron');
+    const translatorManager = require('./translator-manager');
+    const clipboardManager = require('./clipboard-manager');
+    const tw = translatorManager.getTranslatorWindow();
+    
+    if (tw && !tw.isDestroyed()) {
+      if (process.platform === 'darwin') {
+        app.hide(); // Yield focus to the underlying macOS app 
+      } else {
+        tw.minimize(); // On Windows, minimizing reliably returns focus to the previous active app
+        tw.hide();     // Hide it off-screen to avoid taskbar flicker if possible
+      }
+      setTimeout(() => {
+        clipboardManager.injectText(text);
+        setTimeout(() => {
+          if (process.platform === 'darwin') {
+            app.show();
+          } else {
+            if (tw && !tw.isDestroyed()) {
+              tw.restore(); // Undo the minimize on Windows
+            }
+          }
+          if (tw && !tw.isDestroyed()) tw.show();
+        }, 150); // delay before restoring translator
+      }, 200); // delay to let OS focus transfer complete
+    } else {
+      clipboardManager.injectText(text);
+    }
+  });
+
+  // Toggle STT from translator mic button
+  ipcMain.on('translator-toggle-listening', (event, opts = {}) => {
+    if (typeof tglListen === 'function') {
+      tglListen(opts.lang || 'auto', true, opts.forceStart || false);
+    }
+  });
+
+  // Close translator
+  ipcMain.on('translator-close', () => closeTranslatorAndRestoreOverlay());
+
+  // Open translator from overlay button
+  ipcMain.on('open-translator', () => openTranslator());
+
+  // Save settings (partial update)
+  ipcMain.handle('translator-save-settings', (event, updates) => {
+    if (updates && typeof updates === 'object') {
+      Object.keys(updates).forEach(k => store.set(k, updates[k]));
+    }
+    return true;
+  });
+
+  // Save one history entry
+  ipcMain.handle('translator-save-history', (event, entry) => {
+    const history = store.get('translatorHistory') || [];
+    history.unshift(entry);
+    if (history.length > 200) history.pop();
+    store.set('translatorHistory', history);
+    return true;
+  });
+
+  // Clear history
+  ipcMain.on('translator-clear-history', () => {
+    store.set('translatorHistory', []);
+  });
+
+  // Save language presets
+  ipcMain.handle('translator-save-presets', (event, presets) => {
+    store.set('translatorLangPresets', presets);
+    return true;
+  });
+}
+
+/* ─── Translation helpers ─────────────────────────────────────── */
+async function callGoogleTranslate({ text, src, tgt }) {
+  try {
+    let translate;
+    try {
+      translate = require('google-translate-api-x');
+    } catch (e) {
+      return { error: 'google-translate-api-x not installed. Run: npm install google-translate-api-x' };
+    }
+    // Must pass 'auto' explicitly — passing undefined crashes the API
+    const fromLang = (!src || src === 'auto') ? 'auto' : src;
+    const res = await translate(text, { from: fromLang, to: tgt });
+    return { text: res.text };
+  } catch (e) {
+    console.error('Google Translate error:', e);
+    return { error: e.message || 'Translation failed' };
+  }
+}
+
+async function callLlmTranslate({ text, tgt, profile, systemPrompt, systemInstructions }) {
+  const langNames = {
+    'en':'English','bn':'Bengali','es':'Spanish','fr':'French','de':'German','it':'Italian',
+    'pt':'Portuguese','ru':'Russian','ja':'Japanese','ko':'Korean','zh-CN':'Chinese (Simplified)',
+    'zh-TW':'Chinese (Traditional)','ar':'Arabic','hi':'Hindi','tr':'Turkish','pl':'Polish',
+    'nl':'Dutch','sv':'Swedish','da':'Danish','fi':'Finnish','no':'Norwegian','uk':'Ukrainian',
+    'vi':'Vietnamese','th':'Thai','id':'Indonesian','ms':'Malay','fa':'Persian','ur':'Urdu',
+    'he':'Hebrew','ro':'Romanian','hu':'Hungarian','cs':'Czech','el':'Greek','bg':'Bulgarian',
+  };
+  const targetLanguage = langNames[tgt] || tgt;
+
+  const sysPrompt = (systemPrompt || 'Translate the following text into {targetLanguage}. Preserve tone and formatting. Do not add explanations.')
+    .replace('{targetLanguage}', targetLanguage);
+
+  return await callLlmRaw({ text, profile, systemPrompt: sysPrompt, systemInstructions });
+}
+
+async function callLlmRaw({ text, profile, systemPrompt, systemInstructions }) {
+  const { provider, model, modelName, apiKey, baseUrl } = profile;
+
+  const messages = [];
+  if (systemPrompt) messages.push({ role: 'system', content: systemPrompt });
+  if (systemInstructions) messages.push({ role: 'system', content: systemInstructions });
+  messages.push({ role: 'user', content: text });
+
+  try {
+    const https = require('https');
+    const http  = require('http');
+
+    const ENDPOINTS = {
+      openai:    'https://api.openai.com/v1/chat/completions',
+      anthropic: 'https://api.anthropic.com/v1/messages',
+      gemini:    `https://generativelanguage.googleapis.com/v1beta/models/${model || modelName}:generateContent?key=${apiKey}`,
+      mistral:   'https://api.mistral.ai/v1/chat/completions',
+      groq:      'https://api.groq.com/openai/v1/chat/completions',
+      custom:    (baseUrl || '').replace(/\/$/, '') + '/chat/completions',
+    };
+
+    // Anthropic uses a different format
+    if (provider === 'anthropic') {
+      const body = JSON.stringify({
+        model: model || modelName,
+        max_tokens: 4096,
+        system: messages.filter(m => m.role === 'system').map(m => m.content).join('\n\n'),
+        messages: messages.filter(m => m.role === 'user'),
+      });
+      const result = await httpPost('https://api.anthropic.com/v1/messages', body, {
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+      });
+      const parsed = JSON.parse(result);
+      if (parsed.error) return { error: parsed.error.message };
+      return { text: parsed.content[0].text.trim() };
+    }
+
+    // Gemini uses a different format
+    if (provider === 'gemini') {
+      const sysText = messages.filter(m => m.role === 'system').map(m => m.content).join('\n\n');
+      const userText = (sysText ? sysText + '\n\n' : '') + text;
+      const body = JSON.stringify({ contents: [{ parts: [{ text: userText }] }] });
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/${model || modelName}:generateContent?key=${apiKey}`;
+      const result = await httpPost(url, body, {});
+      const parsed = JSON.parse(result);
+      if (parsed.error) return { error: parsed.error.message };
+      return { text: parsed.candidates[0].content.parts[0].text.trim() };
+    }
+
+    // OpenAI-compatible (openai, mistral, groq, custom)
+    const endpoint = ENDPOINTS[provider] || ENDPOINTS.custom;
+    const body = JSON.stringify({ model: model || modelName, messages, max_tokens: 4096, temperature: 0.3 });
+    const result = await httpPost(endpoint, body, { Authorization: `Bearer ${apiKey}` });
+    const parsed = JSON.parse(result);
+    if (parsed.error) return { error: parsed.error.message };
+    return { text: parsed.choices[0].message.content.trim() };
+
+  } catch (e) {
+    console.error('LLM call error:', e);
+    return { error: e.message || 'AI request failed' };
+  }
+}
+
+function httpPost(url, body, extraHeaders = {}) {
+  return new Promise((resolve, reject) => {
+    const parsed = new URL(url);
+    const lib = parsed.protocol === 'https:' ? require('https') : require('http');
+    const data = Buffer.from(body, 'utf8');
+    const req = lib.request({
+      hostname: parsed.hostname,
+      port: parsed.port || (parsed.protocol === 'https:' ? 443 : 80),
+      path: parsed.pathname + parsed.search,
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Content-Length': data.length,
+        ...extraHeaders,
+      },
+    }, (res) => {
+      let raw = '';
+      res.on('data', chunk => raw += chunk);
+      res.on('end', () => resolve(raw));
+    });
+    req.on('error', reject);
+    req.setTimeout(30000, () => { req.destroy(); reject(new Error('Request timeout')); });
+    req.write(data);
+    req.end();
+  });
 }
 
 module.exports = { setupIpcHandlers, handleMicListMessage };

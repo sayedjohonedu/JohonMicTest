@@ -13,11 +13,12 @@ const clipboardManager = require('./src/main/clipboard-manager');
 // Import modules
 const { createOverlay, showSettings, applyOverlaySize, getOverlayWindow, getSettingsWindow } = require('./src/main/window-manager');
 const { onOverlayShow, onOverlayHide } = require('./src/main/floating-browser-manager');
-const { registerHotkeys, stopUiohook } = require('./src/main/hotkey-manager');
+const { registerHotkeys, stopUiohook, setTranslatorCtx } = require('./src/main/hotkey-manager');
 const { checkAuthStatus } = require('./src/main/licensing');
 const { setupUpdater } = require('./src/main/updater');
 const { setupIpcHandlers } = require('./src/main/ipc-handlers');
 const { createTray, updateTrayMenu } = require('./src/main/tray-manager');
+const translatorManager = require('./src/main/translator-manager');
 
 // Global state
 let wss = null;
@@ -27,6 +28,10 @@ let httpPort = 9123;
 let sessionWordCount = 0;
 let currentSessionLang = 'en-US';
 let lastPhraseTimestamp = 0;
+
+// ── Translator mode: 'overlay' | 'translator' ───────────────
+// Controls where STT transcripts are routed. The two panels are mutually exclusive.
+let sttMode = 'overlay';
 
 const junoAutoLauncher = new AutoLaunch({
   name: 'Juno Global Voice',
@@ -52,28 +57,90 @@ app.on('will-quit', async (event) => {
   app.exit(0);
 });
 
-function toggleListening(forceLang = null) {
+function normaliseLangCode(code) {
+  if (!code || code === 'auto') return store.get('language') || 'en-US';
+  // Already a BCP-47 tag with subtag (e.g. en-US, zh-CN)
+  if (code.includes('-')) return code;
+  // Map common short ISO 639-1 codes to BCP-47
+  const MAP = {
+    en:'en-US', bn:'bn-BD', es:'es-ES', fr:'fr-FR', de:'de-DE', it:'it-IT',
+    pt:'pt-PT', ru:'ru-RU', ja:'ja-JP', ko:'ko-KR', ar:'ar-SA', hi:'hi-IN',
+    tr:'tr-TR', pl:'pl-PL', nl:'nl-NL', sv:'sv-SE', da:'da-DK', fi:'fi-FI',
+    no:'nb-NO', uk:'uk-UA', vi:'vi-VN', th:'th-TH', id:'id-ID', ms:'ms-MY',
+    fa:'fa-IR', ur:'ur-PK', he:'he-IL', ro:'ro-RO', hu:'hu-HU', cs:'cs-CZ',
+    el:'el-GR', bg:'bg-BG',
+  };
+  return MAP[code] || code;
+}
+
+function toggleListening(forceLang = null, fromTranslator = false, forceStart = false) {
   if (!wsClient || wsClient.readyState !== WebSocket.OPEN) {
     dialog.showErrorBox('Service Not Ready', 'Speech service is not connected or Chrome bridge crashed. Please restart the app.');
     isListening = false;
-    const overlayWindow = getOverlayWindow();
-    if (overlayWindow) overlayWindow.hide();
+    if (sttMode === 'overlay') {
+      const overlayWindow = getOverlayWindow();
+      if (overlayWindow) overlayWindow.hide();
+    }
     updateTrayMenu(toggleListening, showSettings, app, switchTrayLanguage, isListening);
     return;
   }
-  
+
   const status = store.get('licenseStatus');
-  if (status === 'expired') {
-    showSettings();
+  if (status === 'expired') { showSettings(); return; }
+
+  // Overriding sttMode if we get a global STT hotkey while in translator mode
+  if (sttMode === 'translator' && !fromTranslator) {
+    closeTranslatorAndRestoreOverlay(); // Sets sttMode='overlay' and stops listening
+    // We are now switching back to overlay, so we proceed to toggle it ON
+  }
+
+  // ── forceStart: always do a full stop→start cycle (for language change / swap)
+  // We do NOT skip based on language match — the caller already decided a restart is needed.
+  if (forceStart && isListening) {
+    try { wsClient.send(JSON.stringify({ command: 'stop' })); } catch (e) {}
+    isListening = false;
+    // Notify translator UI so the button reflects the brief stopped state
+    if (sttMode === 'translator') {
+      const tw = translatorManager.getTranslatorWindow();
+      if (tw && !tw.isDestroyed()) tw.webContents.send('translator-stt-state', false);
+    }
+    // Small gap so the STT engine can cleanly reset before we send start
+    setTimeout(() => toggleListening(forceLang, fromTranslator, false), 150);
     return;
   }
-  
+
   isListening = !isListening;
   const overlayWindow = getOverlayWindow();
+
+  // Play sound cue always
   if (overlayWindow && !overlayWindow.isDestroyed()) {
     overlayWindow.webContents.send('play-sound', isListening);
   }
 
+  if (sttMode === 'translator') {
+    // ── TRANSLATOR MODE: just start/stop STT, do NOT touch the overlay window
+    const tw = translatorManager.getTranslatorWindow();
+    if (isListening) {
+      sessionWordCount = 0;
+      lastPhraseTimestamp = 0;
+      // Normalise short ISO codes to BCP-47 for the STT engine (e.g. 'en' → 'en-US')
+      const lang = normaliseLangCode(forceLang);
+      currentSessionLang = lang;
+      // Use translator-specific silence timeout; 0 means infinite (never auto-stop)
+      const silenceTimeout = store.get('translatorSilenceEnabled')
+        ? (store.get('translatorSilenceTimeout') ?? 0)
+        : 0;
+      if (tw && !tw.isDestroyed()) tw.webContents.send('translator-stt-state', true);
+      try { wsClient.send(JSON.stringify({ command: 'start', language: lang, timeout: silenceTimeout })); } catch (e) {}
+    } else {
+      if (tw && !tw.isDestroyed()) tw.webContents.send('translator-stt-state', false);
+      try { wsClient.send(JSON.stringify({ command: 'stop' })); } catch (e) {}
+    }
+    updateTrayMenu(toggleListening, showSettings, app, switchTrayLanguage, isListening);
+    return;
+  }
+
+  // ── OVERLAY MODE: normal behavior
   if (isListening) {
     sessionWordCount = 0;
     if (!store.get('statsFirstDate')) store.set('statsFirstDate', Date.now());
@@ -85,7 +152,6 @@ function toggleListening(forceLang = null) {
 
     if (overlayWindow) {
       overlayWindow.webContents.send('session-start', { lang });
-      // Apply correct size BEFORE showing
       if (store.get('overlayMini')) {
         overlayWindow.setMinimumSize(280, 38);
         overlayWindow.setSize(280, 38);
@@ -93,29 +159,48 @@ function toggleListening(forceLang = null) {
         applyOverlaySize();
       }
       overlayWindow.showInactive();
-      // Always use single unified position key
       const pos = store.get('overlayPosition');
       if (pos && typeof pos.x === 'number') overlayWindow.setPosition(pos.x, pos.y);
       else overlayWindow.center();
     }
-    // Restore floating browser if it was open last session
     onOverlayShow();
-    try {
-      wsClient.send(JSON.stringify({ command: 'start', language: lang, timeout: silenceTimeout }));
-    } catch (e) {
+    try { wsClient.send(JSON.stringify({ command: 'start', language: lang, timeout: silenceTimeout })); } catch (e) {
       console.error('Failed to send start command:', e);
     }
   } else {
-    // Save browser open state before hiding overlay
     onOverlayHide();
     if (overlayWindow) overlayWindow.hide();
-    try {
-      wsClient.send(JSON.stringify({ command: 'stop' }));
-    } catch (e) {
+    try { wsClient.send(JSON.stringify({ command: 'stop' })); } catch (e) {
       console.error('Failed to send stop command:', e);
     }
   }
   updateTrayMenu(toggleListening, showSettings, app, switchTrayLanguage, isListening);
+}
+// Expose so translator IPC can call it
+toggleListening._self = toggleListening;
+
+function openTranslator() {
+  // Allow co-existence: if STT is running in overlay mode, just switch mode
+  // If STT is running in overlay mode, stop the overlay cleanly first
+  if (sttMode === 'overlay' && isListening) {
+    // Gracefully stop the overlay STT session
+    toggleListening(); // stops listening + hides overlay
+  }
+  sttMode = 'translator';
+  translatorManager.showTranslator();
+  // Wire the toggle function so translator-toggle-listening IPC can call it
+  openTranslator._toggleListening = toggleListening;
+}
+
+function closeTranslatorAndRestoreOverlay() {
+  // If STT is running in translator mode, stop it
+  if (sttMode === 'translator' && isListening) {
+    try { wsClient && wsClient.readyState === 1 && wsClient.send(JSON.stringify({ command: 'stop' })); } catch (e) {}
+    isListening = false;
+    updateTrayMenu(toggleListening, showSettings, app, switchTrayLanguage, isListening);
+  }
+  sttMode = 'overlay';
+  translatorManager.closeTranslator();
 }
 
 function switchTrayLanguage(langCode) {
@@ -259,27 +344,59 @@ function setupWebSocketServer(server) {
         const replacedText = applyTextReplacements(rawText);
 
         const overlayWindow = getOverlayWindow();
-        if (overlayWindow) {
-          overlayWindow.webContents.send('session-word-count', sessionWordCount);
-          overlayWindow.webContents.send('transcript', { text: replacedText });
-        }
 
-        // Always add a space if this is not the first phrase of the session
-        const textToInject = (lastPhraseTimestamp > 0) ? ' ' + replacedText : replacedText;
-        lastPhraseTimestamp = Date.now();
-        clipboardManager.injectText(textToInject);
+        if (sttMode === 'translator') {
+          // ── TRANSLATOR MODE: send transcript to translator panel, do NOT type globally
+          const tw = translatorManager.getTranslatorWindow();
+          if (tw && !tw.isDestroyed()) {
+            tw.webContents.send('translator-transcript', replacedText);
+            translatorManager.resetTranslatorSilenceTimer();
+            if (overlayWindow && !overlayWindow.isDestroyed()) {
+              overlayWindow.webContents.send('session-word-count', sessionWordCount);
+            }
+          }
+        } else {
+          // ── OVERLAY MODE: existing behavior
+          if (overlayWindow) {
+            overlayWindow.webContents.send('session-word-count', sessionWordCount);
+            overlayWindow.webContents.send('transcript', { text: replacedText });
+          }
+          const textToInject = (lastPhraseTimestamp > 0) ? ' ' + replacedText : replacedText;
+          lastPhraseTimestamp = Date.now();
+          clipboardManager.injectText(textToInject);
+        }
       } else if (data.type === 'interim-text') {
-        const overlayWindow = getOverlayWindow();
-        if (overlayWindow) overlayWindow.webContents.send('interim-text', data.text);
+        if (sttMode === 'translator') {
+          const tw = translatorManager.getTranslatorWindow();
+          if (tw && !tw.isDestroyed()) tw.webContents.send('translator-interim', data.text);
+        } else {
+          const overlayWindow = getOverlayWindow();
+          if (overlayWindow) overlayWindow.webContents.send('interim-text', data.text);
+        }
       } else if (data.type === 'status') {
         if (data.message === 'silence-timeout' && isListening) {
-          toggleListening();
-          const overlayWindow = getOverlayWindow();
-          if (overlayWindow) overlayWindow.webContents.send('overlay-status', 'silence-timeout');
+          // In translator mode, only auto-stop if the translator silence timer is enabled
+          if (sttMode === 'translator' && !store.get('translatorSilenceEnabled')) {
+            // Silence timer is disabled for translator — re-arm and continue listening
+            // (engine already stopped internally; send start again to resume)
+            const tw = translatorManager.getTranslatorWindow();
+            isListening = false; // reset so toggleListening can turn it on again
+            if (tw && !tw.isDestroyed()) tw.webContents.send('translator-stt-state', false);
+            setTimeout(() => toggleListening(null, true, false), 200);
+          } else {
+            toggleListening();
+            const overlayWindow = getOverlayWindow();
+            if (overlayWindow) overlayWindow.webContents.send('overlay-status', 'silence-timeout');
+          }
         }
       } else if (data.type === 'audio-data') {
         const overlayWindow = getOverlayWindow();
-        if (overlayWindow && !overlayWindow.isDestroyed() && overlayWindow.isVisible()) {
+        if (sttMode === 'translator') {
+          const tw = translatorManager.getTranslatorWindow();
+          if (tw && !tw.isDestroyed() && tw.isVisible()) {
+            tw.webContents.send('translator-audio-data', data.bins);
+          }
+        } else if (overlayWindow && !overlayWindow.isDestroyed() && overlayWindow.isVisible()) {
           overlayWindow.webContents.send('audio-data', { bins: data.bins, volume: data.volume });
         }
       } else if (data.type === 'device-list') {
@@ -337,8 +454,25 @@ app.whenReady().then(() => {
     console.log(`[Overlay Console] ${message} (line ${line})`);
   });
   registerHotkeys(toggleListening);
+
+  // ── Wire translator shortcuts into hotkey-manager so they survive unregisterAll()
+  setTranslatorCtx({
+    openTranslator,
+    closeTranslatorAndRestoreOverlay,
+    isTranslatorVisible: () => translatorManager.isTranslatorVisible(),
+    getTranslatorWindow: () => translatorManager.getTranslatorWindow(),
+  });
+  // Re-run registerHotkeys now that translatorCtx is set
+  registerHotkeys(toggleListening);
+
   setupHttpServer();
-  setupIpcHandlers(toggleListening, registerHotkeys, () => wsClient, resetSilenceTimer, showSettings, robustKeyTap, clipboardManager.injectCharDirect.bind(clipboardManager), clipboardManager.injectText.bind(clipboardManager), switchTrayLanguage, resetModifiers, resetSilenceTimer);
+  setupIpcHandlers(
+    toggleListening, registerHotkeys, () => wsClient, resetSilenceTimer, showSettings,
+    robustKeyTap, clipboardManager.injectCharDirect.bind(clipboardManager),
+    clipboardManager.injectText.bind(clipboardManager), switchTrayLanguage, resetModifiers,
+    resetSilenceTimer,
+  { openTranslator, closeTranslatorAndRestoreOverlay, toggleListening, getCurrentSttMode: () => sttMode }
+  );
   setupUpdater(getSettingsWindow);  // pass getter so updater always gets current window, not null
   setTimeout(() => showSettings(), 1000);
 });

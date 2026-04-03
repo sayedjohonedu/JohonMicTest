@@ -1,0 +1,447 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Juno Translator</title>
+  <link rel="stylesheet" href="translator.css">
+</head>
+<body>
+<div id="card">
+
+  <!-- ── TITLEBAR ── -->
+  <div id="titlebar">
+    <div class="dot" id="dot-close" title="Close"></div>
+
+    <div id="titlebar-center">
+      <div id="tb-icon">
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" width="14" height="14">
+          <path d="M2 3h6M5 3v2M2 5h6M8 3l4 9M10.5 8H15M12.5 3l-4 9"/>
+        </svg>
+      </div>
+      <span id="tb-title">Juno Translator</span>
+
+      <!-- Mode Toggle -->
+      <div id="mode-toggle-wrap">
+        <span id="mode-label">Regular</span>
+        <label class="toggle-switch" title="Toggle AI Mode">
+          <input type="checkbox" id="mode-toggle">
+          <span class="toggle-track"></span>
+        </label>
+        <span id="ai-badge">AI</span>
+      </div>
+    </div>
+
+    <div id="titlebar-right">
+      <!-- Expand/Collapse playground -->
+      <button class="tb-btn" id="btn-expand-playground" title="Multi-language Playground">
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6">
+          <rect x="1" y="1" width="6" height="6" rx="1.5"/>
+          <rect x="9" y="1" width="6" height="6" rx="1.5"/>
+          <rect x="1" y="9" width="6" height="6" rx="1.5"/>
+          <rect x="9" y="9" width="6" height="6" rx="1.5"/>
+        </svg>
+      </button>
+
+      <!-- Settings -->
+      <button class="tb-btn" id="btn-settings" title="Settings">
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6">
+          <circle cx="8" cy="8" r="2.5"/>
+          <path d="M8 1v2M8 13v2M1 8h2M13 8h2M3.05 3.05l1.41 1.41M11.54 11.54l1.41 1.41M11.54 4.46l-1.41 1.41M4.46 11.54l-1.41 1.41"/>
+        </svg>
+      </button>
+    </div>
+  </div>
+
+  <!-- ── LANGUAGE ROW ── -->
+  <div id="lang-row">
+    <div class="lang-select-wrap">
+      <label>Source</label>
+      <select id="src-lang">
+        <option value="auto">Auto-detect</option>
+        <option value="en">English</option>
+        <option value="bn">Bengali</option>
+        <option value="es">Spanish</option>
+        <option value="fr">French</option>
+        <option value="de">German</option>
+        <option value="it">Italian</option>
+        <option value="pt">Portuguese</option>
+        <option value="ru">Russian</option>
+        <option value="ja">Japanese</option>
+        <option value="ko">Korean</option>
+        <option value="zh-CN">Chinese (Simplified)</option>
+        <option value="zh-TW">Chinese (Traditional)</option>
+        <option value="ar">Arabic</option>
+        <option value="hi">Hindi</option>
+        <option value="tr">Turkish</option>
+        <option value="pl">Polish</option>
+        <option value="nl">Dutch</option>
+        <option value="sv">Swedish</option>
+        <option value="da">Danish</option>
+        <option value="fi">Finnish</option>
+        <option value="no">Norwegian</option>
+        <option value="uk">Ukrainian</option>
+        <option value="vi">Vietnamese</option>
+        <option value="th">Thai</option>
+        <option value="id">Indonesian</option>
+        <option value="ms">Malay</option>
+        <option value="fa">Persian</option>
+        <option value="ur">Urdu</option>
+        <option value="he">Hebrew</option>
+        <option value="ro">Romanian</option>
+        <option value="hu">Hungarian</option>
+        <option value="cs">Czech</option>
+        <option value="el">Greek</option>
+        <option value="bg">Bulgarian</option>
+      </select>
+    </div>
+
+    <button id="swap-btn" title="Swap languages">
+      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6">
+        <path d="M11 2l3 3-3 3M2 5h12M5 14l-3-3 3-3M14 11H2"/>
+      </svg>
+    </button>
+
+    <div class="lang-select-wrap">
+      <label>Target</label>
+      <select id="tgt-lang">
+        <option value="en">English</option>
+        <option value="bn" selected>Bengali</option>
+        <option value="es">Spanish</option>
+        <option value="fr">French</option>
+        <option value="de">German</option>
+        <option value="it">Italian</option>
+        <option value="pt">Portuguese</option>
+        <option value="ru">Russian</option>
+        <option value="ja">Japanese</option>
+        <option value="ko">Korean</option>
+        <option value="zh-CN">Chinese (Simplified)</option>
+        <option value="zh-TW">Chinese (Traditional)</option>
+        <option value="ar">Arabic</option>
+        <option value="hi">Hindi</option>
+        <option value="tr">Turkish</option>
+        <option value="pl">Polish</option>
+        <option value="nl">Dutch</option>
+        <option value="sv">Swedish</option>
+        <option value="da">Danish</option>
+        <option value="fi">Finnish</option>
+        <option value="no">Norwegian</option>
+        <option value="uk">Ukrainian</option>
+        <option value="vi">Vietnamese</option>
+        <option value="th">Thai</option>
+        <option value="id">Indonesian</option>
+        <option value="ms">Malay</option>
+        <option value="fa">Persian</option>
+        <option value="ur">Urdu</option>
+        <option value="he">Hebrew</option>
+        <option value="ro">Romanian</option>
+        <option value="hu">Hungarian</option>
+        <option value="cs">Czech</option>
+        <option value="el">Greek</option>
+        <option value="bg">Bulgarian</option>
+      </select>
+    </div>
+  </div>
+
+  <!-- ── STATUS BAR ── -->
+  <div id="status-bar">
+    <!-- Mic toggle button -->
+    <button id="btn-mic" title="Start / Stop listening">
+      <svg id="mic-icon-on" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" width="14" height="14">
+        <rect x="5" y="1" width="6" height="9" rx="3"/>
+        <path d="M2 8a6 6 0 0012 0M8 14v-2"/>
+      </svg>
+      <svg id="mic-icon-off" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" width="14" height="14" style="display:none;">
+        <rect x="5" y="1" width="6" height="9" rx="3"/>
+        <path d="M2 8a6 6 0 0012 0M8 14v-2M2 2l12 12"/>
+      </svg>
+      <span id="status-text">Click to start listening</span>
+      <div id="waveform-mini">
+        <canvas id="mini-canvas"></canvas>
+      </div>
+    </button>
+  </div>
+
+  <!-- ── NO API WARNING ── -->
+  <div id="no-api-warning">
+    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6">
+      <path d="M8 1L15 14H1L8 1zM8 6v4M8 11.5v.5"/>
+    </svg>
+    No API profile configured. <a href="#" id="warning-settings-link" style="color:inherit;text-decoration:underline;cursor:pointer;">Open Settings</a>
+  </div>
+
+  <!-- ── MAIN BODY ── -->
+  <div id="body">
+
+    <!-- DRAFT -->
+    <div class="section">
+      <div class="section-label">
+        <span>Draft — What you said</span>
+        <div class="section-label-actions">
+          <span id="silence-timer" style="font-size:10px;color:var(--muted);display:none;"></span>
+        </div>
+      </div>
+      <div id="draft-wrap">
+        <textarea id="draft-area" placeholder="Speak or type here…" spellcheck="false"></textarea>
+        <div id="draft-stt-indicator">
+          <div class="stt-dot"></div>
+          <span>Listening</span>
+        </div>
+      </div>
+      <div class="draft-actions">
+        <button id="btn-translate">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" width="14" height="14">
+            <path d="M2 3h6M5 3v2M2 5h6M8 3l4 9M10.5 8H15M12.5 3l-4 9"/>
+          </svg>
+          Translate
+          <div class="spinner" id="translate-spinner"></div>
+        </button>
+        <button class="btn-sm danger" id="btn-clear-draft" title="Clear draft">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" width="12" height="12">
+            <path d="M4 4l8 8M12 4l-8 8"/>
+          </svg>
+          Clear
+        </button>
+      </div>
+    </div>
+
+    <!-- OUTPUT -->
+    <div class="section">
+      <div class="section-label">
+        <span>Output</span>
+        <div class="section-label-actions">
+          <button class="btn-sm" id="btn-copy-output" title="Copy translated text">
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" width="12" height="12">
+              <rect x="5" y="5" width="8" height="9" rx="1.5"/>
+              <path d="M11 5V4a1 1 0 00-1-1H4a1 1 0 00-1 1v8a1 1 0 001 1h1"/>
+            </svg>
+            Copy
+          </button>
+        </div>
+      </div>
+      <div id="output-wrap">
+        <textarea id="output-area" placeholder="Translation will appear here…" spellcheck="false"></textarea>
+      </div>
+      <div class="output-actions">
+        <button id="btn-paste-output" title="Paste into last active app (Shift+Alt+P)">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" width="13" height="13">
+            <path d="M4 6h8M4 10h5M10 13l3-3-3-3"/>
+          </svg>
+          Paste to App
+          <span style="font-size:10px;opacity:0.6;margin-left:2px;">⇧⌥P</span>
+        </button>
+        <button id="btn-humanize" class="disabled" title="Humanize with AI (requires AI mode)">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" width="12" height="12">
+            <path d="M8 1l1.5 4.5L14 7l-4.5 1.5L8 13l-1.5-4.5L2 7l4.5-1.5L8 1z"/>
+          </svg>
+          Humanize
+          <div class="spinner" id="humanize-spinner"></div>
+        </button>
+        <button id="btn-revert" title="Revert to original translation">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" width="12" height="12">
+            <path d="M3 7a5 5 0 105 5M3 7V3M3 7H7"/>
+          </svg>
+          Revert
+        </button>
+      </div>
+    </div>
+
+    <!-- PLAYGROUND (expanded) -->
+    <div id="playground">
+      <div class="playground-header">
+        <span class="playground-title">Multi-Language Playground</span>
+        <button class="btn-sm" id="btn-copy-all">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" width="12" height="12">
+            <rect x="5" y="5" width="8" height="9" rx="1.5"/>
+            <path d="M11 5V4a1 1 0 00-1-1H4a1 1 0 00-1 1v8a1 1 0 001 1h1"/>
+          </svg>
+          Copy All
+        </button>
+      </div>
+      <div id="pg-slots"></div>
+      <button id="btn-add-lang">
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" width="13" height="13">
+          <path d="M8 3v10M3 8h10"/>
+        </svg>
+        Add Language
+      </button>
+      <button id="btn-translate-all">
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" width="14" height="14">
+          <path d="M2 3h6M5 3v2M2 5h6M8 3l4 9M10.5 8H15M12.5 3l-4 9"/>
+        </svg>
+        Translate All
+      </button>
+    </div>
+
+    <!-- HISTORY TOGGLE -->
+    <button id="btn-toggle-history" class="history-toggle-btn">
+      <svg id="history-chevron" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" width="12" height="12">
+        <path d="M4 6l4 4 4-4"/>
+      </svg>
+      <span>Expand History</span>
+    </button>
+
+    <!-- HISTORY SECTION -->
+    <div id="history-section" style="display: none;">
+      <div class="history-header">
+        <span class="history-title">Translation History</span>
+        <button class="btn-sm danger" id="btn-clear-history">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" width="12" height="12">
+            <path d="M3 4h10M5 4V2h6v2M13 4l-1 9a1 1 0 01-1 1H5a1 1 0 01-1-1L3 4"/>
+          </svg>
+          Clear
+        </button>
+      </div>
+      <div class="history-list" id="history-list">
+        <div class="hist-empty" id="hist-empty">No translations yet</div>
+      </div>
+    </div>
+
+  </div><!-- /#body -->
+
+</div><!-- /#card -->
+
+<!-- ── SETTINGS PANE ── -->
+<div id="settings-pane">
+  <div id="sp-header">
+    <button class="tb-btn" id="btn-sp-back">
+      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.7" width="15" height="15">
+        <path d="M10 3L5 8l5 5"/>
+      </svg>
+    </button>
+    <span id="sp-title">Translator Settings</span>
+    <button id="btn-sp-save">Save</button>
+  </div>
+  <div class="sp-body">
+
+    <!-- API Profiles -->
+    <div class="sp-group">
+      <div class="sp-group-title">API Profiles</div>
+      <div id="profile-list"></div>
+      <div id="add-profile-form" style="display:flex;flex-direction:column;gap:10px;margin-top:4px;">
+        <div class="sp-field">
+          <label>Profile Name</label>
+          <input class="sp-input" id="sp-profile-name" placeholder="e.g. My OpenAI Key" type="text">
+        </div>
+        <div class="sp-field">
+          <label>Provider</label>
+          <select class="sp-select" id="sp-provider">
+            <option value="openai">OpenAI</option>
+            <option value="anthropic">Anthropic (Claude)</option>
+            <option value="gemini">Google Gemini</option>
+            <option value="mistral">Mistral</option>
+            <option value="groq">Groq</option>
+            <option value="custom">Custom / Third-Party</option>
+          </select>
+        </div>
+        <div class="sp-field" id="sp-model-field">
+          <label>Model</label>
+          <select class="sp-select" id="sp-model">
+            <option value="gpt-4o">GPT-4o</option>
+            <option value="gpt-4-turbo">GPT-4 Turbo</option>
+            <option value="gpt-3.5-turbo">GPT-3.5 Turbo</option>
+          </select>
+        </div>
+        <div class="sp-field" id="sp-custom-url-field" style="display:none;">
+          <label>API Base URL</label>
+          <input class="sp-input" id="sp-custom-url" placeholder="https://api.example.com/v1" type="url">
+        </div>
+        <div class="sp-field" id="sp-custom-model-field" style="display:none;">
+          <label>Model Name</label>
+          <input class="sp-input" id="sp-custom-model" placeholder="e.g. my-custom-model" type="text">
+        </div>
+        <div class="sp-field">
+          <label>API Key</label>
+          <input class="sp-input" id="sp-api-key" placeholder="sk-••••••••••••••••" type="password">
+        </div>
+        <button class="btn-sm" id="btn-add-profile" style="align-self:flex-start;">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" width="12" height="12">
+            <path d="M8 3v10M3 8h10"/>
+          </svg>
+          Add Profile
+        </button>
+      </div>
+    </div>
+
+    <!-- System Prompt -->
+    <div class="sp-group">
+      <div class="sp-group-title">AI Behaviour</div>
+      <div class="sp-field">
+        <label>System Prompt <span style="color:var(--muted);font-weight:400;">(Use {targetLanguage} as placeholder)</span></label>
+        <textarea class="sp-textarea" id="sp-system-prompt" placeholder="e.g. Translate the following text into {targetLanguage}. Preserve tone and formatting. Do not add explanations."></textarea>
+      </div>
+      <div class="sp-field">
+        <label>Additional Instructions <span style="color:var(--muted);font-weight:400;">(optional)</span></label>
+        <textarea class="sp-textarea" id="sp-system-instructions" placeholder="e.g. This is a medical context. Use clinical terminology."></textarea>
+      </div>
+    </div>
+
+    <!-- Silence Timer -->
+    <div class="sp-group">
+      <div class="sp-group-title">Silence Timer</div>
+      <div class="sp-field" style="flex-direction:row;align-items:center;justify-content:space-between;gap:12px;">
+        <label style="margin:0;">Stop mic after silence</label>
+        <label class="toggle-switch" title="Enable silence timer">
+          <input type="checkbox" id="sp-silence-enabled">
+          <span class="toggle-track"></span>
+        </label>
+      </div>
+      <div class="sp-field" id="sp-silence-duration-row" style="flex-direction:row;align-items:center;gap:8px;">
+        <label style="margin:0;flex:1;">Duration</label>
+        <input class="sp-input" type="number" id="sp-silence-val" min="1" step="1" value="30" style="width:70px;text-align:center;">
+        <select class="sp-select" id="sp-silence-unit" style="min-width:72px;">
+          <option value="sec">sec</option>
+          <option value="min">min</option>
+          <option value="hr">hr</option>
+        </select>
+      </div>
+      <p style="font-size:10px;color:var(--muted);margin:2px 0 0 0;line-height:1.4;">When disabled, the mic listens until you stop it manually.</p>
+    </div>
+
+    <!-- Shortcuts -->
+    <div class="sp-group">
+      <div class="sp-group-title">Shortcuts</div>
+      <div class="sp-field">
+        <label>Open Translator</label>
+        <input class="sp-input" id="sp-open-shortcut" type="text" placeholder="Shift+Alt+T">
+      </div>
+      <div class="sp-field">
+        <label>Paste Output</label>
+        <input class="sp-input" id="sp-paste-shortcut" type="text" placeholder="Shift+Alt+P">
+      </div>
+    </div>
+
+    <!-- Language Presets -->
+    <div class="sp-group">
+      <div class="sp-group-title">Language Presets</div>
+      <div id="presets-list"></div>
+      <div id="preset-add-form" style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;">
+        <select class="sp-select" id="ps-src" style="flex:1;min-width:100px;">
+          <option value="en">English</option>
+          <option value="bn">Bengali</option>
+          <option value="es">Spanish</option>
+          <option value="fr">French</option>
+          <option value="de">German</option>
+        </select>
+        <span style="align-self:center;color:var(--muted);font-size:13px;">→</span>
+        <select class="sp-select" id="ps-tgt" style="flex:1;min-width:100px;">
+          <option value="en">English</option>
+          <option value="bn" selected>Bengali</option>
+          <option value="es">Spanish</option>
+          <option value="fr">French</option>
+          <option value="de">German</option>
+        </select>
+        <input class="sp-input" id="ps-shortcut" placeholder="e.g. Ctrl+Alt+1" style="flex:1;min-width:100px;">
+        <button class="btn-sm" id="btn-add-preset">+ Add</button>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ── TOAST ── -->
+<div id="toast"></div>
+
+<script src="translator.js"></script>
+</body>
+</html>

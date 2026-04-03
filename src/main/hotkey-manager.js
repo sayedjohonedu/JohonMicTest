@@ -8,6 +8,13 @@ let uiohookRunning  = false;
 let middleMouseTimer = null;
 let middleMousePressed = false;
 
+// Stored translator context so shortcuts survive re-registration
+let _translatorCtx = null;
+
+function setTranslatorCtx(ctx) {
+  _translatorCtx = ctx;
+}
+
 function uiohookKeyName(keycode) {
   if (!uiohookKeyName._map) {
     uiohookKeyName._map = {};
@@ -30,6 +37,26 @@ function registerHotkeys(toggleListening) {
     } catch (e) {
       console.log('Hotkey registration failed:', e.message);
     }
+  }
+
+  // ── Translator shortcuts (always re-registered after unregisterAll) ──
+  if (_translatorCtx) {
+    const openShortcut  = store.get('translatorOpenShortcut')  || 'Shift+Alt+T';
+    const pasteShortcut = store.get('translatorPasteShortcut') || 'Shift+Alt+P';
+    try {
+      globalShortcut.register(openShortcut, () => {
+        const { openTranslator, closeTranslatorAndRestoreOverlay, isTranslatorVisible } = _translatorCtx;
+        if (isTranslatorVisible()) closeTranslatorAndRestoreOverlay();
+        else openTranslator();
+      });
+    } catch (e) { console.log('Translator open shortcut failed:', e.message); }
+    try {
+      globalShortcut.register(pasteShortcut, () => {
+        const { getTranslatorWindow } = _translatorCtx;
+        const tw = getTranslatorWindow();
+        if (tw && !tw.isDestroyed()) tw.webContents.send('translator-do-paste');
+      });
+    } catch (e) { console.log('Translator paste shortcut failed:', e.message); }
   }
 
   // 1b) Language-specific Combo Hotkeys
@@ -180,5 +207,6 @@ function stopUiohook() {
 
 module.exports = {
   registerHotkeys,
-  stopUiohook
+  stopUiohook,
+  setTranslatorCtx,
 };

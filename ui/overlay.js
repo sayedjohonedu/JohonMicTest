@@ -481,12 +481,13 @@ function applyMiniMode(mini, notify = true) {
 
 document.body.addEventListener('mousedown', (e) => {
   if (window.junoAPI && window.junoAPI.resetSilence) window.junoAPI.resetSilence();
-  const target = e.target.closest('.punct-btn, .kb-key, .emoji-btn, .kbd-btn, #mini-btn, #expand-btn, #settings-btn, #browser-btn, #mini-browser-btn, #dot-close');
+  const target = e.target.closest('.punct-btn, .kb-key, .emoji-btn, .kbd-btn, #mini-btn, #expand-btn, #settings-btn, #browser-btn, #mini-browser-btn, #translator-btn, #dot-close');
   if (target) {
     e.preventDefault(); flash(target);
     if (target.id === 'dot-close') window.junoAPI.stopListening();
     else if (target.id === 'settings-btn') { e.stopPropagation(); window.junoAPI.openSettings(); }
     else if (target.id === 'browser-btn' || target.id === 'mini-browser-btn') { e.stopPropagation(); window.junoAPI.toggleFloatingBrowser(); }
+    else if (target.id === 'translator-btn') { e.stopPropagation(); window.junoAPI.openTranslator(); }
     else if (target.id === 'mini-btn') { e.stopPropagation(); applyMiniMode(true); }
     else if (target.id === 'expand-btn') { e.stopPropagation(); applyMiniMode(false); }
     else if (target.classList.contains('punct-btn')) {

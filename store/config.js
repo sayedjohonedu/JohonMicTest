@@ -129,6 +129,86 @@ const schema = {
   visualizerType: {
     type: 'string',
     default: 'wave'   // 'wave' | 'bars' | 'pulse' | 'particles' | 'line' | 'matrix'
+  },
+  // ── Translator ────────────────────────────────────────────────
+  translatorOpenShortcut: {
+    type: 'string',
+    default: 'Shift+Alt+T'
+  },
+  translatorPasteShortcut: {
+    type: 'string',
+    default: 'Shift+Alt+P'
+  },
+  translatorMode: {
+    type: 'string',
+    default: 'regular'  // 'regular' | 'ai'
+  },
+  translatorAiProvider: {
+    type: 'string',
+    default: 'openai'   // 'openai' | 'anthropic' | 'gemini' | 'custom'
+  },
+  translatorAiModel: {
+    type: 'string',
+    default: 'gpt-4o'
+  },
+  // Multiple saved API profiles: [{ id, name, provider, model, apiKey, baseUrl, modelName }]
+  translatorApiProfiles: {
+    type: 'array',
+    default: []
+  },
+  translatorActiveProfileId: {
+    type: 'string',
+    default: ''
+  },
+  translatorSystemPrompt: {
+    type: 'string',
+    default: ''
+  },
+  translatorSystemInstructions: {
+    type: 'string',
+    default: ''
+  },
+  translatorLangPresets: {
+    type: 'array',
+    default: []   // [{ id, src, target, shortcut }]
+  },
+  translatorHistory: {
+    type: 'array',
+    default: []   // [{ ts, src, target, original, translated, humanized, mode }]
+  },
+  translatorWindowPosition: {
+    type: 'object',
+    default: {}
+  },
+  translatorSilenceAutoAction: {
+    type: 'boolean',
+    default: true  // auto-translate+paste+close on 30s silence
+  },
+  // ── Translator Silence Timer ─────────────────────────────────
+  translatorSilenceEnabled: {
+    type: 'boolean',
+    default: false   // disabled by default in translator (user talks at their own pace)
+  },
+  translatorSilenceVal: {
+    type: 'number',
+    default: 30
+  },
+  translatorSilenceUnit: {
+    type: 'string',
+    default: 'sec'   // 'sec' | 'min' | 'hr'
+  },
+  // Computed seconds (0 = disabled/infinite)
+  translatorSilenceTimeout: {
+    type: 'number',
+    default: 0
+  },
+  translatorSrcLang: {
+    type: 'string',
+    default: 'en'
+  },
+  translatorTgtLang: {
+    type: 'string',
+    default: 'bn'
   }
 };
 

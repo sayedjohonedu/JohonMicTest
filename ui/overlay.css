@@ -164,8 +164,8 @@ html, body {
 #lang-flag    { font-size: 14px; line-height: 1; }
 #lang-chevron { font-size: 9px; color: var(--muted); margin-left: 1px; }
 
-/* ── Settings & Browser Buttons ── */
-#settings-btn, #browser-btn {
+/* ── Settings, Browser & Translator Buttons ── */
+#settings-btn, #browser-btn, #translator-btn {
   display: flex; align-items: center; justify-content: center;
   background: transparent;
   border: none;
@@ -176,10 +176,11 @@ html, body {
   flex-shrink: 0;
   -webkit-app-region: no-drag;
 }
-#settings-btn:hover, #browser-btn:hover { background: var(--surface); color: var(--text); transform: scale(1.05); }
-#settings-btn:active, #browser-btn:active { transform: scale(0.95); }
+#settings-btn:hover, #browser-btn:hover, #translator-btn:hover { background: var(--surface); color: var(--text); transform: scale(1.05); }
+#settings-btn:active, #browser-btn:active, #translator-btn:active { transform: scale(0.95); }
 [data-theme="light"] #settings-btn:hover,
-[data-theme="light"] #browser-btn:hover { background: rgba(0,0,0,0.08); }
+[data-theme="light"] #browser-btn:hover,
+[data-theme="light"] #translator-btn:hover { background: rgba(0,0,0,0.08); }
 
 /* ── Mini / Compact button ── */
 #mini-btn, #expand-btn {
@@ -220,6 +221,7 @@ html, body {
 #card.mini-mode #lang-wrapper,
 #card.mini-mode #settings-btn,
 #card.mini-mode #browser-btn,
+#card.mini-mode #translator-btn,
 #card.mini-mode #mini-btn,
 #card.mini-mode #transcript-area,
 #card.mini-mode #waveform-wrap,
