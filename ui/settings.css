@@ -454,3 +454,14 @@ textarea.replace-input:focus {
 .import-opt-btn:hover { background:var(--border); }
 
 @keyframes slideIn  { from { opacity:0; transform:translateY(-12px); } to { opacity:1; transform:translateY(0); } }
+/* macOS-style traffic light buttons */
+.traffic-lights { display: flex; align-items: center; gap: 6px; margin-bottom: 20px; -webkit-app-region: no-drag; }
+.tl-btn { width: 12px; height: 12px; border-radius: 50%; border: none; cursor: pointer; position: relative; display: flex; align-items: center; justify-content: center; padding: 0; outline: none; flex-shrink: 0; }
+.tl-btn:hover { filter: brightness(1.25); }
+.tl-btn::after { font-size: 8px; color: rgba(0,0,0,0.6); opacity: 0; transition: opacity 0.15s; font-weight: bold; font-family: sans-serif; }
+.tl-close { background: #ff5f57; box-shadow: 0 0 0 0.5px rgba(0,0,0,0.2); }
+.tl-min { background: #ffbd2e; box-shadow: 0 0 0 0.5px rgba(0,0,0,0.2); }
+.tl-max { background: #28c940; box-shadow: 0 0 0 0.5px rgba(0,0,0,0.2); }
+.traffic-lights:hover .tl-close::after { content: '?'; opacity: 1; }
+.traffic-lights:hover .tl-min::after { content: '-'; opacity: 1; }
+.traffic-lights:hover .tl-max::after { content: '+'; opacity: 1; }

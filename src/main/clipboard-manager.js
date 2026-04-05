@@ -1,6 +1,7 @@
 const { clipboard } = require('electron');
 const robot = require('robotjs');
 const store = require('../../store/config');
+const clipboardMonitor = require('./clipboard-monitor');
 
 class ClipboardManager {
   constructor() {
@@ -49,6 +50,7 @@ class ClipboardManager {
     }
 
     clipboard.writeText(text);
+    clipboardMonitor.suppressNext(text);
 
     // Windows needs slightly longer for clipboard to settle before paste
     const pasteDelay = process.platform === 'darwin' ? 60 : 120;
@@ -72,6 +74,7 @@ class ClipboardManager {
 
       // Schedule clipboard restoration after paste has time to complete
       this.clipboardRestoreTimeout = setTimeout(() => {
+        clipboardMonitor.suppressNext(this.originalClipboardText);
         clipboard.writeText(this.originalClipboardText);
         this.isClipboardDirty = false;
         this.clipboardRestoreTimeout = null;

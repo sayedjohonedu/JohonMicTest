@@ -4,17 +4,20 @@ const http = require('http');
 const fs = require('fs');
 const WebSocket = require('ws');
 const robot = require('robotjs');
-const AutoLaunch = require('auto-launch');
 
 const store = require('./store/config');
 const { launchChromeBridge, closeChromeBridge } = require('./engine/chrome-launcher');
 const clipboardManager = require('./src/main/clipboard-manager');
+const clipboardMonitor = require('./src/main/clipboard-monitor');
+const clipboardHistoryStore = require('./src/main/clipboard-history-store');
+const { showClipboardManager, toggleClipboardManager, getClipboardWindow, notifyClipboardWindow } = require('./src/main/clipboard-window-manager');
+const { setupClipboardIpc } = require('./src/main/clipboard-ipc');
 
 // Import modules
-const { createOverlay, showSettings, applyOverlaySize, getOverlayWindow, getSettingsWindow } = require('./src/main/window-manager');
+const { createOverlay, showSettings, showLicensePopup, showWordLimitPopup, showTranslatorLockedPopup, applyOverlaySize, getOverlayWindow, getSettingsWindow } = require('./src/main/window-manager');
 const { onOverlayShow, onOverlayHide } = require('./src/main/floating-browser-manager');
 const { registerHotkeys, stopUiohook, setTranslatorCtx } = require('./src/main/hotkey-manager');
-const { checkAuthStatus } = require('./src/main/licensing');
+const { checkAuthStatus, checkAndResetDailyWords } = require('./src/main/licensing');
 const { setupUpdater } = require('./src/main/updater');
 const { setupIpcHandlers } = require('./src/main/ipc-handlers');
 const { createTray, updateTrayMenu } = require('./src/main/tray-manager');
@@ -32,11 +35,6 @@ let lastPhraseTimestamp = 0;
 // ── Translator mode: 'overlay' | 'translator' ───────────────
 // Controls where STT transcripts are routed. The two panels are mutually exclusive.
 let sttMode = 'overlay';
-
-const junoAutoLauncher = new AutoLaunch({
-  name: 'Juno Global Voice',
-  path: app.getPath('exe'),
-});
 
 // Windows fix: Re-enable GPU for smoother dragging, but add stability flags
 if (process.platform === 'win32') {
@@ -86,7 +84,18 @@ function toggleListening(forceLang = null, fromTranslator = false, forceStart = 
   }
 
   const status = store.get('licenseStatus');
-  if (status === 'expired') { showSettings(); return; }
+  // ── Free tier (trial ended, no paid key): check daily word limit ──
+  if (status === 'free') {
+    checkAndResetDailyWords();
+    const used = store.get('freeDailyWords') || 0;
+    if (used >= 300) {
+      showWordLimitPopup();
+      return;
+    }
+    // Under limit — allow session to proceed (tracking happens in final-text handler)
+  }
+  // ── Gumroad key revoked / invalid ──
+  if (status === 'expired') { showLicensePopup(); return; }
 
   // Overriding sttMode if we get a global STT hotkey while in translator mode
   if (sttMode === 'translator' && !fromTranslator) {
@@ -173,6 +182,10 @@ function toggleListening(forceLang = null, fromTranslator = false, forceStart = 
     try { wsClient.send(JSON.stringify({ command: 'stop' })); } catch (e) {
       console.error('Failed to send stop command:', e);
     }
+    // Show word limit popup at session end if free-tier user has hit today's limit
+    if (store.get('licenseStatus') === 'free' && (store.get('freeDailyWords') || 0) >= 300) {
+      setTimeout(() => showWordLimitPopup(), 400);
+    }
   }
   updateTrayMenu(toggleListening, showSettings, app, switchTrayLanguage, isListening);
 }
@@ -180,6 +193,12 @@ function toggleListening(forceLang = null, fromTranslator = false, forceStart = 
 toggleListening._self = toggleListening;
 
 function openTranslator() {
+  // Block free-tier users: translator is a paid feature
+  const status = store.get('licenseStatus');
+  if (status === 'free' || status === 'expired') {
+    showTranslatorLockedPopup();
+    return;
+  }
   // Allow co-existence: if STT is running in overlay mode, just switch mode
   // If STT is running in overlay mode, stop the overlay cleanly first
   if (sttMode === 'overlay' && isListening) {
@@ -334,6 +353,13 @@ function setupWebSocketServer(server) {
         const wordCount = rawText.trim().split(/\s+/).filter(Boolean).length;
         sessionWordCount += wordCount;
         store.set('statsWords', (store.get('statsWords') || 0) + wordCount);
+
+        // Track free-tier daily word usage
+        const currentStatus = store.get('licenseStatus');
+        if (currentStatus === 'free') {
+          const dailyUsed = store.get('freeDailyWords') || 0;
+          store.set('freeDailyWords', dailyUsed + wordCount);
+        }
         
         const lang = currentSessionLang || store.get('language') || 'en-US';
         const usage = store.get('statsLangUsage') || {};
@@ -447,7 +473,14 @@ app.whenReady().then(() => {
     }
   }
   checkAuthStatus();
-  if (store.get('autoLaunch')) junoAutoLauncher.enable().catch(() => {});
+  checkAndResetDailyWords(); // Reset daily word counter if it's a new day
+  
+  // Apply the unified login item setting
+  app.setLoginItemSettings({
+    openAtLogin: store.get('autoLaunch') === true,
+    path: app.getPath('exe')
+  });
+
   createTray(toggleListening, showSettings, app, switchTrayLanguage, isListening);
   createOverlay();
   getOverlayWindow().webContents.on('console-message', (event, level, message, line, sourceId) => {
@@ -474,5 +507,51 @@ app.whenReady().then(() => {
   { openTranslator, closeTranslatorAndRestoreOverlay, toggleListening, getCurrentSttMode: () => sttMode }
   );
   setupUpdater(getSettingsWindow);  // pass getter so updater always gets current window, not null
+
+  // ── Clipboard Manager init ───────────────────────────────────────────────
+  setupClipboardIpc();
+  clipboardHistoryStore.load();
+
+  // Check free-user TTL on startup
+  const isPaid = store.get('licenseStatus') === 'active';
+  const retention = store.get('clipboardRetention') || '7days';
+  clipboardHistoryStore.pruneExpired(isPaid, retention);
+
+  // Check if free user has entries older than 7 days that need manual action
+  if (!isPaid && !store.get('clipboardAutoDelete')) {
+    const expiry = clipboardHistoryStore.checkFreeUserExpiry();
+    if (expiry) {
+      // Show the clipboard manager with expired-prompt notification
+      setTimeout(() => {
+        showClipboardManager();
+        setTimeout(() => {
+          notifyClipboardWindow('cb-expired-prompt', {
+            oldestDate: expiry.oldestDate.toISOString()
+          });
+        }, 800);
+      }, 2000);
+    }
+  } else if (!isPaid && store.get('clipboardAutoDelete')) {
+    clipboardHistoryStore.deleteOldestDay();
+  }
+
+  // Start clipboard monitor
+  clipboardMonitor.start((entry, isDuplicate) => {
+    // Push real-time update to clipboard window if open
+    notifyClipboardWindow('cb-new-entry', { entry, isDuplicate });
+
+    // Check TTL after each new entry
+    if (!isPaid && !store.get('clipboardAutoDelete')) {
+      const expiry = clipboardHistoryStore.checkFreeUserExpiry();
+      if (expiry) {
+        notifyClipboardWindow('cb-expired-prompt', {
+          oldestDate: expiry.oldestDate.toISOString()
+        });
+      }
+    } else if (!isPaid && store.get('clipboardAutoDelete')) {
+      clipboardHistoryStore.deleteOldestDay();
+    }
+  });
+
   setTimeout(() => showSettings(), 1000);
 });

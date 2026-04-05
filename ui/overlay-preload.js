@@ -43,5 +43,10 @@ contextBridge.exposeInMainWorld('junoAPI', {
   startDrag:         ()     => ipcRenderer.send('window-drag'),
   stopDrag:          ()     => ipcRenderer.send('window-drag-stop'),
   toggleFloatingBrowser: () => ipcRenderer.send('toggle-floating-browser'),
-  openTranslator:        () => ipcRenderer.send('open-translator'),
+  openTranslator:               () => ipcRenderer.send('open-translator'),
+  openClipboardManager:         () => ipcRenderer.send('open-clipboard-manager'),
+  closeLicensePopup:            () => ipcRenderer.send('close-license-popup'),
+  closeWordLimitPopup:          () => ipcRenderer.send('close-wordlimit-popup'),
+  closeTranslatorLockedPopup:   () => ipcRenderer.send('close-translator-locked-popup'),
+  getLicenseInfo:               () => ipcRenderer.invoke('get-license-info'),
 });

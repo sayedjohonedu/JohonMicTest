@@ -45,6 +45,13 @@ function registerHotkeys(toggleListening) {
     const pasteShortcut = store.get('translatorPasteShortcut') || 'Shift+Alt+P';
     try {
       globalShortcut.register(openShortcut, () => {
+        const licStatus = store.get('licenseStatus');
+        if (licStatus === 'free' || licStatus === 'expired') {
+          // Show translator locked popup inline (avoid circular dep by lazy require)
+          const { showTranslatorLockedPopup } = require('./window-manager');
+          showTranslatorLockedPopup();
+          return;
+        }
         const { openTranslator, closeTranslatorAndRestoreOverlay, isTranslatorVisible } = _translatorCtx;
         if (isTranslatorVisible()) closeTranslatorAndRestoreOverlay();
         else openTranslator();
@@ -57,6 +64,16 @@ function registerHotkeys(toggleListening) {
         if (tw && !tw.isDestroyed()) tw.webContents.send('translator-do-paste');
       });
     } catch (e) { console.log('Translator paste shortcut failed:', e.message); }
+  }
+
+  // ── Clipboard manager shortcut ──
+  const cbEnabled = store.get('clipboardHotkeyEnabled') !== false;
+  const cbHotkey  = store.get('clipboardHotkey') || 'Alt+V';
+  if (cbEnabled && cbHotkey) {
+    try {
+      const { toggleClipboardManager } = require('./clipboard-window-manager');
+      globalShortcut.register(cbHotkey, () => toggleClipboardManager());
+    } catch (e) { console.log('Clipboard hotkey failed:', e.message); }
   }
 
   // 1b) Language-specific Combo Hotkeys

@@ -103,6 +103,13 @@ const SETTINGS_LANGUAGES = [
 function makeFlagEl(langCode, size = 16) {
   const lang = SETTINGS_LANGUAGES.find(l => l.code === langCode); if (!lang) return '';
   if (IS_WIN) {
+    const f = lang.flag;
+    if (f && f.length >= 4) {
+      const p1 = f.codePointAt(0), p2 = f.codePointAt(2);
+      if (p1 >= 0x1f1e6 && p1 <= 0x1f1ff && p2 >= 0x1f1e6 && p2 <= 0x1f1ff) {
+        return `<img class="cfd-flag-img" draggable="false" style="width:${size}px; height:${size}px; vertical-align:-3px;" alt="${f}" src="https://cdn.jsdelivr.net/gh/jdecked/twemoji@15.1.0/assets/svg/${p1.toString(16)}-${p2.toString(16)}.svg"/>`;
+      }
+    }
     const cc = langCode.split('-')[1] ? langCode.split('-')[1].toLowerCase() : '';
     return cc ? `<img class="cfd-flag-img" src="https://flagcdn.com/${size}x12/${cc}.png" width="${size}" height="12">` : '';
   }
@@ -196,10 +203,21 @@ function animateValue(obj, start, end, duration) {
     if (!startTimestamp) startTimestamp = timestamp;
     const progress = Math.min((timestamp - startTimestamp) / duration, 1);
     const ease = 1 - Math.pow(1 - progress, 4);
-    obj.innerHTML = Math.floor(progress * (end - start) + start).toLocaleString();
+    const val = Math.floor(progress * (end - start) + start);
+    obj.innerHTML = formatWordCount(val);
     if (progress < 1) window.requestAnimationFrame(step);
   };
   window.requestAnimationFrame(step);
+}
+
+function formatWordCount(n) {
+  if (n < 1000) return String(n);
+  if (n < 1000000) {
+    const k = n / 1000;
+    return (k % 1 < 0.05 ? k.toFixed(0) : k.toFixed(1)) + 'k';
+  }
+  const m = n / 1000000;
+  return (m % 1 < 0.05 ? m.toFixed(0) : m.toFixed(1)) + 'm';
 }
 
 function formatCombo(str) {
@@ -287,7 +305,13 @@ async function loadConfig() {
   const rL = document.getElementById('replacement-list'); rL.innerHTML = ''; if (!(cfg.textReplacements || []).length) addReplacementRow('', ''); else cfg.textReplacements.forEach(r => addReplacementRow(r.say || '', r.replace || ''));
   const lHL = document.getElementById('lang-hotkeys-list'); lHL.innerHTML = ''; (cfg.langHotkeys || []).forEach(lh => addLangHotkeyRow(lh.combo || '', lh.lang || 'bn-BD'));
   const lI = document.getElementById('input-license'); lI.value = cfg.licenseKey || ''; lI.type = cfg.licenseKey ? 'password' : 'text';
-  updateLicenseUI(cfg.licenseStatus || 'trial', cfg.firstLaunchDate || Date.now(), cfg.licensePurchase);
+  // Fetch extra license info (daily words, activated date) for richer UI
+  const licenseInfoP = window.electronAPI.getLicenseInfo ? window.electronAPI.getLicenseInfo() : Promise.resolve({});
+  licenseInfoP.then(extra => {
+    updateLicenseUI(cfg.licenseStatus || 'trial', cfg.firstLaunchDate || Date.now(), cfg.licensePurchase, extra);
+  }).catch(() => {
+    updateLicenseUI(cfg.licenseStatus || 'trial', cfg.firstLaunchDate || Date.now(), cfg.licensePurchase, {});
+  });
   const thS = document.getElementById('theme-select'); if (thS) thS.value = cfg.theme || 'system'; previewTheme();
   const vS = document.getElementById('visualizer-style'); if (vS) vS.value = cfg.visualizerType || 'wave';
   const mS = document.getElementById('mic-sensitivity'), sL = document.getElementById('label-sensitivity'); if (mS) { mS.value = cfg.micSensitivity || 1.0; if (sL) sL.textContent = parseFloat(mS.value).toFixed(1); }
@@ -307,13 +331,67 @@ window.addLangHotkeyRow = function(combo = '', lang = 'bn-BD') {
 };
 
 let licenseTimer = null;
-function updateLicenseUI(status, firstLaunch, purchase) {
-  if (licenseTimer) clearInterval(licenseTimer); const h = document.getElementById('license-headline'), s = document.getElementById('license-subtext'), c = document.getElementById('license-status-card'), b = document.getElementById('btn-verify-license');
-  if (status === 'active') { h.textContent = 'Pro Version Unlocked'; c.style.background = 'rgba(72, 199, 116, 0.15)'; c.style.borderColor = '#48c774'; h.style.color = '#48c774'; b.textContent = 'Verified'; b.disabled = true; s.textContent = (purchase?.subscription_id && !purchase?.subscription_ended_at) ? 'Your license is verified and active (Subscription). Thank you! ⭐' : 'Lifetime License — Valid Forever. Thank you! ⭐'; }
-  else if (status === 'expired') { h.textContent = 'Trial or License Expired'; s.textContent = 'To continue using MicTab, please enter a valid license key below.'; c.style.background = 'rgba(248, 113, 113, 0.15)'; c.style.borderColor = '#f87171'; h.style.color = '#f87171'; b.disabled = false; b.textContent = 'Activate'; }
-  else {
-    c.style.background = 'rgba(124,111,255,0.1)'; c.style.borderColor = 'var(--accent)'; h.style.color = 'var(--text)'; b.disabled = false; b.textContent = 'Activate Pro'; s.textContent = 'You are currently enjoying the fully-featured 7-day free trial.';
-    const update = () => { const left = Math.max(0, firstLaunch + (7*24*60*60*1000) - Date.now()); if (!left) { h.textContent = 'Free Trial: Expired'; clearInterval(licenseTimer); return; } const d = Math.floor(left/86400000), hr = Math.floor((left%86400000)/3600000), min = Math.floor((left%3600000)/60000), sec = Math.floor((left%60000)/1000); h.textContent = `Free Trial: ${d}d ${hr}h ${min}m ${sec}s left`; };
+function updateLicenseUI(status, firstLaunch, purchase, extra) {
+  if (licenseTimer) clearInterval(licenseTimer);
+  const h = document.getElementById('license-headline'),
+        s = document.getElementById('license-subtext'),
+        c = document.getElementById('license-status-card'),
+        b = document.getElementById('btn-verify-license');
+
+  if (status === 'active') {
+    const activatedDate = extra?.licenseActivatedDate || 0;
+    const dateStr = activatedDate
+      ? new Date(activatedDate).toLocaleDateString(undefined, { year:'numeric', month:'short', day:'numeric' })
+      : null;
+    const daysSince = activatedDate ? Math.floor((Date.now() - activatedDate) / 86400000) : null;
+    h.textContent = '✦ Pro Version Unlocked';
+    c.style.background = 'rgba(72, 199, 116, 0.15)';
+    c.style.borderColor = '#48c774';
+    h.style.color = '#48c774';
+    b.textContent = 'Verified'; b.disabled = true;
+    const isSubscription = purchase?.subscription_id && !purchase?.subscription_ended_at;
+    let sub = isSubscription ? 'Active Subscription — thank you! ⭐' : 'Lifetime License — Valid Forever. Thank you! ⭐';
+    if (dateStr) sub += `\nLicensed since: ${dateStr}${daysSince !== null ? ` (${daysSince}d ago)` : ''}`;
+    s.style.whiteSpace = 'pre-line';
+    s.textContent = sub;
+
+  } else if (status === 'expired') {
+    h.textContent = 'License Expired';
+    s.textContent = 'Your paid license has expired or was revoked. Please enter a new license key.';
+    c.style.background = 'rgba(248, 113, 113, 0.15)';
+    c.style.borderColor = '#f87171';
+    h.style.color = '#f87171';
+    b.disabled = false; b.textContent = 'Activate';
+
+  } else if (status === 'free') {
+    const used = extra?.freeDailyWords || 0;
+    const remaining = Math.max(0, 300 - used);
+    const pct = Math.min(100, Math.round((used / 300) * 100));
+    h.textContent = 'Free Tier';
+    h.style.color = '#fb923c';
+    c.style.background = 'rgba(251,146,60,0.1)';
+    c.style.borderColor = '#fb923c';
+    b.disabled = false; b.textContent = 'Get License';
+    s.style.whiteSpace = 'normal';
+    s.innerHTML = `Today: <strong style="color:#fb923c">${used} / 300</strong> words used &nbsp;·&nbsp; <strong style="color:#fff">${remaining}</strong> remaining<br>
+      <div style="margin-top:8px;background:rgba(255,255,255,0.07);border-radius:6px;height:5px;overflow:hidden;">
+        <div style="height:100%;width:${pct}%;background:linear-gradient(90deg,#fb923c,#f97316);border-radius:6px;transition:width 0.5s;"></div>
+      </div>
+      <span style="font-size:11px;color:rgba(255,255,255,0.4);">Resets at midnight &bull; Translator locked (paid feature)</span>`;
+
+  } else {
+    // trial
+    c.style.background = 'rgba(124,111,255,0.1)'; c.style.borderColor = 'var(--accent)'; h.style.color = 'var(--text)';
+    b.disabled = false; b.textContent = 'Activate Pro';
+    s.style.whiteSpace = 'normal';
+    s.textContent = 'You are currently enjoying the fully-featured 7-day free trial.';
+    const update = () => {
+      const left = Math.max(0, firstLaunch + (7*24*60*60*1000) - Date.now());
+      if (!left) { h.textContent = 'Free Trial: Expired'; clearInterval(licenseTimer); return; }
+      const d = Math.floor(left/86400000), hr = Math.floor((left%86400000)/3600000),
+            min = Math.floor((left%3600000)/60000), sec = Math.floor((left%60000)/1000);
+      h.textContent = `Free Trial: ${d}d ${hr}h ${min}m ${sec}s left`;
+    };
     update(); licenseTimer = setInterval(update, 1000);
   }
 }

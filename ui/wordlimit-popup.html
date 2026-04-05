@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<title>Daily Limit Reached</title>
+<link rel="stylesheet" href="overlay.css">
+<style>
+  body {
+    margin: 0; overflow: hidden; user-select: none; -webkit-user-select: none;
+    display: flex; justify-content: center; align-items: center; height: 100vh;
+  }
+  #card {
+    position: relative;
+    width: 100%; height: 100%; box-sizing: border-box;
+    padding: 24px 22px 20px;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    text-align: center; gap: 14px; -webkit-app-region: drag;
+    box-shadow: none !important;
+    border: 1px solid rgba(255,255,255,0.1) !important;
+    border-radius: 14px !important;
+    background: rgba(22, 22, 28, 0.98) !important;
+  }
+  .icon-ring {
+    width: 50px; height: 50px; border-radius: 50%;
+    background: rgba(251, 146, 60, 0.15);
+    border: 1px solid rgba(251, 146, 60, 0.3);
+    display: flex; justify-content: center; align-items: center;
+    color: #fb923c; flex-shrink: 0;
+  }
+  h2 { margin: 0; font-size: 17px; color: #fff; font-weight: 700; }
+  p  { margin: 0; font-size: 12.5px; color: rgba(255,255,255,0.65); line-height: 1.55; }
+  .reset-badge {
+    display: inline-flex; align-items: center; gap: 6px;
+    background: rgba(251,146,60,0.1); border: 1px solid rgba(251,146,60,0.25);
+    border-radius: 20px; padding: 4px 12px;
+    font-size: 12px; font-weight: 600; color: #fb923c;
+  }
+  .progress-wrap {
+    width: 100%; background: rgba(255,255,255,0.06); border-radius: 6px;
+    height: 6px; overflow: hidden;
+  }
+  .progress-bar {
+    height: 100%; width: 100%; border-radius: 6px;
+    background: linear-gradient(90deg, #fb923c, #f97316);
+    box-shadow: 0 0 8px rgba(251,146,60,0.5);
+  }
+  .words-label {
+    font-size: 11px; color: rgba(255,255,255,0.4); letter-spacing: 0.3px;
+    margin-top: -6px;
+  }
+  .btn-row {
+    display: flex; gap: 9px; width: 100%; margin-top: 4px;
+    -webkit-app-region: no-drag;
+  }
+  button {
+    flex: 1; padding: 9px 10px; border: none; border-radius: 8px;
+    font-size: 12.5px; font-weight: 600; cursor: pointer; transition: all 0.18s;
+  }
+  .btn-renew {
+    background: linear-gradient(135deg, #7C6FFF, #6C63FF);
+    color: #fff; box-shadow: 0 2px 10px rgba(108,99,255,0.4);
+  }
+  .btn-renew:hover { transform: translateY(-1px); box-shadow: 0 4px 16px rgba(108,99,255,0.55); }
+  .btn-settings {
+    background: rgba(255,255,255,0.09); color: rgba(255,255,255,0.8);
+    border: 1px solid rgba(255,255,255,0.15);
+  }
+  .btn-settings:hover { background: rgba(255,255,255,0.14); }
+</style>
+</head>
+<body>
+<div id="card">
+  <div class="icon-ring">
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
+    </svg>
+  </div>
+  <h2>Daily Limit Reached</h2>
+
+  <div class="progress-wrap"><div class="progress-bar"></div></div>
+  <div class="words-label">300 / 300 free words used today</div>
+
+  <p>Your free 300 words for today have been used. Resets at midnight ✦ Upgrade for unlimited dictation.</p>
+
+  <div class="reset-badge" id="reset-timer">Resets in —</div>
+
+  <div class="btn-row">
+    <button class="btn-settings" id="btn-settings">Settings</button>
+    <button class="btn-renew" id="btn-renew">Get License</button>
+  </div>
+</div>
+<script>
+  function updateTimer() {
+    const now = new Date();
+    const midnight = new Date();
+    midnight.setHours(24, 0, 0, 0);
+    const diffMs = midnight - now;
+    const h = Math.floor(diffMs / 3600000);
+    const m = Math.floor((diffMs % 3600000) / 60000);
+    const s = Math.floor((diffMs % 60000) / 1000);
+    document.getElementById('reset-timer').textContent =
+      `Resets in ${h}h ${m}m ${s}s`;
+  }
+  updateTimer();
+  setInterval(updateTimer, 1000);
+
+  document.getElementById('btn-renew').addEventListener('click', () => {
+    window.junoAPI.openUrl('https://johonsayed.gumroad.com/l/JunoverseAI-Dictation');
+  });
+  document.getElementById('btn-settings').addEventListener('click', () => {
+    window.junoAPI.openSettings();
+    window.junoAPI.closeWordLimitPopup();
+  });
+</script>
+</body>
+</html>

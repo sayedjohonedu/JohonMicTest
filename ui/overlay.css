@@ -164,8 +164,8 @@ html, body {
 #lang-flag    { font-size: 14px; line-height: 1; }
 #lang-chevron { font-size: 9px; color: var(--muted); margin-left: 1px; }
 
-/* ── Settings, Browser & Translator Buttons ── */
-#settings-btn, #browser-btn, #translator-btn {
+/* ── Settings, Browser, Translator & Clipboard Buttons ── */
+#settings-btn, #browser-btn, #translator-btn, #clipboard-btn {
   display: flex; align-items: center; justify-content: center;
   background: transparent;
   border: none;
@@ -176,11 +176,12 @@ html, body {
   flex-shrink: 0;
   -webkit-app-region: no-drag;
 }
-#settings-btn:hover, #browser-btn:hover, #translator-btn:hover { background: var(--surface); color: var(--text); transform: scale(1.05); }
-#settings-btn:active, #browser-btn:active, #translator-btn:active { transform: scale(0.95); }
+#settings-btn:hover, #browser-btn:hover, #translator-btn:hover, #clipboard-btn:hover { background: var(--surface); color: var(--text); transform: scale(1.05); }
+#settings-btn:active, #browser-btn:active, #translator-btn:active, #clipboard-btn:active { transform: scale(0.95); }
 [data-theme="light"] #settings-btn:hover,
 [data-theme="light"] #browser-btn:hover,
-[data-theme="light"] #translator-btn:hover { background: rgba(0,0,0,0.08); }
+[data-theme="light"] #translator-btn:hover,
+[data-theme="light"] #clipboard-btn:hover { background: rgba(0,0,0,0.08); }
 
 /* ── Mini / Compact button ── */
 #mini-btn, #expand-btn {
@@ -222,6 +223,7 @@ html, body {
 #card.mini-mode #settings-btn,
 #card.mini-mode #browser-btn,
 #card.mini-mode #translator-btn,
+#card.mini-mode #clipboard-btn,
 #card.mini-mode #mini-btn,
 #card.mini-mode #transcript-area,
 #card.mini-mode #waveform-wrap,
@@ -233,6 +235,7 @@ html, body {
 #card.mini-mode #mini-wave-wrap    { display: flex !important; }
 #card.mini-mode #mini-lang-flag    { display: flex !important; }
 #card.mini-mode #mini-browser-btn  { display: flex !important; }
+#card.mini-mode #mini-clipboard-btn { display: flex !important; }
 
 #mini-wave-wrap {
   display: none;
@@ -287,6 +290,24 @@ html, body {
 #mini-browser-btn:hover  { background: rgba(255,255,255,0.12); color: var(--text); }
 #mini-browser-btn:active { transform: scale(0.9); }
 #mini-browser-btn.browser-active { color: var(--accent); }
+
+/* ── Mini clipboard button (pill mode only) ── */
+#mini-clipboard-btn {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  width: 24px; height: 24px;
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  color: var(--muted);
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background 0.15s, color 0.15s;
+  -webkit-app-region: no-drag;
+}
+#mini-clipboard-btn:hover  { background: rgba(255,255,255,0.12); color: var(--text); }
+#mini-clipboard-btn:active { transform: scale(0.9); }
 
 /* Language dropdown */
 #lang-dropdown {

@@ -283,12 +283,25 @@ window.junoAPI.getConfig().then(cfg => {
   if (cfg.overlayMini) applyMiniMode(true, false);
 });
 
+function getTwemojiFlag(lang) {
+  if (isWin) {
+    const f = lang.flag;
+    if (f && f.length >= 4) {
+      const p1 = f.codePointAt(0), p2 = f.codePointAt(2);
+      if (p1 >= 0x1f1e6 && p1 <= 0x1f1ff && p2 >= 0x1f1e6 && p2 <= 0x1f1ff) {
+        return `<img draggable="false" style="width:16px;height:16px;vertical-align:-3px;" alt="${f}" src="https://cdn.jsdelivr.net/gh/jdecked/twemoji@15.1.0/assets/svg/${p1.toString(16)}-${p2.toString(16)}.svg"/>`;
+      }
+    }
+    const cc = lang.code.split('-')[1] ? lang.code.split('-')[1].toLowerCase() : '';
+    return cc ? `<img src="https://flagcdn.com/16x12/${cc}.png" width="16" style="vertical-align:-1px;">` : lang.flag;
+  }
+  return lang.flag;
+}
+
 function setLanguage(code, notify=true) {
   currentLangCode = code;
   currentLang = LANGUAGES.find(l => l.code === code) || LANGUAGES[0];
-  const flagHtml = isWin && currentLang.code.includes('-') 
-    ? `<img src="https://flagcdn.com/16x12/${currentLang.code.split('-')[1].toLowerCase()}.png" width="16" style="vertical-align:-1px;">`
-    : currentLang.flag;
+  const flagHtml = getTwemojiFlag(currentLang);
   langFlagEl.innerHTML = flagHtml;
   langNameEl.textContent = currentLang.name;
   if (miniFlagEl) {
@@ -386,7 +399,7 @@ function buildDropdown() {
   sorted.forEach(lang => {
     const d = document.createElement('div'); d.className = 'lang-item' + (lang.code === currentLangCode ? ' active' : '');
     const isFav = favorites.includes(lang.code);
-    const flagHtml = isWin && lang.code.includes('-') ? `<img src="https://flagcdn.com/16x12/${lang.code.split('-')[1].toLowerCase()}.png" width="16" style="vertical-align:-1px;">` : lang.flag;
+    const flagHtml = getTwemojiFlag(lang);
     d.innerHTML = `<span class="li-fav" style="${isFav ? 'color: var(--accent);' : 'color: var(--muted);'}" title="Toggle Favorite">${isFav ? '★' : '☆'}</span><span class="li-flag">${flagHtml}</span><span class="li-name">${lang.name}</span><span class="li-code">${lang.native}</span>`;
     d.addEventListener('mousedown', e => {
       if (e.target.classList.contains('li-fav')) {
@@ -481,13 +494,14 @@ function applyMiniMode(mini, notify = true) {
 
 document.body.addEventListener('mousedown', (e) => {
   if (window.junoAPI && window.junoAPI.resetSilence) window.junoAPI.resetSilence();
-  const target = e.target.closest('.punct-btn, .kb-key, .emoji-btn, .kbd-btn, #mini-btn, #expand-btn, #settings-btn, #browser-btn, #mini-browser-btn, #translator-btn, #dot-close');
+  const target = e.target.closest('.punct-btn, .kb-key, .emoji-btn, .kbd-btn, #mini-btn, #expand-btn, #settings-btn, #browser-btn, #mini-browser-btn, #translator-btn, #clipboard-btn, #mini-clipboard-btn, #dot-close');
   if (target) {
     e.preventDefault(); flash(target);
     if (target.id === 'dot-close') window.junoAPI.stopListening();
     else if (target.id === 'settings-btn') { e.stopPropagation(); window.junoAPI.openSettings(); }
     else if (target.id === 'browser-btn' || target.id === 'mini-browser-btn') { e.stopPropagation(); window.junoAPI.toggleFloatingBrowser(); }
     else if (target.id === 'translator-btn') { e.stopPropagation(); window.junoAPI.openTranslator(); }
+    else if (target.id === 'clipboard-btn' || target.id === 'mini-clipboard-btn') { e.stopPropagation(); window.junoAPI.openClipboardManager(); }
     else if (target.id === 'mini-btn') { e.stopPropagation(); applyMiniMode(true); }
     else if (target.id === 'expand-btn') { e.stopPropagation(); applyMiniMode(false); }
     else if (target.classList.contains('punct-btn')) {

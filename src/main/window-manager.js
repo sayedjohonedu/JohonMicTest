@@ -4,6 +4,9 @@ const store = require('../../store/config');
 
 let overlayWindow = null;
 let settingsWindow = null;
+let licensePopupWindow = null;
+let wordLimitPopupWindow = null;
+let translatorLockedPopupWindow = null;
 
 const OV = {
   FULL_W:        420,
@@ -63,6 +66,9 @@ function createOverlay() {
   if (process.platform === 'darwin') {
     // This allows the window to float above full-screen apps and not take focus
     overlayWindow.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
+    overlayWindow.setAlwaysOnTop(true, 'screen-saver');
+  } else {
+    // Windows: 'screen-saver' level keeps overlay above clipboard ('floating') and browser ('normal')
     overlayWindow.setAlwaysOnTop(true, 'screen-saver');
   }
 
@@ -139,12 +145,119 @@ function showSettings() {
   return settingsWindow;
 }
 
+function showLicensePopup() {
+  if (licensePopupWindow && !licensePopupWindow.isDestroyed()) {
+    licensePopupWindow.show();
+    licensePopupWindow.focus();
+    return licensePopupWindow;
+  }
+
+  licensePopupWindow = new BrowserWindow({
+    width: 360,
+    height: 265,
+    transparent: true,
+    frame: false,
+    alwaysOnTop: true,
+    resizable: false,
+    skipTaskbar: true,
+    webPreferences: {
+      nodeIntegration: false,
+      contextIsolation: true,
+      preload: path.join(__dirname, '../../ui', 'overlay-preload.js')
+    }
+  });
+
+  licensePopupWindow.loadFile(path.join(__dirname, '../../ui/license-popup.html'));
+  licensePopupWindow.on('closed', () => licensePopupWindow = null);
+
+  licensePopupWindow.center();
+
+  return licensePopupWindow;
+}
+
+function closeLicensePopup() {
+  if (licensePopupWindow && !licensePopupWindow.isDestroyed()) {
+    licensePopupWindow.close();
+  }
+}
+
+function showWordLimitPopup() {
+  if (wordLimitPopupWindow && !wordLimitPopupWindow.isDestroyed()) {
+    wordLimitPopupWindow.show();
+    wordLimitPopupWindow.focus();
+    return wordLimitPopupWindow;
+  }
+  wordLimitPopupWindow = new BrowserWindow({
+    width: 360,
+    height: 280,
+    transparent: true,
+    frame: false,
+    alwaysOnTop: true,
+    resizable: false,
+    skipTaskbar: true,
+    webPreferences: {
+      nodeIntegration: false,
+      contextIsolation: true,
+      preload: path.join(__dirname, '../../ui', 'overlay-preload.js')
+    }
+  });
+  wordLimitPopupWindow.loadFile(path.join(__dirname, '../../ui/wordlimit-popup.html'));
+  wordLimitPopupWindow.on('closed', () => wordLimitPopupWindow = null);
+  wordLimitPopupWindow.center();
+  return wordLimitPopupWindow;
+}
+
+function closeWordLimitPopup() {
+  if (wordLimitPopupWindow && !wordLimitPopupWindow.isDestroyed()) {
+    wordLimitPopupWindow.close();
+  }
+}
+
+function showTranslatorLockedPopup() {
+  if (translatorLockedPopupWindow && !translatorLockedPopupWindow.isDestroyed()) {
+    translatorLockedPopupWindow.show();
+    translatorLockedPopupWindow.focus();
+    return translatorLockedPopupWindow;
+  }
+  translatorLockedPopupWindow = new BrowserWindow({
+    width: 360,
+    height: 290,
+    transparent: true,
+    frame: false,
+    alwaysOnTop: true,
+    resizable: false,
+    skipTaskbar: true,
+    webPreferences: {
+      nodeIntegration: false,
+      contextIsolation: true,
+      preload: path.join(__dirname, '../../ui', 'overlay-preload.js')
+    }
+  });
+  translatorLockedPopupWindow.loadFile(path.join(__dirname, '../../ui/translator-locked-popup.html'));
+  translatorLockedPopupWindow.on('closed', () => translatorLockedPopupWindow = null);
+  translatorLockedPopupWindow.center();
+  return translatorLockedPopupWindow;
+}
+
+function closeTranslatorLockedPopup() {
+  if (translatorLockedPopupWindow && !translatorLockedPopupWindow.isDestroyed()) {
+    translatorLockedPopupWindow.close();
+  }
+}
+
+
 function getOverlayWindow() { return overlayWindow; }
 function getSettingsWindow() { return settingsWindow; }
 
 module.exports = {
   createOverlay,
   showSettings,
+  showLicensePopup,
+  closeLicensePopup,
+  showWordLimitPopup,
+  closeWordLimitPopup,
+  showTranslatorLockedPopup,
+  closeTranslatorLockedPopup,
   applyOverlaySize,
   getOverlayWindow,
   getSettingsWindow,

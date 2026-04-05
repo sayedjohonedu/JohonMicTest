@@ -32,4 +32,5 @@ contextBridge.exposeInMainWorld('electronAPI', {
   hardResetBrowser:          ()           => ipcRenderer.invoke('floating-browser-hard-reset'),
   getMicList:                ()           => ipcRenderer.invoke('get-mic-list'),
   setMic:                    (deviceId)   => ipcRenderer.send('set-mic', deviceId),
+  getLicenseInfo:            ()           => ipcRenderer.invoke('get-license-info'),
 });

@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<title>License Expired</title>
+<link rel="stylesheet" href="overlay.css">
+<style>
+  body {
+    margin: 0; overflow: hidden; user-select: none; -webkit-user-select: none;
+    display: flex; justify-content: center; align-items: center; height: 100vh;
+  }
+  #card {
+    position: relative;
+    width: 100%; height: 100%; box-sizing: border-box;
+    padding: 24px 22px 20px;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    text-align: center; gap: 14px; -webkit-app-region: drag;
+    box-shadow: none !important;
+    border: 1px solid rgba(255,255,255,0.1) !important;
+    border-radius: 14px !important;
+    background: rgba(22, 22, 28, 0.98) !important;
+  }
+  .icon-ring {
+    width: 50px; height: 50px; border-radius: 50%;
+    background: rgba(255, 71, 87, 0.12); border: 1px solid rgba(255,71,87,0.3);
+    display: flex; justify-content: center; align-items: center; color: #ff4757;
+  }
+  h2 { margin: 0; font-size: 17px; color: #fff; font-weight: 700; }
+  p  { margin: 0; font-size: 12.5px; color: rgba(255,255,255,0.62); line-height: 1.55; }
+  .since-badge {
+    display: inline-flex; align-items: center; gap: 6px;
+    background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 20px; padding: 4px 12px;
+    font-size: 11.5px; color: rgba(255,255,255,0.5);
+  }
+  .btn-row {
+    display: flex; gap: 9px; width: 100%; margin-top: 3px;
+    -webkit-app-region: no-drag;
+  }
+  button {
+    flex: 1; padding: 9px 10px; border: none; border-radius: 8px;
+    font-size: 12.5px; font-weight: 600; cursor: pointer; transition: all 0.18s;
+  }
+  .btn-renew {
+    background: linear-gradient(135deg, #7C6FFF, #6C63FF);
+    color: #fff; box-shadow: 0 2px 10px rgba(108,99,255,0.4);
+  }
+  .btn-renew:hover { transform: translateY(-1px); box-shadow: 0 4px 16px rgba(108,99,255,0.55); }
+  .btn-settings {
+    background: rgba(255,255,255,0.09); color: rgba(255,255,255,0.8);
+    border: 1px solid rgba(255,255,255,0.15);
+  }
+  .btn-settings:hover { background: rgba(255,255,255,0.14); }
+</style>
+</head>
+<body>
+<div id="card">
+  <div class="icon-ring">
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+      <line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
+    </svg>
+  </div>
+  <h2>License Expired</h2>
+  <p>Your last license has expired or was revoked. Please register a new license to restore unlimited access.</p>
+
+  <div class="since-badge" id="since-badge" style="display:none;">
+    📅 Previously active since <span id="since-date">—</span>
+  </div>
+
+  <div class="btn-row">
+    <button class="btn-settings" id="btn-settings">Settings</button>
+    <button class="btn-renew" id="btn-renew">New License</button>
+  </div>
+</div>
+<script>
+  // Load license info to show activation date
+  window.junoAPI.getLicenseInfo().then(info => {
+    if (info.licenseActivatedDate) {
+      const d = new Date(info.licenseActivatedDate);
+      document.getElementById('since-date').textContent = d.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
+      document.getElementById('since-badge').style.display = 'inline-flex';
+    }
+  }).catch(() => {});
+
+  document.getElementById('btn-renew').addEventListener('click', () => {
+    window.junoAPI.openUrl('https://johonsayed.gumroad.com/l/JunoverseAI-Dictation');
+  });
+  document.getElementById('btn-settings').addEventListener('click', () => {
+    window.junoAPI.openSettings();
+    window.junoAPI.closeLicensePopup();
+  });
+</script>
+</body>
+</html>

@@ -1,0 +1,425 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>MicTab — Clipboard Manager</title>
+<link rel="stylesheet" href="clipboard.css">
+</head>
+<body>
+
+<div class="app-shell">
+
+  <!-- ── SIDEBAR ── -->
+  <aside class="sidebar">
+    <div class="sidebar-header">
+      <div class="traffic-lights">
+        <button class="tl-btn tl-close" title="Close" onclick="window.clipboardAPI.closeWindow()"></button>
+        <button class="tl-btn tl-min"   title="Minimize" onclick="window.clipboardAPI.minimizeWindow()"></button>
+        <button class="tl-btn tl-max"   title="Hide" onclick="window.clipboardAPI.closeWindow()"></button>
+      </div>
+      <div class="app-logo">
+        <div class="logo-icon">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <rect width="8" height="4" x="8" y="2" rx="1"/>
+            <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/>
+          </svg>
+        </div>
+        <div>
+          <div class="logo-text">Clipboard</div>
+          <div class="logo-sub" id="stats-summary">Loading...</div>
+        </div>
+      </div>
+    </div>
+
+    <nav class="nav-list">
+      <div class="nav-item active" data-section="all" onclick="switchSection('all',this)">
+        <span class="nav-icon"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/></svg></span>
+        All Items
+        <span class="nav-badge" id="badge-all">0</span>
+      </div>
+      <div class="nav-item" data-section="favorites" onclick="switchSection('favorites',this)">
+        <span class="nav-icon">⭐</span>
+        Favorites
+        <span class="nav-badge" id="badge-favs">0</span>
+      </div>
+      <div class="nav-item" data-section="pinned" onclick="switchSection('pinned',this)">
+        <span class="nav-icon">📌</span>
+        Pinned
+        <span class="nav-badge" id="badge-pins">0</span>
+      </div>
+      <div class="nav-item" data-section="images" onclick="switchSection('images',this)">
+        <span class="nav-icon">🖼️</span>
+        Images
+        <span class="nav-badge" id="badge-imgs">0</span>
+      </div>
+
+      <div class="nav-divider">CATEGORIES</div>
+
+      <!-- Built-in auto cats -->
+      <div class="nav-item cat-item" data-cat="url" onclick="switchCategory('url', this)">
+        <span class="nav-icon">🔗</span> URL
+      </div>
+      <div class="nav-item cat-item" data-cat="email" onclick="switchCategory('email', this)">
+        <span class="nav-icon">📧</span> Email
+      </div>
+      <div class="nav-item cat-item" data-cat="code" onclick="switchCategory('code', this)">
+        <span class="nav-icon">💻</span> Code
+      </div>
+      <div class="nav-item cat-item" data-cat="phone" onclick="switchCategory('phone', this)">
+        <span class="nav-icon">📱</span> Phone
+      </div>
+      <div class="nav-item cat-item" data-cat="image" onclick="switchCategory('image', this)">
+        <span class="nav-icon">🖼️</span> Image
+      </div>
+
+      <!-- User-defined cats injected here -->
+      <div id="user-cats-nav"></div>
+
+      <div class="nav-item cat-item" id="btn-add-cat" onclick="showAddCategoryPrompt()" style="color:var(--accent2); cursor:pointer;">
+        <span class="nav-icon">＋</span> Add Category
+      </div>
+    </nav>
+
+    <!-- Sidebar footer actions -->
+    <div class="sidebar-footer">
+      <button class="sidebar-btn" onclick="doExport()">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+        Export
+      </button>
+      <button class="sidebar-btn" onclick="doImport()">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        Import
+      </button>
+      <button class="sidebar-btn danger" onclick="confirmDeleteAll()">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/><path d="M10 11v6M14 11v6"/></svg>
+        Clear All
+      </button>
+      <button class="sidebar-btn muted" onclick="openImagesFolder()">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/></svg>
+        Image Folder
+      </button>
+      <button class="sidebar-btn settings-nav-btn" onclick="switchSection('settings', this)">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="3"/><path d="M12.22 2h-.44a2 2 0 00-2 2v.18a2 2 0 01-1 1.73l-.43.25a2 2 0 01-2 0l-.15-.08a2 2 0 00-2.73.73l-.22.38a2 2 0 00.73 2.73l.15.1a2 2 0 011 1.72v.51a2 2 0 01-1 1.74l-.15.09a2 2 0 00-.73 2.73l.22.38a2 2 0 002.73.73l.15-.08a2 2 0 012 0l.43.25a2 2 0 011 1.73V20a2 2 0 002 2h.44a2 2 0 002-2v-.18a2 2 0 011-1.73l.43-.25a2 2 0 012 0l.15.08a2 2 0 002.73-.73l.22-.39a2 2 0 00-.73-2.73l-.15-.08a2 2 0 01-1-1.74v-.5a2 2 0 011-1.74l.15-.09a2 2 0 00.73-2.73l-.22-.38a2 2 0 00-2.73-.73l-.15.08a2 2 0 01-2 0l-.43-.25a2 2 0 01-1-1.73V4a2 2 0 00-2-2z"/></svg>
+        Settings
+      </button>
+    </div>
+  </aside>
+
+  <!-- ── MAIN CONTENT ── -->
+  <div class="content">
+
+    <!-- Header bar -->
+    <div class="content-header">
+      <div class="header-left">
+        <h1 id="panel-title">All Items</h1>
+      </div>
+      <div class="header-right">
+        <!-- View toggle -->
+        <div class="view-toggle">
+          <button class="view-btn active" id="btn-list-view" onclick="setView('list')" title="List view">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+          </button>
+          <button class="view-btn" id="btn-grid-view" onclick="setView('grid')" title="Grid view">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Search & filter bar -->
+    <div class="filter-bar" id="filter-bar">
+      <div class="search-wrap">
+        <svg class="search-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <input type="text" id="search-input" class="search-input" placeholder="Search clipboard..." oninput="onSearch(this.value)">
+        <button class="search-clear" id="search-clear" onclick="clearSearch()" style="display:none">✕</button>
+      </div>
+      <select class="filter-select" id="filter-date" onchange="onDateFilter(this.value)">
+        <option value="">All Dates</option>
+        <option value="today">Today</option>
+        <option value="yesterday">Yesterday</option>
+        <option value="week">This Week</option>
+        <option value="month">This Month</option>
+      </select>
+      <select class="filter-select" id="filter-type" onchange="onTypeFilter(this.value)">
+        <option value="">All Types</option>
+        <option value="text">Text Only</option>
+        <option value="image">Images Only</option>
+      </select>
+      <!-- Multi-select batch controls (shown only when items selected) -->
+      <div class="batch-controls" id="batch-controls" style="display:none">
+        <span id="batch-count">0 selected</span>
+        <button class="batch-btn danger" onclick="batchDelete()">Delete Selected</button>
+        <button class="batch-btn" onclick="clearSelection()">Cancel</button>
+      </div>
+    </div>
+
+    <!-- Content list (hidden when settings section active) -->
+    <div class="content-body" id="content-body">
+      <div class="entry-list" id="entry-list"></div>
+      <!-- Invisible sentinel — IntersectionObserver triggers next page load when visible -->
+      <div id="scroll-sentinel" style="height:1px;width:100%;"></div>
+      <div class="empty-state" id="empty-state" style="display:none">
+        <div class="empty-icon">📋</div>
+        <div class="empty-title">No clipboard entries</div>
+        <div class="empty-sub">Copy some text or images and they'll appear here</div>
+      </div>
+    </div>
+
+    <!-- ── SETTINGS PANEL (inside clipboard window) ── -->
+    <div class="settings-panel" id="settings-panel" style="display:none">
+      <div class="settings-scroll">
+
+        <!-- Hotkey -->
+        <div class="settings-section">
+          <div class="settings-section-title">⌨️ Keyboard Shortcut</div>
+          <div class="settings-row">
+            <div class="settings-label">
+              <span>Open Clipboard Manager</span>
+              <span class="settings-hint">Default: Alt+V</span>
+            </div>
+            <div class="settings-control">
+              <button class="settings-action-btn muted" onclick="resetHotkey()" style="margin-right: 8px; padding: 4px 8px; font-size: 11px;">Reset</button>
+              <div class="hotkey-recorder" id="hotkey-recorder" tabindex="0" onclick="startHotkeyRecord()" title="Click to record a new hotkey">
+                <span id="hotkey-display">Alt+V</span>
+                <span class="hotkey-hint">click to change</span>
+              </div>
+              <label class="toggle-wrap" style="margin-left: 8px;">
+                <input type="checkbox" id="hotkey-enabled" onchange="saveSettings()">
+                <span class="toggle-track"><span class="toggle-thumb"></span></span>
+              </label>
+            </div>
+          </div>
+        </div>
+
+        <!-- Retention (paid only) -->
+        <div class="settings-section" id="retention-section">
+          <div class="settings-section-title">🕒 History Retention</div>
+          <div id="free-retention-notice" class="notice-box">
+            <div class="notice-icon">🔒</div>
+            <div class="notice-text">
+              <strong>Free Plan:</strong> 7-day rolling history.<br>
+              <a class="upgrade-link" onclick="openUpgrade()">Upgrade for 30 days / 90 days / 6 months / Lifetime ✨</a>
+            </div>
+          </div>
+          <div id="paid-retention-wrap" style="display:none">
+            <div class="settings-row">
+              <div class="settings-label">
+                <span>Retention Period</span>
+                <span class="settings-hint">How long to keep clipboard history</span>
+              </div>
+              <select class="settings-select" id="retention-select" onchange="saveSettings()">
+                <option value="30days">30 Days</option>
+                <option value="90days">90 Days</option>
+                <option value="6months">6 Months</option>
+                <option value="lifetime">Lifetime (Never delete)</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <!-- Auto-delete -->
+        <div class="settings-section">
+          <div class="settings-section-title">🤖 Auto-Delete</div>
+          <div class="settings-row">
+            <div class="settings-label">
+              <span>Auto-delete oldest day</span>
+              <span class="settings-hint">When limit is reached, silently delete oldest day without asking</span>
+            </div>
+            <label class="toggle-wrap">
+              <input type="checkbox" id="auto-delete-toggle" onchange="saveSettings()">
+              <span class="toggle-track"><span class="toggle-thumb"></span></span>
+            </label>
+          </div>
+          <div class="settings-row">
+            <div class="settings-label">
+              <span>Delete oldest day now</span>
+              <span class="settings-hint">Manually remove all entries from the oldest day</span>
+            </div>
+            <button class="settings-action-btn" onclick="manualDeleteOldest()">Delete Oldest Day</button>
+          </div>
+        </div>
+
+        <!-- Paste behaviour -->
+        <div class="settings-section">
+          <div class="settings-section-title">▶ Paste Behaviour</div>
+          <div class="settings-row">
+            <div class="settings-label">
+              <span>Close after pasting</span>
+              <span class="settings-hint">Hide the clipboard window automatically after paste</span>
+            </div>
+            <label class="toggle-wrap">
+              <input type="checkbox" id="paste-close-toggle" onchange="saveSettings()">
+              <span class="toggle-track"><span class="toggle-thumb"></span></span>
+            </label>
+          </div>
+        </div>
+
+        <!-- Data management -->
+        <div class="settings-section">
+          <div class="settings-section-title">💾 Data Management</div>
+          <div class="settings-row">
+            <div class="settings-label">
+              <span>Export history</span>
+              <span class="settings-hint">Save all text entries as a JSON file (images not included)</span>
+            </div>
+            <button class="settings-action-btn" onclick="doExport()">Export JSON</button>
+          </div>
+          <div class="settings-row">
+            <div class="settings-label">
+              <span>Import history</span>
+              <span class="settings-hint">Load entries from a previously exported JSON file</span>
+            </div>
+            <button class="settings-action-btn" onclick="doImport()">Import JSON</button>
+          </div>
+          <div class="settings-row">
+            <div class="settings-label">
+              <span>Open image folder</span>
+              <span class="settings-hint">Browse or manually back up your captured clipboard images</span>
+            </div>
+            <button class="settings-action-btn" onclick="openImagesFolder()">Open Folder</button>
+          </div>
+          <div class="settings-row">
+            <div class="settings-label">
+              <span>Clear all history</span>
+              <span class="settings-hint">Permanently delete all clipboard entries and images</span>
+            </div>
+            <button class="settings-action-btn danger" onclick="confirmDeleteAll()">Clear All</button>
+          </div>
+        </div>
+
+        <!-- License info -->
+        <div class="settings-section">
+          <div class="settings-section-title">🏷️ License</div>
+          <div class="settings-row" id="license-status-row">
+            <div class="settings-label">
+              <span id="license-status-text">Free Plan</span>
+              <span class="settings-hint" id="license-status-hint">Limited to 7-day history &amp; 10 favorites</span>
+            </div>
+            <button class="settings-action-btn primary" id="upgrade-btn" onclick="openUpgrade()">✨ Upgrade</button>
+          </div>
+        </div>
+
+        <!-- App info -->
+        <div class="settings-footer-note">
+          MicTab Clipboard Manager • Part of MicTab Suite<br>
+          <a class="upgrade-link" onclick="window.clipboardAPI.openUrl('https://www.youtube.com/@junoverseai')">YouTube</a>
+          &nbsp;•&nbsp;
+          <a class="upgrade-link" onclick="window.clipboardAPI.openUrl('https://www.peeai.com')">PeeAI.com</a>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── EDIT MODAL ── -->
+<div class="modal-overlay" id="edit-modal" style="display:none" onclick="closeEditModal(event)">
+  <div class="modal-box" onclick="event.stopPropagation()">
+    <div class="modal-title">✏️ Edit Entry</div>
+    <textarea id="edit-textarea" class="edit-textarea" rows="8" placeholder="Edit your text..."></textarea>
+    <div class="modal-footer">
+      <button class="modal-btn" onclick="closeEditModal()">Cancel</button>
+      <button class="modal-btn primary" onclick="saveEditedEntry()">Save & Replace</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── EXPIRED PROMPT MODAL ── -->
+<div class="modal-overlay" id="expired-modal" style="display:none">
+  <div class="modal-box">
+    <div class="modal-title">⏰ Clipboard History Limit</div>
+    <p class="modal-text">Your clipboard has entries older than <strong>7 days</strong> (free plan limit). What would you like to do?</p>
+    <p class="modal-date">Oldest entry: <span id="expired-oldest-date">—</span></p>
+    <div class="modal-options">
+      <button class="modal-opt-btn" onclick="onExpiredChoice('oldest')">
+        <div style="font-size:20px;margin-bottom:4px">🗑️</div>
+        <div style="font-weight:600;font-size:13px">Delete Oldest Day</div>
+        <div style="font-size:11px;color:var(--muted);margin-top:2px">Remove entries from the oldest day only</div>
+      </button>
+      <button class="modal-opt-btn" onclick="onExpiredChoice('all')">
+        <div style="font-size:20px;margin-bottom:4px">💥</div>
+        <div style="font-weight:600;font-size:13px">Delete All</div>
+        <div style="font-size:11px;color:var(--muted);margin-top:2px">Clear entire clipboard history</div>
+      </button>
+      <button class="modal-opt-btn" onclick="onExpiredChoice('auto')">
+        <div style="font-size:20px;margin-bottom:4px">🤖</div>
+        <div style="font-weight:600;font-size:13px">Auto-Delete</div>
+        <div style="font-size:11px;color:var(--muted);margin-top:2px">Automatically remove oldest day (don't ask again)</div>
+      </button>
+    </div>
+    <div style="margin-top:14px;text-align:center">
+      <a href="#" class="upgrade-link" onclick="openUpgrade()">✨ Upgrade to paid for unlimited history</a>
+    </div>
+  </div>
+</div>
+
+<!-- ── DELETE ALL CONFIRM ── -->
+<div class="modal-overlay" id="confirm-modal" style="display:none">
+  <div class="modal-box" id="confirm-modal-box" style="max-width:320px">
+    <div class="modal-title" id="confirm-title">⚠️ Confirm</div>
+    <p class="modal-text" id="confirm-text">Are you sure?</p>
+    <div class="modal-footer">
+      <button type="button" class="modal-btn" id="confirm-cancel-btn">Cancel</button>
+      <button type="button" class="modal-btn danger" id="confirm-action-btn">Confirm</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── IMPORT MODE MODAL ── -->
+<div class="modal-overlay" id="import-modal" style="display:none" onclick="closeImportModal(event)">
+  <div class="modal-box" onclick="event.stopPropagation()">
+    <div class="modal-title">📥 Import Clipboard</div>
+    <p class="modal-text">Found <strong id="import-count">0</strong> entries. How would you like to import?</p>
+    <div class="modal-options">
+      <button class="modal-opt-btn" onclick="commitImport('merge')">
+        <div style="font-size:20px;margin-bottom:4px">🔀</div>
+        <div style="font-weight:600;font-size:13px">Merge</div>
+        <div style="font-size:11px;color:var(--muted);margin-top:2px">Add new, skip duplicates</div>
+      </button>
+      <button class="modal-opt-btn" onclick="commitImport('replace')">
+        <div style="font-size:20px;margin-bottom:4px">🗑️</div>
+        <div style="font-weight:600;font-size:13px">Replace All</div>
+        <div style="font-size:11px;color:var(--muted);margin-top:2px">Overwrite current history</div>
+      </button>
+    </div>
+    <button onclick="closeImportModal()" style="width:100%;background:transparent;border:1px solid var(--border);border-radius:8px;padding:8px;cursor:pointer;color:var(--muted);font-size:12px;margin-top:10px">Cancel</button>
+  </div>
+</div>
+
+<!-- ── IMAGE PREVIEW MODAL ── -->
+<div class="modal-overlay" id="image-modal" style="display:none" onclick="closeImageModal()">
+  <div class="image-modal-box" onclick="event.stopPropagation()">
+    <button class="image-modal-close" onclick="closeImageModal()">✕</button>
+    <img id="image-preview-img" src="" alt="Clipboard Image" class="image-preview-img">
+  </div>
+</div>
+
+<!-- ── CATEGORY ADD PROMPT ── -->
+<div class="modal-overlay" id="addcat-modal" style="display:none" onclick="closeAddCatModal(event)">
+  <div class="modal-box" onclick="event.stopPropagation()" style="max-width:300px">
+    <div class="modal-title">＋ Add Category</div>
+    <input type="text" id="addcat-input" class="search-input" placeholder="Category name..." style="width:100%;margin:12px 0" maxlength="30">
+    <div class="modal-footer">
+      <button class="modal-btn" onclick="closeAddCatModal()">Cancel</button>
+      <button class="modal-btn primary" onclick="confirmAddCategory()">Add</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── PAID FEATURE UPSELL ── -->
+<div class="modal-overlay" id="upsell-modal" style="display:none" onclick="closeUpsellModal(event)">
+  <div class="modal-box" onclick="event.stopPropagation()" style="max-width:340px;text-align:center">
+    <div style="font-size:36px;margin-bottom:8px">✨</div>
+    <div class="modal-title" id="upsell-title">Paid Feature</div>
+    <p class="modal-text" id="upsell-text">This feature requires a paid license.</p>
+    <button class="modal-btn primary" onclick="openUpgrade()" style="width:100%;margin-bottom:8px">Get License on Gumroad</button>
+    <button class="modal-btn" onclick="closeUpsellModal()" style="width:100%">Not Now</button>
+  </div>
+</div>
+
+<!-- Toast notification -->
+<div class="toast" id="toast"></div>
+
+<script src="clipboard.js"></script>
+</body>
+</html>

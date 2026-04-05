@@ -1,6 +1,6 @@
 {
   "name": "mictab",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "MicTab - Voice Dictation App",
   "main": "main.js",
   "scripts": {
@@ -59,7 +59,8 @@
   "license": "ISC",
   "type": "commonjs",
   "dependencies": {
-    "auto-launch": "^5.0.6",
+    "adm-zip": "^0.5.17",
+    "better-sqlite3": "^12.8.0",
     "electron-store": "^8.1.0",
     "electron-updater": "^6.8.3",
     "google-translate-api-x": "^10.7.2",

@@ -63,6 +63,19 @@ const schema = {
     type: 'object',
     default: {}
   },
+  licenseActivatedDate: {
+    type: 'number',
+    default: 0        // timestamp when license was first activated via Gumroad
+  },
+  // ── Free Tier Daily Limit ──────────────────────────────────────
+  freeDailyWords: {
+    type: 'number',
+    default: 0        // words used today on the free tier
+  },
+  freeDailyReset: {
+    type: 'number',
+    default: 0        // midnight timestamp of when freeDailyWords was last reset
+  },
   // ── Appearance ────────────────────────────────────────────
   theme: {
     type: 'string',
@@ -209,6 +222,35 @@ const schema = {
   translatorTgtLang: {
     type: 'string',
     default: 'bn'
+  },
+  // ── Clipboard Manager ────────────────────────────────────────────
+  clipboardHotkey: {
+    type: 'string',
+    default: 'Alt+V'
+  },
+  clipboardHotkeyEnabled: {
+    type: 'boolean',
+    default: true
+  },
+  // 'trial'/'active' users: '7days'. Paid options: '30days','90days','6months','lifetime'
+  clipboardRetention: {
+    type: 'string',
+    default: '7days'
+  },
+  // true = silently delete oldest day when TTL exceeded (no popup)
+  clipboardAutoDelete: {
+    type: 'boolean',
+    default: false
+  },
+  // true = hide clipboard window after pasting
+  clipboardPasteAndClose: {
+    type: 'boolean',
+    default: false
+  },
+  // saved position of clipboard manager window
+  clipboardWindowPosition: {
+    type: 'object',
+    default: {}
   }
 };
 

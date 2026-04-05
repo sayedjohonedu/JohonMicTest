@@ -263,7 +263,11 @@ function createFloatingBrowser(savedTabs, savedActiveId, shouldFocus = false) {
 
   if (process.platform === 'darwin') {
     floatingWindow.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
-    floatingWindow.setAlwaysOnTop(true, 'screen-saver');
+    // Use 'normal' level so overlay (screen-saver) and clipboard (floating) stay above
+    floatingWindow.setAlwaysOnTop(true, 'normal');
+  } else {
+    // Windows: 'normal' level keeps browser above regular apps but below clipboard ('floating')
+    floatingWindow.setAlwaysOnTop(true, 'normal');
   }
 
   floatingWindow.loadFile(path.join(__dirname, '../../ui', 'floating-browser.html'));

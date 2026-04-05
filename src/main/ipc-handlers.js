@@ -3,7 +3,7 @@ const { autoUpdater } = require('electron-updater');
 const fs = require('fs');
 const store = require('../../store/config');
 const { verifyLicense } = require('./licensing');
-const { applyOverlaySize, getOverlayWindow, getSettingsWindow, OV } = require('./window-manager');
+const { applyOverlaySize, getOverlayWindow, getSettingsWindow, OV, closeLicensePopup, closeWordLimitPopup, closeTranslatorLockedPopup } = require('./window-manager');
 const { uIOhook } = require('uiohook-napi');
 const { setupFloatingBrowserIpc } = require('./floating-browser-manager');
 
@@ -17,6 +17,13 @@ function setupIpcHandlers(toggleListening, registerHotkeys, getWsClient, resetSi
   ipcMain.on('save-config', (event, config) => {
     store.set(config);
     registerHotkeys(toggleListening);
+
+    if (config.autoLaunch !== undefined) {
+      app.setLoginItemSettings({
+        openAtLogin: config.autoLaunch === true,
+        path: app.getPath('exe')
+      });
+    }
 
     const wsClient = getWsClient();
     if (wsClient) {
@@ -35,6 +42,15 @@ function setupIpcHandlers(toggleListening, registerHotkeys, getWsClient, resetSi
     totalSessions: store.get('statsSessions')  || 0,
     langUsage:     store.get('statsLangUsage') || {},
     firstDate:     store.get('statsFirstDate') || 0,
+    freeDailyWords: store.get('freeDailyWords') || 0,
+  }));
+
+  ipcMain.handle('get-license-info', () => ({
+    status:               store.get('licenseStatus')       || 'trial',
+    licenseActivatedDate: store.get('licenseActivatedDate') || 0,
+    freeDailyWords:       store.get('freeDailyWords')       || 0,
+    freeDailyReset:       store.get('freeDailyReset')       || 0,
+    licensePurchase:      store.get('licensePurchase')      || {},
   }));
 
   ipcMain.on('overlay-stop', () => toggleListening());
@@ -78,6 +94,17 @@ function setupIpcHandlers(toggleListening, registerHotkeys, getWsClient, resetSi
       sw.show();
       sw.focus();
     }
+  });
+  ipcMain.on('close-license-popup', () => {
+    if (typeof closeLicensePopup === 'function') {
+      closeLicensePopup();
+    }
+  });
+  ipcMain.on('close-wordlimit-popup', () => {
+    if (typeof closeWordLimitPopup === 'function') closeWordLimitPopup();
+  });
+  ipcMain.on('close-translator-locked-popup', () => {
+    if (typeof closeTranslatorLockedPopup === 'function') closeTranslatorLockedPopup();
   });
   ipcMain.on('open-url', (event, url) => shell.openExternal(url));
 
@@ -358,6 +385,14 @@ function setupIpcHandlers(toggleListening, registerHotkeys, getWsClient, resetSi
         if (!privateKeys.includes(key)) store.set(key, newConfig[key]);
       }
       registerHotkeys(toggleListening);
+      
+      if (newConfig.autoLaunch !== undefined) {
+        app.setLoginItemSettings({
+          openAtLogin: newConfig.autoLaunch === true,
+          path: app.getPath('exe')
+        });
+      }
+      
       return { ok: true };
     } catch(e) { return { ok: false, error: e.message }; }
   });
