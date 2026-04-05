@@ -48,7 +48,8 @@
     "publish": {
       "provider": "github",
       "owner": "contactsayedjohon",
-      "repo": "mictab-releases"
+      "repo": "mictab-releases",
+      "releaseType": "release"
     },
     "releaseInfo": {
       "releaseNotesFile": "build/release-notes.md"

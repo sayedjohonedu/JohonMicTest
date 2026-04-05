@@ -1,3 +1,14 @@
+# MicTab v1.0.1 🎙️✨
+
+### 🔧 What's New in v1.0.1
+*   **Freemium Licensing System:** Implemented a new 300-word daily limit for free-tier users with a midnight reset. 
+*   **Translator Access:** Added locking for the translator panel for free users.
+*   **Clipboard Manager Enhancements:** Performance optimizations for large histories, infinite scrolling, and category assignment features.
+*   **Cross-Platform Auto-Startup:** Added support for launching MicTab automatically on Windows and macOS.
+*   **Popup Notifications:** New UI for word limit alerts and translator access restrictions.
+
+---
+
 # Juno Voice v1.2.2 🎙️✨
 
 ### 🔧 What's New in v1.2.2
