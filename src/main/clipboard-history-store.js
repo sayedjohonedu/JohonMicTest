@@ -283,15 +283,22 @@ function deleteEntry(id, context) {
 
 function deleteAll() {
   load();
-  // Delete items with no categories, and not fav/pinned
-  const toDelete = _db.prepare("SELECT id, type, imagePath FROM entries WHERE isFavorite = 0 AND isPinned = 0 AND categories = '[]' AND userCategories = '[]' AND isDeleted = 0").all();
-  for (const e of toDelete) {
-    if (e.type === 'image' && e.imagePath) fs.unlink(e.imagePath, () => {});
-    _db.prepare('DELETE FROM entries WHERE id = ?').run(e.id);
+  // Delete ALL image files first
+  const imagesDir = getImagesDir();
+  if (fs.existsSync(imagesDir)) {
+    try {
+      const files = fs.readdirSync(imagesDir);
+      for (const file of files) {
+        try {
+          fs.unlinkSync(path.join(imagesDir, file));
+        } catch (_) {}
+      }
+    } catch (e) {
+      console.warn('[ClipboardStore] Could not clear images dir:', e.message);
+    }
   }
-  
-  // Hide the rest from 'All' view
-  _db.prepare("UPDATE entries SET isDeleted = 1 WHERE isFavorite = 0 AND isPinned = 0 AND isDeleted = 0 AND (categories != '[]' OR userCategories != '[]')").run();
+  // Wipe the entire database — no exceptions (favorites, pinned, categorized — all gone)
+  _db.prepare('DELETE FROM entries').run();
 }
 
 /**

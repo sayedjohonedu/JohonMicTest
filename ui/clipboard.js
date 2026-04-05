@@ -386,21 +386,24 @@ function buildEntryCard(entry) {
   delBtn.onclick = (e) => { e.stopPropagation(); doDeleteEntry(entry.id); };
   actions.appendChild(delBtn);
 
-  // Paste button
-  const pasteBtn = document.createElement('button');
-  pasteBtn.className = 'paste-btn';
-  pasteBtn.textContent = '▶ Paste';
-  pasteBtn.title = 'Paste to active app';
-  pasteBtn.onclick = (e) => { e.stopPropagation(); doPasteEntry(entry); };
-  actions.appendChild(pasteBtn);
+  // (paste button hidden - clicking card now pastes)
 
   card.appendChild(actions);
 
-  // Click card to select in selecting mode
-  card.onclick = () => {
+  // Click card to paste (or select in selecting mode)
+  card.onclick = (e) => {
+    // Don't paste if click was on an action button/checkbox
+    if (e.target.closest('.entry-actions') || e.target.closest('.entry-checkbox')) return;
     if (_state.selecting) {
       toggleSelectEntry(entry.id, !_state.selectedIds.has(entry.id));
       cb.checked = _state.selectedIds.has(entry.id);
+      return;
+    }
+    // Paste on click
+    if (entry.type === 'image') {
+      showImageModal(`file://${entry.imagePath}`);
+    } else {
+      doPasteEntry(entry);
     }
   };
 
@@ -663,6 +666,39 @@ async function onExpiredChoice(choice) {
 function confirmDeleteAll() {
   _state.confirmCb = async () => {
     await window.clipboardAPI.deleteAll();
+    _state.entries      = [];
+    _state.total        = 0;
+    _state.hasMore      = false;
+    _state.page         = 0;
+    _state.category     = null;
+    _state.userCats     = [];
+    document.getElementById('entry-list').innerHTML = '';
+    document.getElementById('empty-state').style.display = 'flex';
+    // Clear user category nav (all custom cats are gone)
+    const userCatsNav = document.getElementById('user-cats-nav');
+    if (userCatsNav) userCatsNav.innerHTML = '';
+    // Hide category delete button
+    const catClearBtn = document.getElementById('cat-clear-btn');
+    if (catClearBtn) catClearBtn.style.display = 'none';
+    await loadStats();
+    showToast('All clipboard history cleared — fresh start!');
+  };
+  document.getElementById('confirm-title').textContent = '⚠️ Clear ALL History';
+  document.getElementById('confirm-text').textContent  = 'This will permanently delete EVERYTHING — all entries, images, favorites, pins and categories. This cannot be undone.';
+  document.getElementById('confirm-modal').style.display = 'flex';
+}
+
+// ── Delete category confirm ────────────────────────────────────────────────
+function confirmDeleteCategory() {
+  const cat = _state.category;
+  if (!cat) return;
+  _state.confirmCb = async () => {
+    // Delete all visible entries in this category
+    const idsToDelete = _state.entries.map(e => e.id);
+    const context = { section: _state.section, category: cat };
+    for (const id of idsToDelete) {
+      await window.clipboardAPI.deleteEntry(id, context);
+    }
     _state.entries = [];
     _state.total   = 0;
     _state.hasMore = false;
@@ -670,10 +706,10 @@ function confirmDeleteAll() {
     document.getElementById('entry-list').innerHTML = '';
     document.getElementById('empty-state').style.display = 'flex';
     await loadStats();
-    showToast('All clipboard history cleared.');
+    showToast(`All entries in "${cat}" deleted.`);
   };
-  document.getElementById('confirm-title').textContent = '⚠️ Clear All History';
-  document.getElementById('confirm-text').textContent = 'This will delete all clipboard entries. This cannot be undone.';
+  document.getElementById('confirm-title').textContent = `🗑️ Delete All in "${cat}"`;
+  document.getElementById('confirm-text').textContent  = `This will remove all entries from the "${cat}" category. This cannot be undone.`;
   document.getElementById('confirm-modal').style.display = 'flex';
 }
 
@@ -833,6 +869,10 @@ function switchSection(section, el) {
   contentBody.style.display   = 'flex';
   if (filterBar)     filterBar.style.display = 'flex';
 
+  // Hide category delete button (only shown in category view)
+  const catClearBtn = document.getElementById('cat-clear-btn');
+  if (catClearBtn) catClearBtn.style.display = 'none';
+
   _state.section  = section;
   _state.category = null;
   _state.page     = 0;
@@ -857,6 +897,11 @@ function switchCategory(cat, el) {
   document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
   el.classList.add('active');
   document.getElementById('panel-title').textContent = `🏷️ ${cat}`;
+
+  // Show category delete button
+  const catClearBtn = document.getElementById('cat-clear-btn');
+  if (catClearBtn) catClearBtn.style.display = 'flex';
+
   loadEntries(true);
 }
 

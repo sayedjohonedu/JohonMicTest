@@ -48,9 +48,10 @@ function showClipboardManager() {
         backgroundColor: '#00000000',
       }
     : {
-        transparent: true,
+        transparent: false,
         frame: false,
-        backgroundColor: '#00000000',
+        thickFrame: false,
+        backgroundColor: '#0D0D14',
         hasShadow: true,
       };
 

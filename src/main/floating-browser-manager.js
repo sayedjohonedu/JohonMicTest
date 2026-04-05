@@ -114,6 +114,17 @@ function createTab(url = 'https://google.com') {
 
     if (params.linkURL) {
       menu.append(new MenuItem({
+        label: 'Open Link in New Tab',
+        click: () => {
+          if (!floatingWindow || floatingWindow.isDestroyed()) return;
+          const tab = createTab(params.linkURL);
+          floatingWindow.contentView.addChildView(tab.view);
+          sendToWindow('browser-tab-added', { id: tab.id, url: tab.url, title: tab.title });
+          switchTab(tab.id);
+          saveState();
+        }
+      }));
+      menu.append(new MenuItem({
         label: 'Copy Link Address',
         click: () => clipboard.writeText(params.linkURL)
       }));
@@ -263,11 +274,8 @@ function createFloatingBrowser(savedTabs, savedActiveId, shouldFocus = false) {
 
   if (process.platform === 'darwin') {
     floatingWindow.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
-    // Use 'normal' level so overlay (screen-saver) and clipboard (floating) stay above
-    floatingWindow.setAlwaysOnTop(true, 'normal');
-  } else {
-    // Windows: 'normal' level keeps browser above regular apps but below clipboard ('floating')
-    floatingWindow.setAlwaysOnTop(true, 'normal');
+    // Use 'floating' level (NOT 'screen-saver') so the overlay/pill always stays on top
+    floatingWindow.setAlwaysOnTop(true, 'floating');
   }
 
   floatingWindow.loadFile(path.join(__dirname, '../../ui', 'floating-browser.html'));
@@ -472,8 +480,15 @@ function restoreBrowserSession() {
 
 function newBrowserSession() {
   store.delete('floatingBrowserRestoreState');
-  createTab('https://google.com');
+  const tab = createTab('https://google.com');
+  // Make sure the new tab's view is attached to the window
+  if (floatingWindow && !floatingWindow.isDestroyed()) {
+    floatingWindow.contentView.addChildView(tab.view);
+  }
+  // Explicitly switch to the new tab so it's auto-selected and visible
+  activeTabId = tab.id;
   resizeAllViews();
+  // Use browser-tabs-init so the renderer fully re-syncs the tab strip with the new active tab
   sendToWindow('browser-tabs-init', { tabs: getTabState(), activeTabId });
   saveState();
 }

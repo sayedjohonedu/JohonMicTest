@@ -3,6 +3,52 @@
 
 const API = window.translatorAPI;
 
+const DEFAULT_HUMANIZE_PROMPT = `# SYSTEM PROMPT: THE EXPERT HUMANIZER AGENT
+
+## ROLE AND CORE OBJECTIVE
+You are an expert humanizer, adversarial paraphraser, and content editor. Your objective is to rewrite AI-generated text or generate new text that is completely indistinguishable from authentic human writing. You must intentionally avoid all known statistical, lexical, structural, and semantic AI signatures while adhering strictly to verified information.
+
+Your foundational operational directive is: "You are a rephraser. Given any input text, you are supposed to rephrase the text without changing its meaning and content, while maintaining the text quality. Also, it is important for you to output a rephrased text that has a different style from the input text. You can not just make a few changes to the input text".
+
+## 1. MASTERING THE SCIENCE: STATISTICAL & STYLOMETRIC TARGETS
+To bypass detection systems, you must alter the fundamental mathematical and structural footprint of the text:
+*   **Maximize Perplexity and Burstiness:** AI detectors measure *perplexity* (how random and unpredictable the vocabulary is) and *burstiness* (the variation in sentence length and structure). You must actively maximize both by mixing short, punchy sentences with long, complex, naturally flowing ones.
+*   **Break Structural Regularity (Lower Compressibility):** AI text relies heavily on context-dependent predictability, making it highly redundant and easily compressible by lossless compression algorithms like *gzip*. Human writing maintains a lower compressibility rate because it does not accumulate rigid structural regularity over long texts. Ensure your writing remains structurally unpredictable.
+*   **Vary Stylometric Features:** Naturally vary part-of-speech (POS) bigrams, phrase patterns, and the placement of function words (unigrams of particles, conjunctions, and punctuation) to match human stylistic irregularities rather than defaulting to the statistical mean of AI generation.
+
+## 2. ELIMINATE LEXICAL TELLS (THE BANNED LIST)
+LLMs exhibit a distinct "idiolect" characterized by the massive overuse of specific words and transition phrases. 
+*   **Banned Vocabulary:** NEVER use these frequently overused AI words: *delve, tapestry, vibrant, landscape, realm, embark, excels, vital, comprehensive, intricate, pivotal, moreover, arguably, notably, crucial, daunting, profound, foster, testament, tailored, unwavering, underscore, showcase, bustling, nestled*.
+*   **Banned Phrases & Signposting:** Avoid cliché transitions, forced reflections, and dramatic flattery such as: "No fluff," "Dive into," "Here's the kicker," "It's important to note/consider," "Based on the information provided," "A testament to," "Shouting into the void," or "Quiet affirmation". Do not use "In summary," "In conclusion," or "Overall".
+*   **Embrace Basic Copulas:** Do not replace simple verbs to sound overly sophisticated. Use "is," "are," and "has" instead of AI-typical substitutes like "serves as," "stands as," "features," or "boasts".
+*   **Avoid Elegant Variation:** Do not use unnatural, obscure synonyms just to avoid repeating a word. Natural repetition of core nouns is a hallmark of human writing.
+
+## 3. FIX STRUCTURAL AND STYLISTIC ISSUES
+*   **Avoid the "Rule of Three":** Do not consistently group items, phrases, or adjectives in predictable threes (e.g., "A, B, and C" or "adjective, adjective, adjective") to sound comprehensive.
+*   **Eliminate Negative Parallelisms:** Avoid formulaic contrasting structures like "Not just X, but also Y," or "It's not X, it's Y".
+*   **Break Perfect Paragraph Proportions:** AI generates paragraphs of perfectly balanced lengths. Intentionally vary paragraph length drastically. 
+*   **Remove Superficial Analysis:** Stop attaching "-ing" clauses at the ends of sentences to force a profound conclusion (e.g., "...highlighting the enduring legacy of..." or "...symbolizing a shift...").
+*   **Ditch Rigid Transitions:** Avoid mechanical, template-like argument structures that rely heavily on rigid sequences like "However, therefore, moreover" or outline-like conclusions such as "Despite these challenges, the future outlook...". Do not create unnaturally fluid connections between completely disparate ideas.
+
+## 4. FORMATTING AND MARKUP SANITIZATION
+*   **No Markdown/Formatting Tells:** Do NOT overuse **boldface** for emphasis; do NOT use inline-header vertical lists (e.g., "- **Header:** text").
+*   **Punctuation Restraint:** Limit the use of em dashes (—) and emojis, which AI models overuse to artificially "punch up" text. Use standard commas, parentheses, or colons instead. Use straight quotation marks (" ") rather than curly ones (“ ”).
+*   **No Chatbot Disclaimers:** NEVER include conversational filler like "Certainly! Here is...", "As an AI language model...", or "As of my last knowledge update...". Do not include placeholder text or hallucinated search markup like \`turn0search0\`.
+
+## 5. PREVENT HALLUCINATIONS AND SEMANTIC ERRORS
+AI hallucinations occur because models predict plausible words rather than retrieving true knowledge. 
+*   **Ground in Reality:** Base all outputs strictly on provided, trusted data and curated datasets (Retrieval-Augmented Generation principles). 
+*   **Admit Uncertainty:** Do not bow to prompt pressure by filling gaps with plausible-sounding fabrications. Set constraints to admit uncertainty—simply state "I don't know" or "Not found" if the information is not in the source text.
+*   **Avoid Vague Generalizations:** Do not provide generic, non-specific examples or use vague attributions (e.g., "Experts argue...", "Observers have cited..."). 
+*   **No Fake Citations:** Never generate references to non-existent scholarly articles, hallucinate DOIs/ISBNs, or provide book citations without page numbers.
+
+## 6. WHAT TO DO FOR HUMAN WRITING (THE HUMANIZATION PROTOCOL)
+To truly sound human, incorporate these organic writing techniques:
+*   **Inject Personal Voice and Concrete Experience:** Write with an authentic, unique perspective. Provide detailed, concrete instances rather than artificially balanced, detached overviews. 
+*   **Use Asymmetrical Knowledge Depth:** Human writing naturally fluctuates in expertise. Show deep, specific, sophisticated understanding in core areas of the text, and more basic comprehension in peripheral areas, rather than maintaining a uniform, machine-like level of expertise everywhere.
+*   **Write with Conversational Asymmetry:** Allow for minor, natural imperfections in flow. Human transitions between ideas aren't always perfectly smooth; sometimes ideas jump naturally without a connective transition word.
+*   **Avoid Undue Emphasis:** Do not puff up the importance of mundane topics by falsely connecting them to broader historical trends, and do not hit readers over the head with repetitive claims about a subject's notability or legacy.`;
+
 /* ─── State ─────────────────────────────────────────────────── */
 let cfg              = {};
 let isAiMode         = false;
@@ -23,9 +69,6 @@ let animFrame;
 
 /* ─── DOM refs ──────────────────────────────────────────────── */
 const dotClose          = document.getElementById('dot-close');
-const modeToggle        = document.getElementById('mode-toggle');
-const modeLabel         = document.getElementById('mode-label');
-const aiBadge           = document.getElementById('ai-badge');
 const noApiWarning      = document.getElementById('no-api-warning');
 const statusIcon        = document.getElementById('status-icon');
 const statusText        = document.getElementById('status-text');
@@ -41,6 +84,9 @@ const btnPaste          = document.getElementById('btn-paste-output');
 const btnHumanize       = document.getElementById('btn-humanize');
 const humanizeSpinner   = document.getElementById('humanize-spinner');
 const btnRevert         = document.getElementById('btn-revert');
+const btnHumanizeDraft  = document.getElementById('btn-humanize-draft');
+const humDraftSpinner   = document.getElementById('humanize-draft-spinner');
+const btnCopyDraft      = document.getElementById('btn-copy-draft');
 const btnExpandPG       = document.getElementById('btn-expand-playground');
 const playground        = document.getElementById('playground');
 const pgSlotsEl         = document.getElementById('pg-slots');
@@ -92,15 +138,67 @@ const spSilenceVal          = document.getElementById('sp-silence-val');
 const spSilenceUnit         = document.getElementById('sp-silence-unit');
 const spSilenceDurationRow  = document.getElementById('sp-silence-duration-row');
 
-/* ─── Provider models map ───────────────────────────────────── */
+/* ─── Provider models map (updated April 2026) ───────────────── */
 const PROVIDER_MODELS = {
-  openai:    ['gpt-4o','gpt-4-turbo','gpt-3.5-turbo'],
-  anthropic: ['claude-3-5-sonnet-20241022','claude-3-opus-20240229','claude-3-haiku-20240307'],
-  gemini:    ['gemini-1.5-pro','gemini-1.5-flash','gemini-1.0-pro'],
-  mistral:   ['mistral-large-latest','mistral-medium-latest','mistral-small-latest'],
-  groq:      ['llama-3.3-70b-versatile','mixtral-8x7b-32768','gemma2-9b-it'],
-  custom:    [],
+  gemini: [
+    'gemini-3.1-pro-preview',
+    'gemini-3.1-pro-preview-customtools',
+    'gemini-3-pro-preview',
+    'gemini-3-flash-preview',
+    'gemini-2.5-pro',
+    'gemini-2.5-flash',
+    'gemini-2.5-flash-lite',
+    'gemini-2.0-flash',
+    'gemini-2.0-flash-lite',
+  ],
+  openai: [
+    'gpt-5.4',
+    'gpt-5.4-mini',
+    'gpt-5.4-nano',
+    'gpt-5.4-thinking',
+    'gpt-5.3-codex',
+    'gpt-5.3-instant',
+    'o4-mini-deep-research',
+    'o3-deep-research',
+    'gpt-4.1',
+    'gpt-4.1-mini',
+  ],
+  anthropic: [
+    'claude-sonnet-5-20260401',
+    'claude-opus-4-6-20260205',
+    'claude-sonnet-4-6',
+    'claude-3-7-sonnet-20250219',
+    'claude-3-5-sonnet-20241022',
+    'claude-3-opus-20240229',
+    'claude-3-haiku-20240307',
+  ],
+  mistral: [
+    'mistral-large-latest',
+    'mistral-small-latest',
+    'mistral-medium-3',
+    'codestral-latest',
+    'open-mistral-nemo',
+  ],
+  groq: [
+    'meta-llama/llama-4-maverick-17b-128e-instruct',
+    'meta-llama/llama-4-scout-17b-16e-instruct',
+    'llama-3.3-70b-versatile',
+    'llama3-70b-8192',
+    'gemma2-9b-it',
+  ],
+  openrouter: [
+    'openai/gpt-5.4',
+    'anthropic/claude-4.6-sonnet',
+    'google/gemini-3.1-pro',
+    'deepseek/deepseek-v3.2',
+    'meta-llama/llama-4-maverick-17b',
+    'qwen/qwen-3.6-plus',
+    'mistralai/devstral-2-2512',
+    'openrouter/auto',
+  ],
+  custom: [],
 };
+
 
 /* ─── Init ──────────────────────────────────────────────────── */
 async function init() {
@@ -114,8 +212,9 @@ async function init() {
   srcLang.value = savedSrc || 'en';   // default to English, NOT auto-detect
   tgtLang.value = savedTgt || 'bn';   // default target
 
-  modeToggle.checked = isAiMode;
   updateModeUI();
+  
+  const hasProfile = hasActiveProfile();
   renderHistory();
   loadSettingsForm();
   setupMiniWave();
@@ -175,25 +274,10 @@ function setSttState(active) {
   }
 }
 
-/* ─── Mode toggle ─────────────────────────────────────────────*/
-modeToggle.addEventListener('change', async () => {
-  isAiMode = modeToggle.checked;
-  const hasProfile = hasActiveProfile();
-  if (isAiMode && !hasProfile) {
-    showToast('⚠ Set an API profile in Settings first');
-    modeToggle.checked = false;
-    isAiMode = false;
-    return;
-  }
-  updateModeUI();
-  await API.saveSettings({ translatorMode: isAiMode ? 'ai' : 'regular' });
-});
+/* ─── Mode UI Update ─────────────────────────────────────────────*/
 
 function updateModeUI() {
-  modeLabel.textContent = isAiMode ? 'AI' : 'Regular';
-  aiBadge.classList.toggle('visible', isAiMode);
-  btnHumanize.classList.toggle('disabled', !isAiMode);
-  noApiWarning.classList.toggle('visible', isAiMode && !hasActiveProfile());
+  noApiWarning.classList.toggle('visible', !hasActiveProfile());
 }
 
 function hasActiveProfile() {
@@ -241,7 +325,7 @@ async function doTranslate() {
       mode: isAiMode ? 'ai' : 'regular',
       profile: getActiveProfile(),
       systemPrompt: cfg.translatorSystemPrompt || '',
-      systemInstructions: cfg.translatorSystemInstructions || '',
+      systemInstructions: cfg.translatorSystemInstructions || DEFAULT_HUMANIZE_PROMPT,
     });
 
     if (result.error) {
@@ -283,7 +367,7 @@ btnHumanize.addEventListener('click', async () => {
     const result = await API.humanize({
       text,
       profile,
-      systemInstructions: cfg.translatorSystemInstructions || '',
+      systemInstructions: cfg.translatorSystemInstructions || DEFAULT_HUMANIZE_PROMPT,
     });
     if (result.error) {
       showToast('⚠ ' + result.error);
@@ -320,6 +404,54 @@ btnCopyOutput.addEventListener('click', () => {
   outputArea.classList.add('copy-flash');
   setTimeout(() => outputArea.classList.remove('copy-flash'), 400);
 });
+
+/* ─── Copy draft ─────────────────────────────────────────────*/
+if (btnCopyDraft) {
+  btnCopyDraft.addEventListener('click', () => {
+    const text = draftArea.value.trim();
+    if (!text) { showToast('Nothing to copy'); return; }
+    navigator.clipboard.writeText(text);
+    showToast('✓ Copied!');
+    draftArea.classList.add('copy-flash');
+    setTimeout(() => draftArea.classList.remove('copy-flash'), 400);
+  });
+}
+
+/* ─── Humanize Draft ─────────────────────────────────────────*/
+if (btnHumanizeDraft) {
+  btnHumanizeDraft.addEventListener('click', async () => {
+    if (btnHumanizeDraft.classList.contains('disabled')) return;
+    const text = draftArea.value.trim();
+    if (!text) { showToast('Speak or type something first'); return; }
+
+    const profile = getActiveProfile();
+    if (!profile) { showToast('No API profile — configure in Settings'); return; }
+
+    humDraftSpinner.classList.add('visible');
+    btnHumanizeDraft.style.pointerEvents = 'none';
+    btnTranslate.disabled = true;
+
+    try {
+      const result = await API.humanize({
+        text,
+        profile,
+        systemInstructions: cfg.translatorSystemInstructions || DEFAULT_HUMANIZE_PROMPT,
+      });
+      if (result.error) {
+        showToast('⚠ ' + result.error);
+      } else {
+        draftArea.value = result.text;
+      }
+    } catch (e) {
+      showToast('Humanize draft failed');
+      console.error(e);
+    }
+
+    humDraftSpinner.classList.remove('visible');
+    btnHumanizeDraft.style.pointerEvents = '';
+    btnTranslate.disabled = false;
+  });
+}
 
 /* ─── Paste ───────────────────────────────────────────────────*/
 btnPaste.addEventListener('click', () => doPaste());
@@ -489,7 +621,7 @@ btnTranslateAll.addEventListener('click', async () => {
         mode: isAiMode ? 'ai' : 'regular',
         profile: getActiveProfile(),
         systemPrompt: cfg.translatorSystemPrompt || '',
-        systemInstructions: cfg.translatorSystemInstructions || '',
+        systemInstructions: cfg.translatorSystemInstructions || DEFAULT_HUMANIZE_PROMPT,
       });
       slot.outputEl.value = r.error ? ('⚠ ' + r.error) : r.text;
     } catch (e) {
@@ -630,10 +762,12 @@ btnClearHistory.addEventListener('click', () => {
 btnSettings.addEventListener('click', openSettings);
 settingsLink.addEventListener('click', (e) => { e.preventDefault(); openSettings(); });
 
+
 function openSettings() {
   settingsOpen = true;
   settingsPane.classList.add('open');
   loadSettingsForm();
+  switchSpPanel('api-profiles', document.querySelector('.sp-nav-item[data-sp-panel="api-profiles"]'));
 }
 
 btnSpBack.addEventListener('click', () => {
@@ -641,14 +775,80 @@ btnSpBack.addEventListener('click', () => {
   settingsOpen = false;
 });
 
+/* ── Two-pane settings nav ── */
+const SP_PANEL_META = {
+  'api-profiles':  { title: 'API Profiles',    desc: 'Manage your AI provider API keys and models' },
+  'ai-behaviour':  { title: 'AI Behaviour',     desc: 'Customize the system prompt and extra instructions' },
+  'silence-timer': { title: 'Silence Timer',    desc: 'Auto-stop the microphone after a period of silence' },
+  'shortcuts':     { title: 'Shortcuts',        desc: 'Global keyboard shortcuts for the translator' },
+  'lang-presets':  { title: 'Language Presets', desc: 'Quick-switch language pairs with optional shortcut keys' },
+};
+
+function switchSpPanel(panelId, clickedItem) {
+  // Update nav active state
+  document.querySelectorAll('.sp-nav-item').forEach(el => el.classList.remove('sp-nav-active'));
+  if (clickedItem) clickedItem.classList.add('sp-nav-active');
+
+  // Show correct panel
+  document.querySelectorAll('.sp-panel').forEach(el => el.classList.remove('sp-panel-active'));
+  const target = document.getElementById(`sp-panel-${panelId}`);
+  if (target) target.classList.add('sp-panel-active');
+
+  // Update header title/desc
+  const meta = SP_PANEL_META[panelId] || {};
+  const titleEl = document.getElementById('sp-content-title');
+  const descEl  = document.getElementById('sp-content-desc');
+  if (titleEl) titleEl.textContent = meta.title || '';
+  if (descEl)  descEl.textContent  = meta.desc  || '';
+}
+
+/* ── Password visibility toggle ── */
+const btnToggleKeyVis = document.getElementById('btn-toggle-key-vis');
+if (btnToggleKeyVis && spApiKey) {
+  btnToggleKeyVis.addEventListener('click', () => {
+    const isPassword = spApiKey.type === 'password';
+    spApiKey.type = isPassword ? 'text' : 'password';
+    const eyeEl = document.getElementById('eye-icon');
+    if (eyeEl) eyeEl.innerHTML = isPassword
+      ? '<path d="M1 8s2.5-5 7-5 7 5 7 5-2.5 5-7 5-7-5-7-5z"/><circle cx="8" cy="8" r="2"/><line x1="2" y1="2" x2="14" y2="14" stroke-width="1.6"/>'
+      : '<path d="M1 8s2.5-5 7-5 7 5 7 5-2.5 5-7 5-7-5-7-5z"/><circle cx="8" cy="8" r="2"/>';
+  });
+}
+
+/* ── Test Key button ── */
+const btnTestApi = document.getElementById('btn-test-api');
+if (btnTestApi) {
+  btnTestApi.addEventListener('click', async () => {
+    const key = spApiKey.value.trim();
+    if (!key) { showToast('Enter an API key first'); return; }
+    const prov = spProvider.value;
+    const model = prov === 'custom' ? spCustomModel.value : spModel.value;
+    const testProfile = { provider: prov, model, apiKey: key, baseUrl: spCustomUrl.value.trim(), modelName: model };
+    btnTestApi.disabled = true;
+    btnTestApi.textContent = 'Testing…';
+    try {
+      const res = await API.translate({ text: 'Hello', src: 'en', tgt: 'es', mode: 'ai', profile: testProfile });
+      if (res && res.text) {
+        showToast(`✓ Works! "Hello" → "${res.text}"`, 3000);
+      } else {
+        showToast(`✗ ${res?.error || 'Test failed'}`, 3000);
+      }
+    } catch (e) {
+      showToast(`✗ ${e.message || 'Request error'}`, 3000);
+    }
+    btnTestApi.disabled = false;
+    btnTestApi.innerHTML = '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.7" width="13" height="13"><path d="M5 3l8 5-8 5V3z"/></svg> Test Key';
+  });
+}
+
 function syncSilenceDurationRow() {
-  spSilenceDurationRow.style.opacity  = spSilenceEnabled.checked ? '1' : '0.4';
+  spSilenceDurationRow.style.opacity       = spSilenceEnabled.checked ? '1' : '0.4';
   spSilenceDurationRow.style.pointerEvents = spSilenceEnabled.checked ? '' : 'none';
 }
 
 function loadSettingsForm() {
   spSystemPrompt.value       = cfg.translatorSystemPrompt || '';
-  spSystemInstructions.value = cfg.translatorSystemInstructions || '';
+  spSystemInstructions.value = cfg.translatorSystemInstructions || DEFAULT_HUMANIZE_PROMPT;
   spOpenShortcut.value       = cfg.translatorOpenShortcut || 'Shift+Alt+T';
   spPasteShortcut.value      = cfg.translatorPasteShortcut || 'Shift+Alt+P';
 
@@ -661,7 +861,13 @@ function loadSettingsForm() {
 
   renderProfiles();
   renderPresets();
+  
+  // Make sure to hydrate the provider dropdown with all initial JS array models immediately
+  if (typeof updateProviderUI === 'function') {
+    updateProviderUI();
+  }
 }
+
 
 spSilenceEnabled.addEventListener('change', syncSilenceDurationRow);
 

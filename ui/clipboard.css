@@ -384,6 +384,17 @@ html, body {
   cursor: pointer;
   flex-shrink: 0;
   max-width: 90px;
+  -webkit-appearance: auto;
+  appearance: auto;
+}
+/* Force dropdown options to use a dark surface so text is always visible */
+.filter-select option {
+  background: #1e1e2e;
+  color: #e8e8f0;
+}
+body.theme-light .filter-select option {
+  background: #ffffff;
+  color: #1a1a2e;
 }
 
 .batch-controls {
@@ -574,20 +585,37 @@ html, body {
 .entry-btn.pin.active { color: var(--accent2); background: rgba(124,111,255,0.1); }
 .entry-btn.danger:hover { color: var(--danger); background: rgba(255,71,87,0.1); border-color: rgba(255,71,87,0.2); }
 
-.paste-btn {
+/* paste-btn hidden — clicking the whole card now pastes */
+.paste-btn { display: none !important; }
+
+/* Category clear-all button in the content header */
+.category-clear-btn {
+  display: flex;
+  align-items: center;
+  gap: 5px;
   padding: 4px 10px;
   border-radius: 6px;
-  border: 1px solid rgba(124,111,255,0.4);
-  background: rgba(124,111,255,0.12);
-  color: var(--accent2);
+  border: 1px solid rgba(255,71,87,0.3);
+  background: rgba(255,71,87,0.08);
+  color: var(--danger);
   font-family: var(--font);
   font-size: 11px;
   font-weight: 600;
   cursor: pointer;
   transition: all 0.15s;
   white-space: nowrap;
+  -webkit-app-region: no-drag;
 }
-.paste-btn:hover { background: rgba(124,111,255,0.25); color: var(--accent3); }
+.category-clear-btn:hover { background: rgba(255,71,87,0.18); border-color: rgba(255,71,87,0.5); }
+
+/* Entry card acts as a paste button — show pointer cursor and a subtle ripple on hover */
+.entry-card {
+  cursor: pointer;
+}
+.entry-card:active {
+  opacity: 0.85;
+  transform: scale(0.995);
+}
 
 /* ── Load more ──────────────────────────────────────────────────────────── */
 .load-more-wrap { text-align: center; padding: 12px 0; }
