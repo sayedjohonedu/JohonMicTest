@@ -1,6 +1,6 @@
 {
   "name": "mictab",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "MicTab - Voice Dictation App",
   "main": "main.js",
   "scripts": {
@@ -45,12 +45,14 @@
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true
     },
-    "publish": {
-      "provider": "github",
-      "owner": "contactsayedjohon",
-      "repo": "mictab-releases",
-      "releaseType": "release"
-    },
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "contactsayedjohon",
+        "repo": "mictab-releases",
+        "releaseType": "release"
+      }
+    ],
     "releaseInfo": {
       "releaseNotesFile": "build/release-notes.md"
     }

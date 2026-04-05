@@ -1,6 +1,7 @@
-# MicTab v1.0.1 🎙️✨
+# MicTab v1.0.2 🎙️✨
 
-### 🔧 What's New in v1.0.1
+### 🔧 What's New in v1.0.2
+*   **Public Release Pipeline:** Refined the auto-publishing mechanism to ensure releases are immediately visible on the public repository.
 *   **Freemium Licensing System:** Implemented a new 300-word daily limit for free-tier users with a midnight reset. 
 *   **Translator Access:** Added locking for the translator panel for free users.
 *   **Clipboard Manager Enhancements:** Performance optimizations for large histories, infinite scrolling, and category assignment features.
@@ -9,7 +10,7 @@
 
 ---
 
-# Juno Voice v1.2.2 🎙️✨
+# MicTab v1.0.1 🎙️✨
 
 ### 🔧 What's New in v1.2.2
 *   **Windows Emoji Consistency:** Overhauled Windows emoji support across the app. Fixed a CDN issue where emojis in the picker were defaulting to native Windows rendering (causing flags to appear as letters and some modern emojis to render as square boxes). 
