@@ -1,0 +1,90 @@
+name: Build & Draft Release (Windows + Mac)
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:           # allows manual trigger from GitHub Actions UI
+
+jobs:
+  # ─────────────────────────────────────────────
+  # WINDOWS BUILD
+  # ─────────────────────────────────────────────
+  build-windows:
+    name: Build Windows (.exe)
+    runs-on: windows-latest
+
+    env:
+      GH_TOKEN: ${{ secrets.RELEASE_TOKEN }}
+      GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Install dependencies (skip postinstall rebuild)
+        run: npm ci --ignore-scripts
+
+      - name: Rebuild native modules for Electron (Windows x64)
+        run: npx @electron/rebuild --force
+        env:
+          npm_config_arch: x64
+
+      - name: Build & publish Windows installer → mictab-releases (draft)
+        run: npm run build:win -- --publish always
+
+      - name: Upload Windows artifacts for local inspection
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: MicTab-Windows-v${{ github.run_number }}
+          path: |
+            dist/*.exe
+            dist/latest.yml
+
+  # ─────────────────────────────────────────────
+  # MAC BUILD
+  # ─────────────────────────────────────────────
+  build-mac:
+    name: Build Mac (.dmg)
+    runs-on: macos-latest
+
+    env:
+      GH_TOKEN: ${{ secrets.RELEASE_TOKEN }}
+      GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN }}
+      CSC_IDENTITY_AUTO_DISCOVERY: false   # skip code-signing (no Apple cert)
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Install dependencies (skip postinstall rebuild)
+        run: npm ci --ignore-scripts
+
+      - name: Rebuild native modules for Electron (Mac)
+        run: npx @electron/rebuild --force
+
+      - name: Build & publish Mac installer → mictab-releases (draft)
+        run: npm run build:mac -- --publish always
+
+      - name: Upload Mac artifacts for local inspection
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: MicTab-Mac-v${{ github.run_number }}
+          path: |
+            dist/*.dmg
+            dist/*.zip
+            dist/latest-mac.yml
