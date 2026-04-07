@@ -47,7 +47,7 @@
     },
     "publish": {
       "provider": "github",
-      "owner": "contactsayedjohon",
+      "owner": "sayedaljohon",
       "repo": "mictab-releases",
       "releaseType": "draft"
     },
