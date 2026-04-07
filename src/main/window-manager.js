@@ -7,6 +7,7 @@ let settingsWindow = null;
 let licensePopupWindow = null;
 let wordLimitPopupWindow = null;
 let translatorLockedPopupWindow = null;
+let aiTrialPopupWindow = null;
 
 const OV = {
   FULL_W:        420,
@@ -121,7 +122,8 @@ function showSettings() {
     maximizable: false,
     ...platformOptions,
     webPreferences: {
-      preload: path.join(__dirname, '../../ui', 'settings-preload.js')
+      preload: path.join(__dirname, '../../ui', 'settings-preload.js'),
+      acceptFirstMouse: true,
     }
   });
 
@@ -245,6 +247,37 @@ function closeTranslatorLockedPopup() {
   }
 }
 
+function showAiTrialExpiredPopup() {
+  if (aiTrialPopupWindow && !aiTrialPopupWindow.isDestroyed()) {
+    aiTrialPopupWindow.show();
+    aiTrialPopupWindow.focus();
+    return aiTrialPopupWindow;
+  }
+  aiTrialPopupWindow = new BrowserWindow({
+    width: 360,
+    height: 280,
+    transparent: true,
+    frame: false,
+    alwaysOnTop: true,
+    resizable: false,
+    skipTaskbar: true,
+    webPreferences: {
+      nodeIntegration: false,
+      contextIsolation: true,
+      preload: path.join(__dirname, '../../ui', 'overlay-preload.js')
+    }
+  });
+  aiTrialPopupWindow.loadFile(path.join(__dirname, '../../ui/ai-trial-popup.html'));
+  aiTrialPopupWindow.on('closed', () => aiTrialPopupWindow = null);
+  aiTrialPopupWindow.center();
+  return aiTrialPopupWindow;
+}
+
+function closeAiTrialPopup() {
+  if (aiTrialPopupWindow && !aiTrialPopupWindow.isDestroyed()) {
+    aiTrialPopupWindow.close();
+  }
+}
 
 function getOverlayWindow() { return overlayWindow; }
 function getSettingsWindow() { return settingsWindow; }
@@ -258,6 +291,8 @@ module.exports = {
   closeWordLimitPopup,
   showTranslatorLockedPopup,
   closeTranslatorLockedPopup,
+  showAiTrialExpiredPopup,
+  closeAiTrialPopup,
   applyOverlaySize,
   getOverlayWindow,
   getSettingsWindow,

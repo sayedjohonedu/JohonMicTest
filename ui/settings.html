@@ -30,6 +30,9 @@
       <div class="nav-item" data-panel="replace" onclick="switchPanel('replace', this)">
         <span class="nav-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.64 3.64-1.28-1.28a1.21 1.21 0 0 0-1.72 0L2.36 18.64a1.21 1.21 0 0 0 0 1.72l1.28 1.28a1.2 1.2 0 0 0 1.72 0L21.64 5.36a1.2 1.2 0 0 0 0-1.72Z"/><path d="m14 7 3 3"/><path d="M5 6v4"/><path d="M19 14v4"/><path d="M10 2v2"/><path d="M7 8H3"/><path d="M21 16h-4"/><path d="M11 3H9"/></svg></span> Text Replacement
       </div>
+      <div class="nav-item" data-panel="ai" onclick="switchPanel('ai', this)">
+        <span class="nav-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/><path d="M5 3v4"/><path d="M19 17v4"/><path d="M3 5h4"/><path d="M17 19h4"/></svg></span> AI Dictation
+      </div>
       <div class="nav-item" data-panel="stats" onclick="switchPanel('stats', this)">
         <span class="nav-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"></line><line x1="12" y1="20" x2="12" y2="4"></line><line x1="6" y1="20" x2="6" y2="14"></line></svg></span> My Stats
       </div>
@@ -65,6 +68,22 @@
 
       <!-- ── GENERAL PANEL ── -->
       <div class="panel active" id="panel-general">
+
+        <!-- CLIPBOARD MANAGER -->
+        <div class="section-label">Clipboard Manager</div>
+        <div class="settings-group">
+          <div class="settings-row">
+            <div class="row-icon" style="background:rgba(74,222,128,0.1);"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#4ade80" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="8" height="4" x="8" y="2" rx="1" ry="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><path d="M9 14l2 2 4-4"/></svg></div>
+            <div class="row-info">
+              <label>Enable Clipboard Manager</label>
+              <small>When off, clipboard history is not tracked — saves resources. Existing data is preserved. Takes effect instantly.</small>
+            </div>
+            <label class="toggle">
+              <input type="checkbox" id="toggle-clipboard-enabled" checked onchange="onClipboardToggle()"/>
+              <div class="toggle-track"></div>
+            </label>
+          </div>
+        </div>
 
         <!-- APPEARANCE -->
         <div class="section-label">Appearance</div>
@@ -387,20 +406,184 @@
               </svg>
               Export JSON
             </button>
-            <button class="btn-action" id="btn-import-replacements" onclick="doImportReplacements()"
+              <button class="btn-action" id="btn-import-replacements" onclick="doImportReplacements()"
               style="display:flex; align-items:center; gap:6px; padding:6px 14px; font-size:12px;">
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
                    stroke-linecap="round" stroke-linejoin="round">
                 <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-                <polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
-              </svg>
+                <polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
               Import JSON
             </button>
             <span id="import-export-msg" style="font-size:11px; color:var(--accent); display:none; transition:opacity .3s;"></span>
           </div>
         </div>
       </div>
-      
+
+      <!-- ── AI DICTATION PANEL ── -->
+      <div class="panel" id="panel-ai">
+        <!-- Master Toggle -->
+        <div class="section-label">AI Mode</div>
+        <div class="settings-group">
+          <div class="settings-row">
+            <div class="row-icon" style="background:rgba(168,85,247,0.1);"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#a855f7" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/></svg></div>
+            <div class="row-info">
+              <label>Enable AI Dictation</label>
+              <small>Clean up speech with AI before typing. Raw text is buffered until you stop, then processed by your chosen LLM.</small>
+            </div>
+            <label class="toggle">
+              <input type="checkbox" id="toggle-ai-mode" onchange="syncAiEnable()"/>
+              <div class="toggle-track"></div>
+            </label>
+          </div>
+          <div class="settings-row" style="border-top:1px solid var(--border);">
+            <div class="row-icon" style="background:rgba(74,222,128,0.1);"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#4ade80" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7v4a1 1 0 0 0 1 1h3"/><path d="M7 7v4a1 1 0 0 0 1 1h3"/><path d="M11 7v4a1 1 0 0 0 1 1h3"/><path d="M15 7v4a1 1 0 0 0 1 1h3"/><path d="M19 7v4"/><path d="M5 21 12 3l7 18"/></svg></div>
+            <div class="row-info">
+              <label>Profile Fallback</label>
+              <small>If the active profile fails, automatically try your other saved profiles in order. If all fail, raw text is still pasted.</small>
+            </div>
+            <label class="toggle">
+              <input type="checkbox" id="toggle-ai-fallback" checked/>
+              <div class="toggle-track"></div>
+            </label>
+          </div>
+          <div class="settings-row" style="border-top:1px solid var(--border);">
+            <div class="row-icon" style="background:rgba(168,85,247,0.1);"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#a855f7" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></div>
+            <div class="row-info">
+              <label>AI Silence Timeout</label>
+              <small>Seconds of silence before auto-sending to AI (default 8s). Click "Send ✦" button to send immediately.</small>
+            </div>
+            <div style="display:flex;align-items:center;gap:6px;">
+              <input type="number" id="ai-silence-timeout" value="8" min="1" max="300" step="1" style="width:60px;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:6px 8px;color:var(--text);font-size:13px;font-weight:500;text-align:center;outline:none;font-family:var(--font);">
+              <span style="font-size:11px;color:var(--sub);white-space:nowrap;">sec</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Saved AI Profiles -->
+        <div class="section-label" style="margin-top:4px">Saved AI Profiles</div>
+        <div class="settings-group">
+          <div class="settings-row" style="padding-bottom:8px;">
+            <div class="row-icon" style="background:rgba(168,85,247,0.1);"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#a855f7" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></div>
+            <div class="row-info">
+              <label>Active Profiles</label>
+              <small>Click a profile to set it as default · hover to delete</small>
+            </div>
+          </div>
+          <div id="ai-profile-list" class="ai-profile-list">
+            <!-- Rendered dynamically by JS -->
+          </div>
+        </div>
+
+        <!-- Add New Profile -->
+        <div class="section-label" style="margin-top:4px">Add New Profile</div>
+        <div class="settings-group" id="ai-provider-group">
+          <div class="settings-row">
+            <div class="row-icon" style="background:rgba(168,85,247,0.08);"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg></div>
+            <div class="row-info">
+              <label>Profile Name</label>
+              <small>A friendly name for this configuration</small>
+            </div>
+            <input type="text" id="ai-profile-name" class="replace-input" placeholder="e.g. My GPT-4o Key" style="width:210px; font-size:12px;">
+          </div>
+          <div class="settings-row" style="border-top:1px solid var(--border); margin-top:4px; padding-top:12px;">
+            <div class="row-icon" style="background:rgba(168,85,247,0.08);"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><circle cx="12" cy="12" r="4"/></svg></div>
+            <div class="row-info">
+              <label>Provider</label>
+              <small>Choose your AI backend</small>
+            </div>
+            <select class="duration-select" id="ai-provider" onchange="onAiProviderChange()">
+              <option value="openai">OpenAI</option>
+              <option value="anthropic">Anthropic</option>
+              <option value="gemini">Google Gemini</option>
+              <option value="groq">Groq</option>
+              <option value="openrouter">OpenRouter</option>
+              <option value="custom">Custom / Ollama</option>
+            </select>
+          </div>
+          <div class="settings-row" style="border-top:1px solid var(--border); margin-top:4px; padding-top:12px;">
+            <div class="row-icon" style="background:rgba(168,85,247,0.08);"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M7 7h10"/><path d="M7 12h10"/><path d="M7 17h10"/></svg></div>
+            <div class="row-info">
+              <label>Model</label>
+              <small>The AI model to use for cleanup</small>
+            </div>
+            <div style="display:flex; gap:6px; align-items:center; flex-wrap:wrap;">
+              <select class="duration-select" id="ai-model" onchange="onAiModelChange()" style="width:210px; font-family:monospace; font-size:12px;">
+                <!-- Populated dynamically by JS -->
+              </select>
+              <button class="btn-action" id="btn-ollama-refresh" onclick="refreshOllamaModels()" style="display:none; padding:5px 8px; font-size:11px;" title="Refresh Ollama models">↺</button>
+            </div>
+          </div>
+          <div class="settings-row" id="row-ai-custom-model" style="border-top:1px solid var(--border); margin-top:4px; padding-top:12px; display:none;">
+            <div class="row-icon" style="background:rgba(168,85,247,0.08);"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.376 3.622a1 1 0 0 1 3.002 3.002L7.368 18.635a2 2 0 0 1-.855.506l-2.872.838a.5.5 0 0 1-.62-.62l.838-2.872a2 2 0 0 1 .506-.854z"/></svg></div>
+            <div class="row-info">
+              <label>Custom Model Name</label>
+              <small>Enter the exact model identifier</small>
+            </div>
+            <input type="text" id="ai-model-custom" class="replace-input" placeholder="e.g. my-fine-tuned-model" style="width:210px; font-family:monospace; font-size:12px;">
+          </div>
+          <div class="settings-row" id="row-ai-apikey" style="border-top:1px solid var(--border); margin-top:4px; padding-top:12px;">
+            <div class="row-icon" style="background:rgba(168,85,247,0.08);"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15.5 7.5 2.3 2.3a1 1 0 0 0 1.4 0l2.1-2.1a1 1 0 0 0 0-1.4L19 4"/><path d="m21 2-9.6 9.6"/><circle cx="7.5" cy="15.5" r="5.5"/></svg></div>
+            <div class="row-info">
+              <label>API Key</label>
+              <small>Your provider's API key (stored locally, never sent anywhere except the provider)</small>
+            </div>
+            <input type="password" id="ai-apikey" class="replace-input" placeholder="sk-..." style="width:220px; font-family:monospace; font-size:12px;">
+          </div>
+          <div class="settings-row" id="row-ai-baseurl" style="border-top:1px solid var(--border); margin-top:4px; padding-top:12px; display:none;">
+            <div class="row-icon" style="background:rgba(168,85,247,0.08);"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M2 12h20"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg></div>
+            <div class="row-info">
+              <label>Base URL</label>
+              <small>Custom endpoint (e.g. <b>http://localhost:11434/v1</b> for Ollama)</small>
+            </div>
+            <input type="text" id="ai-baseurl" class="replace-input" placeholder="http://localhost:11434/v1" style="width:250px; font-family:monospace; font-size:12px;">
+          </div>
+          <!-- Ollama status badge -->
+          <div id="ollama-status-row" style="padding:4px 16px 10px; font-size:11px; color:var(--muted); display:none;"></div>
+          <!-- Action buttons -->
+          <div class="settings-row" style="border-top:1px solid var(--border); margin-top:4px; padding-top:12px; justify-content:flex-start; gap:12px; flex-wrap:wrap;">
+            <button class="btn-action" id="btn-ai-add-profile" onclick="addAiProfile()" style="padding:6px 16px; font-size:12px; display:flex; align-items:center; gap:6px; background:rgba(168,85,247,0.08); border-color:rgba(168,85,247,0.3); color:#a855f7;">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>
+              Save Profile
+            </button>
+            <button class="btn-action" id="btn-ai-test" onclick="testAiConnection()" style="padding:6px 16px; font-size:12px; display:flex; align-items:center; gap:6px;">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+              Test Connection
+            </button>
+            <span id="ai-test-status" style="font-size:12px; color:var(--muted);"></span>
+          </div>
+        </div>
+
+        <!-- System Prompt -->
+        <div class="section-label" style="margin-top:4px">Cleanup Instructions</div>
+        <div class="settings-group" id="ai-prompt-group">
+          <div class="settings-row" style="flex-direction:column; align-items:stretch; gap:8px; padding:16px;">
+            <div style="display:flex; align-items:center; gap:8px;">
+              <label style="font-weight:500; font-size:13px;">System Prompt</label>
+              <small style="color:var(--muted);">(leave empty for built-in default)</small>
+            </div>
+            <textarea id="ai-system-prompt" class="replace-input" rows="5" placeholder="Clean up this dictated speech transcript..." style="width:100%; font-size:12px; line-height:1.5; resize:vertical; min-height:80px;"></textarea>
+          </div>
+          <div class="settings-row" style="border-top:1px solid var(--border); margin-top:4px; padding-top:12px;">
+            <div class="row-icon" style="background:rgba(168,85,247,0.08);"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20"/></svg></div>
+            <div class="row-info">
+              <label>Personal Dictionary</label>
+              <small>Comma-separated words the AI should always spell correctly (names, brands, jargon)</small>
+            </div>
+            <input type="text" id="ai-personal-dict" class="replace-input" placeholder="MicTab, Junoverse, PeeAI" style="width:250px; font-size:12px;">
+          </div>
+          <div class="settings-row" style="border-top:1px solid var(--border); margin-top:4px; padding-top:12px;">
+            <div class="row-icon" style="background:rgba(168,85,247,0.08);"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 4h-7"/><path d="M10 4H3"/><path d="M21 12h-9"/><path d="M8 12H3"/><path d="M21 20h-5"/><path d="M12 20H3"/><path d="M14 2v4"/><path d="M12 10v4"/><path d="M16 18v4"/></svg></div>
+            <div class="row-info">
+              <label style="display:flex; justify-content:space-between; align-items:center;">Temperature <span id="label-ai-temp" style="font-size:11px; color:var(--accent); font-weight:bold;">0.3</span></label>
+              <small>Lower = more precise, higher = more creative (0.1–1.0)</small>
+            </div>
+            <div style="width:150px; display:flex; align-items:center;">
+              <input type="range" id="ai-temperature" min="0.1" max="1.0" step="0.1" value="0.3" style="width:100%; cursor:pointer; accent-color:var(--accent);" oninput="document.getElementById('label-ai-temp').textContent = parseFloat(this.value).toFixed(1);">
+            </div>
+          </div>
+        </div>
+      </div>
+
       <!-- ── LICENSE PANEL ── -->
       <div class="panel" id="panel-license">
         <div class="section-label">Subscription & Licensing</div>

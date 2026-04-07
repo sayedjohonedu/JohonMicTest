@@ -14,12 +14,12 @@ const { showClipboardManager, toggleClipboardManager, getClipboardWindow, notify
 const { setupClipboardIpc } = require('./src/main/clipboard-ipc');
 
 // Import modules
-const { createOverlay, showSettings, showLicensePopup, showWordLimitPopup, showTranslatorLockedPopup, applyOverlaySize, getOverlayWindow, getSettingsWindow } = require('./src/main/window-manager');
+const { createOverlay, showSettings, showLicensePopup, showWordLimitPopup, showTranslatorLockedPopup, showAiTrialExpiredPopup, applyOverlaySize, getOverlayWindow, getSettingsWindow } = require('./src/main/window-manager');
 const { onOverlayShow, onOverlayHide } = require('./src/main/floating-browser-manager');
 const { registerHotkeys, stopUiohook, setTranslatorCtx } = require('./src/main/hotkey-manager');
-const { checkAuthStatus, checkAndResetDailyWords } = require('./src/main/licensing');
+const { checkAuthStatus, checkAndResetDailyWords, checkAiTrialExpiry } = require('./src/main/licensing');
 const { setupUpdater } = require('./src/main/updater');
-const { setupIpcHandlers } = require('./src/main/ipc-handlers');
+const { setupIpcHandlers, aiDictationManager } = require('./src/main/ipc-handlers');
 const { createTray, updateTrayMenu } = require('./src/main/tray-manager');
 const translatorManager = require('./src/main/translator-manager');
 
@@ -32,9 +32,64 @@ let sessionWordCount = 0;
 let currentSessionLang = 'en-US';
 let lastPhraseTimestamp = 0;
 
-// ── Translator mode: 'overlay' | 'translator' ───────────────
+// ── STT routing: 'overlay' | 'translator' ───────────────
 // Controls where STT transcripts are routed. The two panels are mutually exclusive.
 let sttMode = 'overlay';
+
+// ── Helper: is AI dictation currently active for the overlay path?
+function isAiModeActive() {
+  return sttMode === 'overlay' && store.get('aiModeEnabled') === true;
+}
+
+// ── AI Dictation: separate silence timer for auto-processing (does NOT close overlay)
+let aiSilenceTimer = null;
+function clearAiSilenceTimer() {
+  if (aiSilenceTimer) { clearTimeout(aiSilenceTimer); aiSilenceTimer = null; }
+}
+function resetAiSilenceTimer() {
+  clearAiSilenceTimer();
+  if (!isAiModeActive()) return;
+  const timeoutSec = store.get('aiSilenceTimeout') ?? 8;
+  aiSilenceTimer = setTimeout(() => {
+    aiSilenceTimer = null;
+    if (!isAiModeActive()) return;
+    const buffered = aiDictationManager.getBufferedText().trim();
+    if (!buffered) return;
+    // Process buffer + paste, but keep the session alive
+    const overlayWindow = getOverlayWindow();
+    if (overlayWindow && !overlayWindow.isDestroyed()) {
+      overlayWindow.webContents.send('ai-processing-start');
+    }
+    aiDictationManager.processBuffer().then(result => {
+      if (overlayWindow && !overlayWindow.isDestroyed()) {
+        overlayWindow.webContents.send('ai-processing-end', result);
+      }
+      if (result.text && !result.error && !result.allFailed) {
+        clipboardManager.injectText(result.text);
+      } else if (result.allFailed && result.rawText && result.rawText.trim()) {
+        clipboardManager.injectText(result.rawText);
+      } else if (result.error) {
+        const raw = aiDictationManager.getBufferedText();
+        if (raw.trim()) clipboardManager.injectText(raw);
+      }
+      // Clear buffer and reset overlay for next dictation segment
+      aiDictationManager.clearBuffer();
+      if (overlayWindow && !overlayWindow.isDestroyed()) {
+        // Reset overlay to listening state
+        setTimeout(() => {
+          if (overlayWindow && !overlayWindow.isDestroyed()) {
+            overlayWindow.webContents.send('ai-buffer-reset');
+          }
+        }, 1200);
+      }
+    }).catch(err => {
+      console.error('AI silence-timer processing failed:', err);
+      if (overlayWindow && !overlayWindow.isDestroyed()) {
+        overlayWindow.webContents.send('ai-processing-end', { error: err.message });
+      }
+    });
+  }, timeoutSec * 1000);
+}
 
 // Windows fix: Re-enable GPU for smoother dragging, but add stability flags
 if (process.platform === 'win32') {
@@ -71,7 +126,7 @@ function normaliseLangCode(code) {
   return MAP[code] || code;
 }
 
-function toggleListening(forceLang = null, fromTranslator = false, forceStart = false) {
+function toggleListening(forceLang = null, fromTranslator = false, forceStart = false, skipAiProcessing = false) {
   if (!wsClient || wsClient.readyState !== WebSocket.OPEN) {
     dialog.showErrorBox('Service Not Ready', 'Speech service is not connected or Chrome bridge crashed. Please restart the app.');
     isListening = false;
@@ -157,7 +212,13 @@ function toggleListening(forceLang = null, fromTranslator = false, forceStart = 
     lastPhraseTimestamp = 0;
     const lang = forceLang || store.get('language') || 'en-US';
     currentSessionLang = lang;
+    // Always use the regular silence timeout for the bridge (AI silence is managed separately)
     const silenceTimeout = store.get('silenceTimeout') ?? 1;
+    // Clear AI buffer at session start
+    if (isAiModeActive()) {
+      aiDictationManager.clearBuffer();
+      clearAiSilenceTimer();
+    }
 
     if (overlayWindow) {
       overlayWindow.webContents.send('session-start', { lang });
@@ -177,11 +238,71 @@ function toggleListening(forceLang = null, fromTranslator = false, forceStart = 
       console.error('Failed to send start command:', e);
     }
   } else {
-    onOverlayHide();
-    if (overlayWindow) overlayWindow.hide();
+    clearAiSilenceTimer();
     try { wsClient.send(JSON.stringify({ command: 'stop' })); } catch (e) {
       console.error('Failed to send stop command:', e);
     }
+
+    // ── AI Dictation: handle buffer on stop ──
+    if (isAiModeActive() && !skipAiProcessing && aiDictationManager.getBufferedText().trim()) {
+      // Keep overlay visible for processing feedback (no hide→re-show flicker)
+      if (overlayWindow && !overlayWindow.isDestroyed()) {
+        overlayWindow.webContents.send('ai-processing-start');
+      }
+
+      aiDictationManager.processBuffer().then(result => {
+        if (overlayWindow && !overlayWindow.isDestroyed()) {
+          overlayWindow.webContents.send('ai-processing-end', result);
+          setTimeout(() => {
+            if (overlayWindow && !overlayWindow.isDestroyed()) overlayWindow.hide();
+            onOverlayHide();
+          }, 1500);
+        }
+
+        if (result.allFailed) {
+          // ALL profiles failed — inject raw text so user doesn't lose words
+          if (result.rawText && result.rawText.trim()) {
+            clipboardManager.injectText(result.rawText);
+          }
+          const failedNames = (result.errors || []).map(e => `• ${e.profile}: ${e.error}`).join('\n');
+          dialog.showMessageBox({
+            type: 'warning',
+            title: 'AI Dictation — All Profiles Failed',
+            message: 'None of your AI profiles could process the dictation.',
+            detail: `Your raw dictated text has been pasted as-is so you don't lose it.\n\nFailed profiles:\n${failedNames || '(none configured)'}\n\nThis will keep happening until you fix your API keys/models, or turn off AI Dictation to use regular mode.`,
+            buttons: ['Open Settings', 'Disable AI Mode', 'OK'],
+            defaultId: 2,
+            cancelId: 2,
+          }).then(({ response }) => {
+            if (response === 0) showSettings();
+            else if (response === 1) store.set('aiModeEnabled', false);
+          });
+        } else if (result.text && !result.error) {
+          clipboardManager.injectText(result.text);
+        } else if (result.error) {
+          console.error('AI processing error:', result.error);
+          const rawText = aiDictationManager.getBufferedText();
+          if (rawText.trim()) clipboardManager.injectText(rawText);
+        }
+      }).catch(err => {
+        console.error('AI processing failed:', err);
+        if (overlayWindow && !overlayWindow.isDestroyed()) {
+          overlayWindow.webContents.send('ai-processing-end', { error: err.message });
+          setTimeout(() => {
+            if (overlayWindow && !overlayWindow.isDestroyed()) overlayWindow.hide();
+            onOverlayHide();
+          }, 1500);
+        }
+      });
+    } else {
+      // Non-AI mode OR AI mode with skipAiProcessing (user clicked X) — hide immediately
+      if (isAiModeActive() && skipAiProcessing) {
+        aiDictationManager.clearBuffer();
+      }
+      onOverlayHide();
+      if (overlayWindow) overlayWindow.hide();
+    }
+
     // Show word limit popup at session end if free-tier user has hit today's limit
     if (store.get('licenseStatus') === 'free' && (store.get('freeDailyWords') || 0) >= 300) {
       setTimeout(() => showWordLimitPopup(), 400);
@@ -381,6 +502,18 @@ function setupWebSocketServer(server) {
               overlayWindow.webContents.send('session-word-count', sessionWordCount);
             }
           }
+        } else if (isAiModeActive()) {
+          // ── AI DICTATION MODE: buffer transcript, do NOT inject yet
+          aiDictationManager.bufferTranscript(replacedText);
+          // Reset the AI silence timer since we just got new text
+          resetAiSilenceTimer();
+          if (overlayWindow) {
+            overlayWindow.webContents.send('session-word-count', sessionWordCount);
+            overlayWindow.webContents.send('transcript', { text: replacedText });
+            overlayWindow.webContents.send('ai-buffer-update', {
+              bufferLength: aiDictationManager.getBufferedText().length,
+            });
+          }
         } else {
           // ── OVERLAY MODE: existing behavior
           if (overlayWindow) {
@@ -409,6 +542,40 @@ function setupWebSocketServer(server) {
             isListening = false; // reset so toggleListening can turn it on again
             if (tw && !tw.isDestroyed()) tw.webContents.send('translator-stt-state', false);
             setTimeout(() => toggleListening(null, true, false), 200);
+          } else if (isAiModeActive()) {
+            // AI mode: bridge silence-timeout fires (regular timeout), but we DON'T close
+            // Process any remaining buffer, then restart listening to keep session alive
+            const buffered = aiDictationManager.getBufferedText().trim();
+            if (buffered) {
+              clearAiSilenceTimer(); // cancel pending AI timer since bridge already timed out
+              const overlayWindow = getOverlayWindow();
+              if (overlayWindow && !overlayWindow.isDestroyed()) {
+                overlayWindow.webContents.send('ai-processing-start');
+              }
+              aiDictationManager.processBuffer().then(result => {
+                if (overlayWindow && !overlayWindow.isDestroyed()) {
+                  overlayWindow.webContents.send('ai-processing-end', result);
+                }
+                if (result.text && !result.error && !result.allFailed) {
+                  clipboardManager.injectText(result.text);
+                } else if (result.allFailed && result.rawText && result.rawText.trim()) {
+                  clipboardManager.injectText(result.rawText);
+                }
+                aiDictationManager.clearBuffer();
+                if (overlayWindow && !overlayWindow.isDestroyed()) {
+                  setTimeout(() => {
+                    if (overlayWindow && !overlayWindow.isDestroyed()) {
+                      overlayWindow.webContents.send('ai-buffer-reset');
+                    }
+                  }, 1200);
+                }
+              }).catch(err => {
+                console.error('AI bridge-timeout processing failed:', err);
+              });
+            }
+            // Restart listening (bridge stopped internally after silence-timeout)
+            isListening = false;
+            setTimeout(() => toggleListening(null, false, true), 200);
           } else {
             toggleListening();
             const overlayWindow = getOverlayWindow();
@@ -474,6 +641,7 @@ app.whenReady().then(() => {
   }
   checkAuthStatus();
   checkAndResetDailyWords(); // Reset daily word counter if it's a new day
+  checkAiTrialExpiry();       // Auto-disable AI mode if 7-day free trial expired
   
   // Apply the unified login item setting
   app.setLoginItemSettings({
@@ -512,46 +680,52 @@ app.whenReady().then(() => {
   setupClipboardIpc();
   clipboardHistoryStore.load();
 
-  // Check free-user TTL on startup
-  const isPaid = store.get('licenseStatus') === 'active';
-  const retention = store.get('clipboardRetention') || '7days';
-  clipboardHistoryStore.pruneExpired(isPaid, retention);
+  // Only start clipboard monitoring + TTL checks when the feature is enabled
+  const clipboardEnabled = store.get('clipboardEnabled') !== false;
 
-  // Check if free user has entries older than 7 days that need manual action
-  if (!isPaid && !store.get('clipboardAutoDelete')) {
-    const expiry = clipboardHistoryStore.checkFreeUserExpiry();
-    if (expiry) {
-      // Show the clipboard manager with expired-prompt notification
-      setTimeout(() => {
-        showClipboardManager();
-        setTimeout(() => {
-          notifyClipboardWindow('cb-expired-prompt', {
-            oldestDate: expiry.oldestDate.toISOString()
-          });
-        }, 800);
-      }, 2000);
-    }
-  } else if (!isPaid && store.get('clipboardAutoDelete')) {
-    clipboardHistoryStore.deleteOldestDay();
-  }
+  if (clipboardEnabled) {
+    // Check free-user TTL on startup
+    const isPaid = store.get('licenseStatus') === 'active';
+    const retention = store.get('clipboardRetention') || '7days';
+    clipboardHistoryStore.pruneExpired(isPaid, retention);
 
-  // Start clipboard monitor
-  clipboardMonitor.start((entry, isDuplicate) => {
-    // Push real-time update to clipboard window if open
-    notifyClipboardWindow('cb-new-entry', { entry, isDuplicate });
-
-    // Check TTL after each new entry
+    // Check if free user has entries older than 7 days that need manual action
     if (!isPaid && !store.get('clipboardAutoDelete')) {
       const expiry = clipboardHistoryStore.checkFreeUserExpiry();
       if (expiry) {
-        notifyClipboardWindow('cb-expired-prompt', {
-          oldestDate: expiry.oldestDate.toISOString()
-        });
+        // Show the clipboard manager with expired-prompt notification
+        setTimeout(() => {
+          showClipboardManager();
+          setTimeout(() => {
+            notifyClipboardWindow('cb-expired-prompt', {
+              oldestDate: expiry.oldestDate.toISOString()
+            });
+          }, 800);
+        }, 2000);
       }
     } else if (!isPaid && store.get('clipboardAutoDelete')) {
       clipboardHistoryStore.deleteOldestDay();
     }
-  });
+
+    // Start clipboard monitor
+    clipboardMonitor.start((entry, isDuplicate) => {
+      // Push real-time update to clipboard window if open
+      notifyClipboardWindow('cb-new-entry', { entry, isDuplicate });
+
+      // Check TTL after each new entry
+      const isPaidNow = store.get('licenseStatus') === 'active';
+      if (!isPaidNow && !store.get('clipboardAutoDelete')) {
+        const expiry = clipboardHistoryStore.checkFreeUserExpiry();
+        if (expiry) {
+          notifyClipboardWindow('cb-expired-prompt', {
+            oldestDate: expiry.oldestDate.toISOString()
+          });
+        }
+      } else if (!isPaidNow && store.get('clipboardAutoDelete')) {
+        clipboardHistoryStore.deleteOldestDay();
+      }
+    });
+  }
 
   setTimeout(() => showSettings(), 1000);
 });
