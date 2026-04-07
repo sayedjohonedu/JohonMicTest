@@ -285,6 +285,40 @@ function setupClipboardIpc() {
     if (bw) bw.hide();
   });
 
+  // ── Runtime clipboard enable/disable ────────────────────────────────────
+  ipcMain.handle('cb-set-enabled', (_, enabled) => {
+    store.set('clipboardEnabled', !!enabled);
+    const clipboardMonitor = require('./clipboard-monitor');
+
+    if (enabled) {
+      // Start monitor if not already running
+      if (!clipboardMonitor.isRunning()) {
+        clipboardMonitor.start((entry, isDuplicate) => {
+          cwm.notifyClipboardWindow('cb-new-entry', { entry, isDuplicate });
+
+          // Check TTL after each new entry
+          const isPaidNow = store.get('licenseStatus') === 'active';
+          if (!isPaidNow && !store.get('clipboardAutoDelete')) {
+            const expiry = hs.checkFreeUserExpiry();
+            if (expiry) {
+              cwm.notifyClipboardWindow('cb-expired-prompt', {
+                oldestDate: expiry.oldestDate.toISOString()
+              });
+            }
+          } else if (!isPaidNow && store.get('clipboardAutoDelete')) {
+            hs.deleteOldestDay();
+          }
+        });
+      }
+    } else {
+      // Stop monitor
+      if (clipboardMonitor.isRunning()) {
+        clipboardMonitor.stop();
+      }
+    }
+    return { ok: true, enabled: !!enabled };
+  });
+
   // ── Open clipboard window from overlay/tray ────────────────────────────
   ipcMain.on('open-clipboard-manager', () => {
     cwm.toggleClipboardManager();

@@ -93,9 +93,32 @@ async function verifyLicense(key) {
   }
 }
 
+/**
+ * Checks whether the free AI trial (7 days) has expired for non-licensed users.
+ * If expired, auto-disables AI mode.
+ * Returns { expired: true, daysUsed } if the trial is over, or { expired: false, daysLeft } if still valid.
+ */
+function checkAiTrialExpiry() {
+  const status = store.get('licenseStatus');
+  // Licensed users — no trial restriction
+  if (status === 'active') return { expired: false, daysLeft: Infinity };
+
+  const firstEnabled = store.get('aiFirstEnabledDate') || 0;
+  if (!firstEnabled) return { expired: false, daysLeft: 7 }; // Never enabled yet
+
+  const daysUsed = (Date.now() - firstEnabled) / (1000 * 60 * 60 * 24);
+  if (daysUsed > 7) {
+    // Trial is over — force-disable AI mode
+    store.set('aiModeEnabled', false);
+    return { expired: true, daysUsed: Math.floor(daysUsed) };
+  }
+  return { expired: false, daysLeft: Math.ceil(7 - daysUsed) };
+}
+
 module.exports = {
   checkAuthStatus,
   verifyLicense,
   checkAndResetDailyWords,
   getTodayMidnight,
+  checkAiTrialExpiry,
 };

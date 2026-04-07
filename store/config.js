@@ -224,6 +224,10 @@ const schema = {
     default: 'bn'
   },
   // ── Clipboard Manager ────────────────────────────────────────────
+  clipboardEnabled: {
+    type: 'boolean',
+    default: true          // Master toggle: when false, clipboard monitor doesn't start
+  },
   clipboardHotkey: {
     type: 'string',
     default: 'Alt+V'
@@ -251,6 +255,56 @@ const schema = {
   clipboardWindowPosition: {
     type: 'object',
     default: {}
+  },
+  // ── AI Dictation ──────────────────────────────────────────────
+  aiModeEnabled: {
+    type: 'boolean',
+    default: false          // Master toggle for AI dictation
+  },
+  aiProvider: {
+    type: 'string',
+    default: 'openai'       // 'openai' | 'anthropic' | 'gemini' | 'groq' | 'openrouter' | 'custom'
+  },
+  aiModel: {
+    type: 'string',
+    default: 'gpt-4o-mini'  // Default model (fast + cheap)
+  },
+  aiApiKey: {
+    type: 'string',
+    default: ''
+  },
+  aiBaseUrl: {
+    type: 'string',
+    default: ''              // For custom/Ollama endpoints
+  },
+  aiSystemPrompt: {
+    type: 'string',
+    default: ''              // Empty = use built-in default constant
+  },
+  aiPersonalDictionary: {
+    type: 'string',
+    default: ''              // Comma-separated words
+  },
+  aiActivationMode: {
+    type: 'string',
+    default: 'push-to-talk'  // 'push-to-talk' | 'hold' | 'combo'
+  },
+  aiActivationKey: {
+    type: 'string',
+    default: 'AltRight'      // uiohook key name
+  },
+  aiTemperature: {
+    type: 'number',
+    default: 0.3
+  },
+  aiSilenceTimeout: {
+    type: 'number',
+    default: 8              // seconds — auto-send after this much silence (AI mode only)
+  },
+  // Timestamp when user first enabled AI mode (for 7-day free trial tracking)
+  aiFirstEnabledDate: {
+    type: 'number',
+    default: 0
   }
 };
 

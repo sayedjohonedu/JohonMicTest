@@ -48,5 +48,12 @@ contextBridge.exposeInMainWorld('junoAPI', {
   closeLicensePopup:            () => ipcRenderer.send('close-license-popup'),
   closeWordLimitPopup:          () => ipcRenderer.send('close-wordlimit-popup'),
   closeTranslatorLockedPopup:   () => ipcRenderer.send('close-translator-locked-popup'),
+  closeAiTrialPopup:            () => ipcRenderer.send('close-ai-trial-popup'),
   getLicenseInfo:               () => ipcRenderer.invoke('get-license-info'),
+  // ── AI Dictation events ──
+  onAiBufferUpdate:             (cb) => onChannel('ai-buffer-update',     (_, data) => cb(data)),
+  onAiProcessingStart:          (cb) => onChannel('ai-processing-start',  ()        => cb()),
+  onAiProcessingEnd:            (cb) => onChannel('ai-processing-end',    (_, data) => cb(data)),
+  onAiBufferReset:              (cb) => onChannel('ai-buffer-reset',      ()        => cb()),
+  aiSendNow:                    ()   => ipcRenderer.send('ai-send-now'),
 });

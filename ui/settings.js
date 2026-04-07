@@ -153,6 +153,7 @@ const PANELS = {
   general: { title: 'General', desc: 'Hotkeys, activation, and startup' },
   voice: { title: 'Voice & Language', desc: 'Speech recognition and language options' },
   replace: { title: 'Text Replacement', desc: 'Auto-replace your spoken words with custom text' },
+  ai: { title: 'AI Dictation', desc: 'Clean up speech with AI before typing' },
   stats: { title: 'My Stats', desc: 'Usage statistics and time saved by voice dictation' },
   license: { title: 'License', desc: 'Manage your subscription and trial' },
   about: { title: 'About', desc: 'MicTab information' },
@@ -285,6 +286,335 @@ window.syncHoldEnable = function() { const on = document.getElementById('toggle-
 window.syncSilenceEnable = function() { document.getElementById('row-silence-timeout').classList.toggle('disabled-row', !document.getElementById('toggle-silence').checked); };
 window.syncReplaceEnable = function() { document.getElementById('row-replacements').classList.toggle('disabled-row', !document.getElementById('toggle-replace').checked); };
 
+// ── Clipboard Manager toggle (instant on/off) ────────────────────────
+window.onClipboardToggle = async function() {
+  const enabled = document.getElementById('toggle-clipboard-enabled').checked;
+  try {
+    await window.electronAPI.cbSetEnabled(enabled);
+  } catch (e) {
+    console.error('Failed to toggle clipboard:', e);
+  }
+  markDirty();
+};
+
+// ── AI Dictation panel functions ──────────────────────────────────────
+
+/* Provider → model list (April 2026, synced with translator) */
+const AI_PROVIDER_MODELS = {
+  openai: [
+    'gpt-5.4', 'gpt-5.4-mini', 'gpt-5.4-nano', 'gpt-5.4-thinking',
+    'gpt-5.3-codex', 'gpt-5.3-instant',
+    'o4-mini-deep-research', 'o3-deep-research',
+    'gpt-4.1', 'gpt-4.1-mini', 'gpt-4o-mini',
+  ],
+  anthropic: [
+    'claude-sonnet-5-20260401', 'claude-opus-4-6-20260205',
+    'claude-sonnet-4-6', 'claude-3-7-sonnet-20250219',
+    'claude-3-5-sonnet-20241022', 'claude-3-opus-20240229',
+    'claude-3-haiku-20240307',
+  ],
+  gemini: [
+    'gemini-3.1-pro-preview', 'gemini-3-pro-preview', 'gemini-3-flash-preview',
+    'gemini-2.5-pro', 'gemini-2.5-flash', 'gemini-2.5-flash-lite',
+    'gemini-2.0-flash', 'gemini-2.0-flash-lite',
+  ],
+  groq: [
+    'meta-llama/llama-4-maverick-17b-128e-instruct',
+    'meta-llama/llama-4-scout-17b-16e-instruct',
+    'llama-3.3-70b-versatile', 'llama3-70b-8192', 'gemma2-9b-it',
+  ],
+  openrouter: [
+    'openai/gpt-5.4', 'anthropic/claude-4.6-sonnet',
+    'google/gemini-3.1-pro', 'deepseek/deepseek-v3.2',
+    'meta-llama/llama-4-maverick-17b', 'qwen/qwen-3.6-plus',
+    'mistralai/devstral-2-2512', 'openrouter/auto',
+  ],
+  custom: [],
+};
+
+/** Populate the ai-model <select> with models for the given provider */
+function populateAiModels(provider, currentValue) {
+  const sel = document.getElementById('ai-model');
+  sel.innerHTML = '';
+  const models = AI_PROVIDER_MODELS[provider] || [];
+  models.forEach(m => {
+    const opt = document.createElement('option');
+    opt.value = m; opt.textContent = m;
+    sel.appendChild(opt);
+  });
+  // Always add a "Custom..." option at the end
+  const customOpt = document.createElement('option');
+  customOpt.value = '__custom__'; customOpt.textContent = '✎ Custom...';
+  sel.appendChild(customOpt);
+
+  // Restore saved value
+  if (currentValue) {
+    if ([...sel.options].some(o => o.value === currentValue)) {
+      sel.value = currentValue;
+    } else {
+      // Saved model isn't in the list — treat as custom
+      sel.value = '__custom__';
+      document.getElementById('ai-model-custom').value = currentValue;
+    }
+  }
+  onAiModelChange();
+}
+
+/** Show/hide custom model input based on dropdown selection */
+window.onAiModelChange = function() {
+  const sel = document.getElementById('ai-model');
+  const customRow = document.getElementById('row-ai-custom-model');
+  customRow.style.display = sel.value === '__custom__' ? 'flex' : 'none';
+};
+
+/** Get the effective AI model value (dropdown or custom input) */
+function getAiModelValue() {
+  const sel = document.getElementById('ai-model');
+  if (sel.value === '__custom__') {
+    return document.getElementById('ai-model-custom').value;
+  }
+  return sel.value;
+}
+
+window.syncAiEnable = async function() {
+  const toggle = document.getElementById('toggle-ai-mode');
+  const on = toggle.checked;
+  const grp1 = document.getElementById('ai-provider-group');
+  const grp2 = document.getElementById('ai-prompt-group');
+
+  if (on) {
+    // Check if user's AI trial is expired (free/trial users only)
+    try {
+      const trial = await window.electronAPI.aiCheckTrial();
+      if (trial.expired) {
+        // Trial over — revert toggle and show popup
+        toggle.checked = false;
+        if (grp1) grp1.classList.add('disabled-row');
+        if (grp2) grp2.classList.add('disabled-row');
+        window.electronAPI.aiShowTrialPopup();
+        return;
+      }
+      // First time enabling — stamp the start date
+      const cfg = await window.electronAPI.getConfig();
+      if (!cfg.aiFirstEnabledDate) {
+        window.electronAPI.saveConfig({ aiFirstEnabledDate: Date.now() });
+      }
+    } catch (e) {
+      console.error('AI trial check failed:', e);
+    }
+  }
+
+  if (grp1) grp1.classList.toggle('disabled-row', !on);
+  if (grp2) grp2.classList.toggle('disabled-row', !on);
+};
+
+window.onAiProviderChange = function() {
+  const provider = document.getElementById('ai-provider').value;
+  const isCustom = provider === 'custom';
+  const baseUrlRow = document.getElementById('row-ai-baseurl');
+  const apiKeyRow = document.getElementById('row-ai-apikey');
+  const ollamaBtn = document.getElementById('btn-ollama-refresh');
+  const ollamaStatusRow = document.getElementById('ollama-status-row');
+
+  baseUrlRow.style.display = isCustom ? 'flex' : 'none';
+  ollamaBtn.style.display = isCustom ? 'inline-block' : 'none';
+  apiKeyRow.style.display = 'flex';
+
+  if (isCustom) {
+    refreshOllamaModels();
+  } else {
+    ollamaStatusRow.style.display = 'none';
+  }
+
+  // Re-populate model dropdown for new provider
+  populateAiModels(provider, '');
+};
+
+window.refreshOllamaModels = async function() {
+  const statusRow = document.getElementById('ollama-status-row');
+  statusRow.style.display = 'block';
+  statusRow.innerHTML = '<span style="color:var(--muted)">🔍 Checking Ollama...</span>';
+
+  try {
+    const result = await window.electronAPI.aiGetOllamaModels();
+    if (result.running) {
+      const modelList = result.models.map(m => m.name).join(', ') || 'No models installed';
+      statusRow.innerHTML = `<span style="color:#4ade80">✓ Ollama running</span> — Models: <strong>${modelList}</strong>`;
+
+      // Auto-fill first model if model field is empty
+      // Add Ollama models to the dropdown
+      const sel = document.getElementById('ai-model');
+      sel.innerHTML = '';
+      result.models.forEach(m => {
+        const opt = document.createElement('option');
+        opt.value = m.name; opt.textContent = m.name;
+        sel.appendChild(opt);
+      });
+      const customOpt = document.createElement('option');
+      customOpt.value = '__custom__'; customOpt.textContent = '✎ Custom...';
+      sel.appendChild(customOpt);
+      if (result.models.length > 0) sel.value = result.models[0].name;
+      onAiModelChange();
+      markDirty();
+
+      // Auto-fill base URL if empty
+      const baseUrlInput = document.getElementById('ai-baseurl');
+      if (!baseUrlInput.value) {
+        baseUrlInput.value = 'http://localhost:11434/v1';
+        markDirty();
+      }
+    } else {
+      statusRow.innerHTML = '<span style="color:#fb923c">⚠ Ollama not detected.</span> Start Ollama or enter a custom endpoint.';
+    }
+  } catch {
+    statusRow.innerHTML = '<span style="color:#f87171">✕ Could not reach Ollama.</span>';
+  }
+};
+
+window.testAiConnection = async function() {
+  const btn = document.getElementById('btn-ai-test');
+  const status = document.getElementById('ai-test-status');
+  btn.disabled = true;
+  status.textContent = 'Testing...';
+  status.style.color = 'var(--muted)';
+
+  const profile = {
+    provider: document.getElementById('ai-provider').value,
+    model: getAiModelValue(),
+    apiKey: document.getElementById('ai-apikey').value,
+    baseUrl: document.getElementById('ai-baseurl').value,
+  };
+
+  try {
+    const result = await window.electronAPI.aiTestConnection(profile);
+    if (result.error) {
+      status.textContent = '✕ ' + result.error;
+      status.style.color = '#f87171';
+    } else {
+      status.textContent = '✓ Connected! Response: ' + (result.text || '').slice(0, 50);
+      status.style.color = '#4ade80';
+    }
+  } catch (e) {
+    status.textContent = '✕ ' + (e.message || 'Connection failed');
+    status.style.color = '#f87171';
+  } finally {
+    btn.disabled = false;
+  }
+};
+
+// ── AI Profile Management ────────────────────────────────────────────
+let _aiProfiles = [];
+let _aiActiveProfileId = '';
+
+function escAiHtml(str = '') {
+  return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+window.addAiProfile = function() {
+  const nameInput = document.getElementById('ai-profile-name');
+  const name = nameInput.value.trim();
+  if (!name) { showSaveStatus('Enter a profile name'); return; }
+  const apiKey = document.getElementById('ai-apikey').value.trim();
+  if (!apiKey) { showSaveStatus('Enter an API key'); return; }
+
+  const profile = {
+    id: Date.now().toString(),
+    name,
+    provider: document.getElementById('ai-provider').value,
+    model: getAiModelValue(),
+    apiKey,
+    baseUrl: document.getElementById('ai-baseurl').value.trim(),
+  };
+
+  _aiProfiles.push(profile);
+  if (!_aiActiveProfileId) _aiActiveProfileId = profile.id;
+
+  // Persist immediately
+  saveAiProfiles();
+
+  // Clear form
+  nameInput.value = '';
+  document.getElementById('ai-apikey').value = '';
+  document.getElementById('ai-baseurl').value = '';
+
+  renderAiProfiles();
+  showSaveStatus('✓ Profile saved');
+  markDirty();
+};
+
+function renderAiProfiles() {
+  const container = document.getElementById('ai-profile-list');
+  container.innerHTML = '';
+
+  if (!_aiProfiles.length) {
+    container.innerHTML = '<div class="ai-profile-empty">No profiles yet. Add one below.</div>';
+    return;
+  }
+
+  _aiProfiles.forEach(p => {
+    const div = document.createElement('div');
+    div.className = 'ai-profile-chip' + (p.id === _aiActiveProfileId ? ' active' : '');
+    div.innerHTML = `
+      <div class="ai-profile-name">${escAiHtml(p.name)}</div>
+      <div class="ai-profile-badge">${escAiHtml(p.provider)} · ${escAiHtml(p.model || '')}</div>
+      <button class="ai-profile-del" title="Delete">✕</button>
+    `;
+    div.addEventListener('click', (e) => {
+      if (e.target.classList.contains('ai-profile-del')) {
+        // Delete profile
+        _aiProfiles = _aiProfiles.filter(x => x.id !== p.id);
+        if (_aiActiveProfileId === p.id) {
+          _aiActiveProfileId = _aiProfiles[0]?.id || '';
+        }
+        saveAiProfiles();
+        renderAiProfiles();
+        syncActiveProfileToFlatConfig();
+        markDirty();
+      } else {
+        // Set as active
+        _aiActiveProfileId = p.id;
+        saveAiProfiles();
+        renderAiProfiles();
+        syncActiveProfileToFlatConfig();
+        showSaveStatus('✓ Default: ' + p.name);
+        markDirty();
+      }
+    });
+    container.appendChild(div);
+  });
+}
+
+function getActiveAiProfile() {
+  return _aiProfiles.find(p => p.id === _aiActiveProfileId) || _aiProfiles[0] || null;
+}
+
+/** Writes the active profile's provider/model/key/url into the flat config keys the backend reads */
+function syncActiveProfileToFlatConfig() {
+  const p = getActiveAiProfile();
+  if (!p) return;
+  window.electronAPI.saveConfig({
+    aiProvider: p.provider,
+    aiModel: p.model,
+    aiApiKey: p.apiKey,
+    aiBaseUrl: p.baseUrl || '',
+    aiProfiles: _aiProfiles,
+    aiActiveProfileId: _aiActiveProfileId,
+  });
+}
+
+function saveAiProfiles() {
+  window.electronAPI.saveConfig({
+    aiProfiles: _aiProfiles,
+    aiActiveProfileId: _aiActiveProfileId,
+  });
+  syncActiveProfileToFlatConfig();
+}
+
+function showSaveStatus(msg) {
+  const s = document.getElementById('ai-test-status');
+  if (s) { s.textContent = msg; s.style.color = 'var(--muted)'; }
+}
+
 function applyTheme(t) { if (t === 'system') t = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'; document.documentElement.setAttribute('data-theme', t); }
 window.previewTheme = function() { applyTheme(document.getElementById('theme-select').value); };
 window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => { const s = document.getElementById('theme-select'); if (s && s.value === 'system') applyTheme('system'); });
@@ -299,6 +629,8 @@ async function loadConfig() {
   const mB = document.getElementById('mouse-button'); if (mB) mB.value = String(cfg.mouseButton || '3');
   const mA = document.getElementById('mouse-action'); if (mA) mA.value = cfg.mouseAction || 'none';
   document.getElementById('toggle-autolunch').checked = cfg.autoLaunch !== false; ensureCfdBuilt(); setCfdValue(cfg.language || 'en-US');
+  // Clipboard Manager master toggle
+  document.getElementById('toggle-clipboard-enabled').checked = cfg.clipboardEnabled !== false;
   document.getElementById('toggle-silence').checked = cfg.silenceTimeoutEnabled !== false; syncSilenceEnable(); document.getElementById('silence-timeout-val').value = String(cfg.silenceTimeoutVal ?? '1'); const tU = document.getElementById('silence-timeout-unit'); if ([...tU.options].some(o => o.value === String(cfg.silenceTimeoutUnit || 'sec'))) tU.value = String(cfg.silenceTimeoutUnit || 'sec');
   document.getElementById('toggle-sim-typing').checked = cfg.simulateTyping === true; loadMicList(false, cfg.selectedMicId || '');
   document.getElementById('toggle-replace').checked = cfg.textReplaceEnabled === true; syncReplaceEnable();
@@ -315,6 +647,30 @@ async function loadConfig() {
   const thS = document.getElementById('theme-select'); if (thS) thS.value = cfg.theme || 'system'; previewTheme();
   const vS = document.getElementById('visualizer-style'); if (vS) vS.value = cfg.visualizerType || 'wave';
   const mS = document.getElementById('mic-sensitivity'), sL = document.getElementById('label-sensitivity'); if (mS) { mS.value = cfg.micSensitivity || 1.0; if (sL) sL.textContent = parseFloat(mS.value).toFixed(1); }
+  // ── AI Dictation ──
+  document.getElementById('toggle-ai-mode').checked = cfg.aiModeEnabled === true; syncAiEnable();
+  document.getElementById('toggle-ai-fallback').checked = cfg.aiFallbackEnabled !== false; // default on
+  const aiSilenceInput = document.getElementById('ai-silence-timeout');
+  if (aiSilenceInput) aiSilenceInput.value = cfg.aiSilenceTimeout ?? 8;
+  // Load profiles
+  _aiProfiles = cfg.aiProfiles || [];
+  _aiActiveProfileId = cfg.aiActiveProfileId || '';
+  // Backward compat: if no profiles but old flat config exists, migrate
+  if (!_aiProfiles.length && cfg.aiApiKey) {
+    _aiProfiles = [{ id: Date.now().toString(), name: 'Default', provider: cfg.aiProvider || 'openai', model: cfg.aiModel || '', apiKey: cfg.aiApiKey, baseUrl: cfg.aiBaseUrl || '' }];
+    _aiActiveProfileId = _aiProfiles[0].id;
+    saveAiProfiles();
+  }
+  renderAiProfiles();
+  // Set form defaults for 'Add new' (use first provider)
+  document.getElementById('ai-provider').value = 'openai';
+  populateAiModels('openai', '');
+  onAiProviderChange();
+  // Load non-profile settings
+  document.getElementById('ai-system-prompt').value = cfg.aiSystemPrompt || '';
+  document.getElementById('ai-personal-dict').value = cfg.aiPersonalDictionary || '';
+  const aiTempSlider = document.getElementById('ai-temperature');
+  if (aiTempSlider) { aiTempSlider.value = cfg.aiTemperature ?? 0.3; document.getElementById('label-ai-temp').textContent = parseFloat(aiTempSlider.value).toFixed(1); }
 }
 
 window.addReplacementRow = function(say, rep) {
@@ -427,7 +783,9 @@ window.saveSettings = function() {
   const silenceUnit = document.getElementById('silence-timeout-unit').value;
   let silenceMult = 1; if (silenceUnit === 'min') silenceMult = 60; else if (silenceUnit === 'hr') silenceMult = 3600; else if (silenceUnit === 'days') silenceMult = 86400;
   const silenceSecs = silenceEnabled ? (silenceVal * silenceMult) : 0;
-  window.electronAPI.saveConfig({ hotkey: pendingHotkey || DEFAULT_HOTKEY, hotkeyEnabled: document.getElementById('toggle-hotkey').checked, holdKey: pendingHoldKey || 'Alt', holdKeyEnabled: document.getElementById('toggle-holdkey').checked, holdDuration: parseFloat(document.getElementById('hold-duration').value), mouseButton: document.getElementById('mouse-button')?.value || '3', mouseAction: document.getElementById('mouse-action')?.value || 'none', autoLaunch: document.getElementById('toggle-autolunch').checked, language: document.getElementById('lang-select').value, silenceTimeoutEnabled: silenceEnabled, silenceTimeoutVal: silenceVal, silenceTimeoutUnit: silenceUnit, silenceTimeout: silenceSecs, simulateTyping: document.getElementById('toggle-sim-typing').checked, theme: document.getElementById('theme-select').value, visualizerType: document.getElementById('visualizer-style')?.value || 'wave', micSensitivity: parseFloat(document.getElementById('mic-sensitivity')?.value || 1.0), textReplaceEnabled: document.getElementById('toggle-replace').checked, textReplacements: reps, langHotkeys: lH });
+  // Get active profile values for flat config (backend compatibility)
+  const activeP = getActiveAiProfile();
+  window.electronAPI.saveConfig({ hotkey: pendingHotkey || DEFAULT_HOTKEY, hotkeyEnabled: document.getElementById('toggle-hotkey').checked, holdKey: pendingHoldKey || 'Alt', holdKeyEnabled: document.getElementById('toggle-holdkey').checked, holdDuration: parseFloat(document.getElementById('hold-duration').value), mouseButton: document.getElementById('mouse-button')?.value || '3', mouseAction: document.getElementById('mouse-action')?.value || 'none', autoLaunch: document.getElementById('toggle-autolunch').checked, language: document.getElementById('lang-select').value, clipboardEnabled: document.getElementById('toggle-clipboard-enabled').checked, silenceTimeoutEnabled: silenceEnabled, silenceTimeoutVal: silenceVal, silenceTimeoutUnit: silenceUnit, silenceTimeout: silenceSecs, simulateTyping: document.getElementById('toggle-sim-typing').checked, theme: document.getElementById('theme-select').value, visualizerType: document.getElementById('visualizer-style')?.value || 'wave', micSensitivity: parseFloat(document.getElementById('mic-sensitivity')?.value || 1.0), textReplaceEnabled: document.getElementById('toggle-replace').checked, textReplacements: reps, langHotkeys: lH, aiModeEnabled: document.getElementById('toggle-ai-mode').checked, aiFallbackEnabled: document.getElementById('toggle-ai-fallback').checked, aiSilenceTimeout: parseInt(document.getElementById('ai-silence-timeout')?.value || '8', 10), aiProfiles: _aiProfiles, aiActiveProfileId: _aiActiveProfileId, aiProvider: activeP?.provider || 'openai', aiModel: activeP?.model || '', aiApiKey: activeP?.apiKey || '', aiBaseUrl: activeP?.baseUrl || '', aiSystemPrompt: document.getElementById('ai-system-prompt').value, aiPersonalDictionary: document.getElementById('ai-personal-dict').value, aiTemperature: parseFloat(document.getElementById('ai-temperature')?.value || 0.3) });
   b.disabled = false; clearDirty();
 };
 

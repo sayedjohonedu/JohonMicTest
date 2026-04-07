@@ -572,22 +572,59 @@ function applyOverlayTheme(themeVal) {
 window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => { window.junoAPI.getConfig().then(cfg => { if ((cfg.theme || 'system') === 'system') applyOverlayTheme('system'); }); });
 window.junoAPI.onConfigUpdate && window.junoAPI.onConfigUpdate((cfg) => { if (cfg.theme && typeof applyOverlayTheme === 'function') applyOverlayTheme(cfg.theme); if (cfg.visualizerType) visualizerType = cfg.visualizerType; });
 
+// ── AI Mode state tracking ──
+let isAiMode = false;
+const aiSendBtn = document.getElementById('ai-send-btn');
+const miniAiSendBtn = document.getElementById('mini-ai-send-btn');
+
+function showAiSendButtons(show) {
+  if (aiSendBtn) aiSendBtn.classList.toggle('visible', show);
+  if (miniAiSendBtn) miniAiSendBtn.classList.toggle('visible', show);
+}
+
+// AI Send Now button click handlers
+if (aiSendBtn) aiSendBtn.addEventListener('click', (e) => {
+  e.preventDefault(); e.stopPropagation();
+  if (window.junoAPI.aiSendNow) window.junoAPI.aiSendNow();
+});
+if (miniAiSendBtn) miniAiSendBtn.addEventListener('click', (e) => {
+  e.preventDefault(); e.stopPropagation();
+  if (window.junoAPI.aiSendNow) window.junoAPI.aiSendNow();
+});
+
 window.junoAPI.onSessionStart((data) => {
-  window.junoAPI.getConfig().then(cfg => applyOverlayTheme(cfg.theme));
+  window.junoAPI.getConfig().then(cfg => {
+    applyOverlayTheme(cfg.theme);
+    // Track AI mode and show/hide Send button
+    isAiMode = cfg.aiModeEnabled === true;
+    showAiSendButtons(isAiMode);
+    if (isAiMode) {
+      document.getElementById('status-label').innerHTML = '<span style="color:#a855f7">AI ✦</span> Listening…';
+    }
+  });
   const badge = document.getElementById('wc-badge'), sep = document.getElementById('wc-sep');
   if (badge) { badge.style.display = 'none'; badge.textContent = '📝 0 words'; }
   if (sep) sep.style.display = 'none';
   clearTimer && clearTimeout(clearTimer);
   phraseEl.textContent = ''; interimEl.textContent = ''; phraseEl.classList.remove('fading');
-  document.getElementById('status-label').textContent = 'Listening…';
+  if (!isAiMode) document.getElementById('status-label').textContent = 'Listening…';
   if (data && data.lang) setLanguage(data.lang, false);
 });
 
 window.junoAPI.onTranscript((data) => {
   const text = (data.text || data).trim(); if (!text) return;
   clearTimer && clearTimeout(clearTimer);
-  phraseEl.classList.remove('fading'); phraseEl.textContent = text; interimEl.textContent = ''; isSpeaking = false;
-  clearTimer = setTimeout(() => { phraseEl.classList.add('fading'); setTimeout(() => { phraseEl.textContent = ''; phraseEl.classList.remove('fading'); }, 320); }, 1800);
+  phraseEl.classList.remove('fading'); interimEl.textContent = ''; isSpeaking = false;
+
+  if (isAiMode) {
+    // AI mode: accumulate text, don't auto-fade
+    const prev = phraseEl.textContent;
+    phraseEl.textContent = prev ? prev + ' ' + text : text;
+  } else {
+    // Regular mode: replace text and auto-fade after 1.8s
+    phraseEl.textContent = text;
+    clearTimer = setTimeout(() => { phraseEl.classList.add('fading'); setTimeout(() => { phraseEl.textContent = ''; phraseEl.classList.remove('fading'); }, 320); }, 1800);
+  }
 });
 
 window.junoAPI.onInterim((text) => { interimEl.textContent = text || ''; isSpeaking = !!text; });
@@ -770,3 +807,59 @@ function togglePanelsRow() {
 }
 
 (function loadTwemoji() { const s = document.createElement('script'); s.src = 'https://unpkg.com/@twemoji/api@15.1.0/dist/twemoji.min.js'; s.crossOrigin = 'anonymous'; s.onload = () => { window.twemojiReady = true; if (isEmojiOpen) buildEmojiGrid(getEmojiList()); }; document.head.appendChild(s); })();
+
+// ── AI Dictation overlay feedback ────────────────────────────────────
+if (window.junoAPI.onAiBufferUpdate) {
+  window.junoAPI.onAiBufferUpdate((data) => {
+    const statusLabel = document.getElementById('status-label');
+    if (statusLabel && data.bufferLength > 0) {
+      statusLabel.innerHTML = '<span style="color:#a855f7">AI ✦</span> Listening…';
+    }
+  });
+}
+
+if (window.junoAPI.onAiProcessingStart) {
+  window.junoAPI.onAiProcessingStart(() => {
+    // Hide Send buttons during processing
+    showAiSendButtons(false);
+    const statusLabel = document.getElementById('status-label');
+    if (statusLabel) {
+      statusLabel.innerHTML = '<span style="color:#a855f7">AI ✦</span> Processing…';
+    }
+    // Keep existing text visible, add processing indicator below
+    interimEl.textContent = '✦ Cleaning up your text…';
+  });
+}
+
+if (window.junoAPI.onAiProcessingEnd) {
+  window.junoAPI.onAiProcessingEnd((data) => {
+    const statusLabel = document.getElementById('status-label');
+    const phraseText = document.getElementById('phrase-text');
+    interimEl.textContent = '';
+    if (data.error) {
+      if (statusLabel) statusLabel.innerHTML = '<span style="color:#f87171">AI ✕</span> Error';
+      if (phraseText) phraseText.textContent = 'Error: ' + data.error;
+    } else {
+      if (statusLabel) statusLabel.innerHTML = '<span style="color:#4ade80">AI ✓</span> Done';
+      if (phraseText) {
+        phraseText.textContent = (data.text || '').slice(0, 120) + (data.text && data.text.length > 120 ? '…' : '');
+        phraseText.classList.remove('fading');
+      }
+    }
+    // Don't kill isAiMode — session may still be alive (mid-session AI processing)
+    // Send buttons will be restored by ai-buffer-reset
+  });
+}
+
+// After AI processes + clears buffer mid-session, reset overlay back to listening state
+if (window.junoAPI.onAiBufferReset) {
+  window.junoAPI.onAiBufferReset(() => {
+    const statusLabel = document.getElementById('status-label');
+    const phraseText = document.getElementById('phrase-text');
+    if (statusLabel) statusLabel.innerHTML = '<span style="color:#a855f7">AI ✦</span> Listening…';
+    if (phraseText) { phraseText.textContent = ''; phraseText.classList.remove('fading'); }
+    interimEl.textContent = '';
+    // Re-show Send buttons since we're still in AI mode
+    if (isAiMode) showAiSendButtons(true);
+  });
+}

@@ -194,13 +194,6 @@
           Translate
           <div class="spinner" id="translate-spinner"></div>
         </button>
-        <button id="btn-humanize-draft" title="Humanize spoken words with AI">
-          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" width="12" height="12">
-            <path d="M8 1l1.5 4.5L14 7l-4.5 1.5L8 13l-1.5-4.5L2 7l4.5-1.5L8 1z"/>
-          </svg>
-          Humanize Draft
-          <div class="spinner" id="humanize-draft-spinner"></div>
-        </button>
         <button class="btn-sm danger" id="btn-clear-draft" title="Clear draft">
           <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" width="12" height="12">
             <path d="M4 4l8 8M12 4l-8 8"/>
@@ -470,6 +463,48 @@
           </div>
         </div>
       </div>
+
+      <!-- Fallback & Reliability -->
+      <div class="sp-card" style="margin-top:12px;">
+        <div class="sp-card-head">
+          <div class="sp-card-icon" style="background:rgba(255,180,0,0.12);color:#FFB400;">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></svg>
+          </div>
+          <div>
+            <div class="sp-card-title">Fallback & Reliability</div>
+            <div class="sp-card-sub">What happens if the active AI profile fails</div>
+          </div>
+        </div>
+
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;">
+          <div style="display:flex;flex-direction:column;gap:2px;">
+            <label class="sp2-label" style="margin:0;">Enable Profile Fallback</label>
+            <span style="font-size:10.5px;color:var(--muted);line-height:1.4;">If the active profile fails, cycle through other saved profiles</span>
+          </div>
+          <label class="sp2-toggle">
+            <input type="checkbox" id="sp-fallback-enabled" checked>
+            <span class="sp2-toggle-track"></span>
+          </label>
+        </div>
+
+        <div class="sp-divider"></div>
+
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;">
+          <div style="display:flex;flex-direction:column;gap:2px;">
+            <label class="sp2-label" style="margin:0;">Google Translate Fallback</label>
+            <span style="font-size:10.5px;color:var(--muted);line-height:1.4;">If all AI profiles fail, fall back to free Google Translate</span>
+          </div>
+          <label class="sp2-toggle">
+            <input type="checkbox" id="sp-google-fallback" checked>
+            <span class="sp2-toggle-track"></span>
+          </label>
+        </div>
+
+        <div class="sp-hint">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg>
+          Fallback order: <strong>Active profile → Other saved profiles → Google Translate</strong>. Ensures your translation always completes, even if an API key is invalid or a provider is down.
+        </div>
+      </div>
     </div>
 
     <!-- ── PANEL: AI Behaviour ── -->
@@ -483,14 +518,15 @@
             <div class="sp-card-title">Translation Prompt</div>
             <div class="sp-card-sub">Template sent before each AI translation request</div>
           </div>
+          <button class="sp-btn-ghost" id="btn-reset-prompts" style="margin-left:auto; font-size: 11px; padding: 4px 8px; height:auto; min-width:auto;">Reset</button>
         </div>
         <div class="sp2-field">
-          <label class="sp2-label">System Prompt <span style="font-weight:400;color:var(--muted2);">(use {targetLanguage})</span></label>
-          <textarea class="sp-textarea" id="sp-system-prompt" rows="4" placeholder="e.g. Translate the following text into {targetLanguage}. Preserve tone and formatting. Do not add explanations."></textarea>
+          <label class="sp2-label">System Prompt <span style="font-weight:400;color:var(--muted2);">(leave empty for default)</span></label>
+          <textarea class="sp-textarea" id="sp-system-prompt" rows="3" placeholder="e.g. Translate the following text into {targetLanguage}. Preserve tone and formatting. Do not add explanations."></textarea>
         </div>
         <div class="sp2-field" style="margin-top:12px;">
-          <label class="sp2-label">Additional Context <span style="font-weight:400;color:var(--muted2);">(optional · appended to every request)</span></label>
-          <textarea class="sp-textarea" id="sp-system-instructions" rows="3" placeholder="e.g. This is a medical context. Always use clinical terminology. Keep text concise."></textarea>
+          <label class="sp2-label">Humanize Prompt <span style="font-weight:400;color:var(--muted2);">(leave empty for default)</span></label>
+          <textarea class="sp-textarea" id="sp-system-instructions" rows="3" placeholder="e.g. Rewrite the following text to sound more natural..."></textarea>
         </div>
         <div class="sp-hint">
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg>

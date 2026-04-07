@@ -344,7 +344,7 @@ html, body {
 #btn-paste-output svg { width: 13px; height: 13px; }
 
 /* Humanize */
-#btn-humanize, #btn-humanize-draft {
+#btn-humanize {
   display: flex; align-items: center; justify-content: center; gap: 6px;
   padding: 7px 12px;
   background: rgba(255, 180, 0, 0.08);
@@ -354,10 +354,10 @@ html, body {
   color: #FFB400; cursor: pointer;
   transition: background 0.15s, border-color 0.15s, transform 0.1s;
 }
-#btn-humanize:hover, #btn-humanize-draft:hover { background: rgba(255,180,0,0.2); border-color: #FFB400; }
-#btn-humanize:active, #btn-humanize-draft:active { transform: scale(0.96); }
-#btn-humanize.disabled, #btn-humanize-draft.disabled { opacity: 0.35; pointer-events: none; cursor: not-allowed; }
-#btn-humanize svg, #btn-humanize-draft svg { width: 12px; height: 12px; }
+#btn-humanize:hover { background: rgba(255,180,0,0.2); border-color: #FFB400; }
+#btn-humanize:active { transform: scale(0.96); }
+#btn-humanize.disabled { opacity: 0.35; pointer-events: none; cursor: not-allowed; }
+#btn-humanize svg { width: 12px; height: 12px; }
 
 #btn-revert {
   display: none;
@@ -946,6 +946,12 @@ html, body {
   display: flex; align-items: center; justify-content: center;
 }
 .profile-del:hover { color: var(--red); background: rgba(255,95,87,0.12); }
+.profile-fallback-order {
+  font-size: 9px; color: var(--muted);
+  background: rgba(255,255,255,0.04);
+  padding: 1px 5px; border-radius: 4px;
+  white-space: nowrap;
+}
 
 /* ── Preset rows ── */
 .preset-row {

@@ -67,9 +67,10 @@ function registerHotkeys(toggleListening) {
   }
 
   // ── Clipboard manager shortcut ──
+  const cbGlobalEnabled = store.get('clipboardEnabled') !== false;
   const cbEnabled = store.get('clipboardHotkeyEnabled') !== false;
   const cbHotkey  = store.get('clipboardHotkey') || 'Alt+V';
-  if (cbEnabled && cbHotkey) {
+  if (cbGlobalEnabled && cbEnabled && cbHotkey) {
     try {
       const { toggleClipboardManager } = require('./clipboard-window-manager');
       globalShortcut.register(cbHotkey, () => toggleClipboardManager());

@@ -84,8 +84,7 @@ const btnPaste          = document.getElementById('btn-paste-output');
 const btnHumanize       = document.getElementById('btn-humanize');
 const humanizeSpinner   = document.getElementById('humanize-spinner');
 const btnRevert         = document.getElementById('btn-revert');
-const btnHumanizeDraft  = document.getElementById('btn-humanize-draft');
-const humDraftSpinner   = document.getElementById('humanize-draft-spinner');
+
 const btnCopyDraft      = document.getElementById('btn-copy-draft');
 const btnExpandPG       = document.getElementById('btn-expand-playground');
 const playground        = document.getElementById('playground');
@@ -126,6 +125,7 @@ const profileList           = document.getElementById('profile-list');
 const btnAddProfile         = document.getElementById('btn-add-profile');
 const spSystemPrompt        = document.getElementById('sp-system-prompt');
 const spSystemInstructions  = document.getElementById('sp-system-instructions');
+const btnResetPrompts       = document.getElementById('btn-reset-prompts');
 const spOpenShortcut        = document.getElementById('sp-open-shortcut');
 const spPasteShortcut       = document.getElementById('sp-paste-shortcut');
 const presetsList           = document.getElementById('presets-list');
@@ -137,6 +137,8 @@ const spSilenceEnabled      = document.getElementById('sp-silence-enabled');
 const spSilenceVal          = document.getElementById('sp-silence-val');
 const spSilenceUnit         = document.getElementById('sp-silence-unit');
 const spSilenceDurationRow  = document.getElementById('sp-silence-duration-row');
+const spFallbackEnabled     = document.getElementById('sp-fallback-enabled');
+const spGoogleFallback      = document.getElementById('sp-google-fallback');
 
 /* ─── Provider models map (updated April 2026) ───────────────── */
 const PROVIDER_MODELS = {
@@ -318,15 +320,7 @@ async function doTranslate() {
 
   setTranslating(true);
   try {
-    const result = await API.translate({
-      text,
-      src: srcLang.value,
-      tgt: tgtLang.value,
-      mode: isAiMode ? 'ai' : 'regular',
-      profile: getActiveProfile(),
-      systemPrompt: cfg.translatorSystemPrompt || '',
-      systemInstructions: cfg.translatorSystemInstructions || DEFAULT_HUMANIZE_PROMPT,
-    });
+    const result = await translateWithFallback(text);
 
     if (result.error) {
       showToast('⚠ ' + result.error);
@@ -335,6 +329,9 @@ async function doTranslate() {
       outputArea.classList.add('has-content');
       preHumanizedText = null;
       btnRevert.classList.remove('visible');
+      if (result.fallbackUsed) {
+        showToast(`⚠ Fallback: ${result.fallbackUsed}`, 3000);
+      }
     }
   } catch (e) {
     showToast('Translation failed — please retry');
@@ -342,6 +339,67 @@ async function doTranslate() {
   }
   setTranslating(false);
   resetSilenceTimer();
+}
+
+/* ─── Translate with fallback chain ──────────────────────────── */
+async function translateWithFallback(text) {
+  const basePayload = {
+    text,
+    src: srcLang.value,
+    tgt: tgtLang.value,
+    systemPrompt: cfg.translatorSystemPrompt || '',
+    systemInstructions: cfg.translatorSystemInstructions || DEFAULT_HUMANIZE_PROMPT,
+  };
+
+  // If not AI mode, just do regular Google Translate (no fallback needed)
+  if (!isAiMode) {
+    return await API.translate({ ...basePayload, mode: 'regular', profile: null });
+  }
+
+  const activeProfile = getActiveProfile();
+  const allProfiles = cfg.translatorApiProfiles || [];
+  const fallbackEnabled = cfg.translatorFallbackEnabled !== false;
+  const googleFallback  = cfg.translatorGoogleFallback !== false;
+
+  // 1. Try the active profile first
+  if (activeProfile) {
+    const result = await API.translate({ ...basePayload, mode: 'ai', profile: activeProfile });
+    if (!result.error) return result;
+    console.warn(`[Translator] Active profile "${activeProfile.name}" failed:`, result.error);
+
+    // 2. If fallback enabled, cycle through other profiles
+    if (fallbackEnabled && allProfiles.length > 1) {
+      const otherProfiles = allProfiles.filter(p => p.id !== activeProfile.id);
+      for (const profile of otherProfiles) {
+        showToast(`Trying fallback: ${profile.name}...`, 1500);
+        const fbResult = await API.translate({ ...basePayload, mode: 'ai', profile });
+        if (!fbResult.error) {
+          return { ...fbResult, fallbackUsed: `${profile.name} (fallback)` };
+        }
+        console.warn(`[Translator] Fallback profile "${profile.name}" failed:`, fbResult.error);
+      }
+    }
+
+    // 3. If Google fallback is enabled, try Google Translate
+    if (googleFallback) {
+      showToast('AI failed — trying Google Translate...', 1500);
+      const googleResult = await API.translate({ ...basePayload, mode: 'regular', profile: null });
+      if (!googleResult.error) {
+        return { ...googleResult, fallbackUsed: 'Google Translate (all AI profiles failed)' };
+      }
+      return googleResult; // Return the Google error
+    }
+
+    // No fallback options — return the original error
+    return { error: `All profiles failed. Last error: ${result.error}` };
+  }
+
+  // No active profile — go straight to Google Translate if enabled
+  if (googleFallback) {
+    return await API.translate({ ...basePayload, mode: 'regular', profile: null });
+  }
+
+  return { error: 'No API profile configured and Google Translate fallback is disabled.' };
 }
 
 function setTranslating(on) {
@@ -417,41 +475,7 @@ if (btnCopyDraft) {
   });
 }
 
-/* ─── Humanize Draft ─────────────────────────────────────────*/
-if (btnHumanizeDraft) {
-  btnHumanizeDraft.addEventListener('click', async () => {
-    if (btnHumanizeDraft.classList.contains('disabled')) return;
-    const text = draftArea.value.trim();
-    if (!text) { showToast('Speak or type something first'); return; }
 
-    const profile = getActiveProfile();
-    if (!profile) { showToast('No API profile — configure in Settings'); return; }
-
-    humDraftSpinner.classList.add('visible');
-    btnHumanizeDraft.style.pointerEvents = 'none';
-    btnTranslate.disabled = true;
-
-    try {
-      const result = await API.humanize({
-        text,
-        profile,
-        systemInstructions: cfg.translatorSystemInstructions || DEFAULT_HUMANIZE_PROMPT,
-      });
-      if (result.error) {
-        showToast('⚠ ' + result.error);
-      } else {
-        draftArea.value = result.text;
-      }
-    } catch (e) {
-      showToast('Humanize draft failed');
-      console.error(e);
-    }
-
-    humDraftSpinner.classList.remove('visible');
-    btnHumanizeDraft.style.pointerEvents = '';
-    btnTranslate.disabled = false;
-  });
-}
 
 /* ─── Paste ───────────────────────────────────────────────────*/
 btnPaste.addEventListener('click', () => doPaste());
@@ -615,14 +639,40 @@ btnTranslateAll.addEventListener('click', async () => {
   for (const slot of pgSlots) {
     slot.outputEl.value = 'Translating…';
     try {
-      const r = await API.translate({
-        text, src: srcLang.value,
-        tgt: slot.langEl.value,
-        mode: isAiMode ? 'ai' : 'regular',
-        profile: getActiveProfile(),
+      // Use fallback chain same as main translate
+      const basePayload = {
+        text, src: srcLang.value, tgt: slot.langEl.value,
         systemPrompt: cfg.translatorSystemPrompt || '',
         systemInstructions: cfg.translatorSystemInstructions || DEFAULT_HUMANIZE_PROMPT,
-      });
+      };
+
+      let r;
+      if (!isAiMode) {
+        r = await API.translate({ ...basePayload, mode: 'regular', profile: null });
+      } else {
+        const activeProfile = getActiveProfile();
+        const allProfiles = cfg.translatorApiProfiles || [];
+        const fallbackEnabled = cfg.translatorFallbackEnabled !== false;
+        const googleFallback  = cfg.translatorGoogleFallback !== false;
+
+        r = null;
+        if (activeProfile) {
+          r = await API.translate({ ...basePayload, mode: 'ai', profile: activeProfile });
+          if (r.error && fallbackEnabled) {
+            for (const fp of allProfiles.filter(p => p.id !== activeProfile.id)) {
+              r = await API.translate({ ...basePayload, mode: 'ai', profile: fp });
+              if (!r.error) break;
+            }
+          }
+          if (r.error && googleFallback) {
+            r = await API.translate({ ...basePayload, mode: 'regular', profile: null });
+          }
+        } else if (googleFallback) {
+          r = await API.translate({ ...basePayload, mode: 'regular', profile: null });
+        } else {
+          r = { error: 'No API profile configured' };
+        }
+      }
       slot.outputEl.value = r.error ? ('⚠ ' + r.error) : r.text;
     } catch (e) {
       slot.outputEl.value = '⚠ Failed';
@@ -848,7 +898,7 @@ function syncSilenceDurationRow() {
 
 function loadSettingsForm() {
   spSystemPrompt.value       = cfg.translatorSystemPrompt || '';
-  spSystemInstructions.value = cfg.translatorSystemInstructions || DEFAULT_HUMANIZE_PROMPT;
+  spSystemInstructions.value = cfg.translatorSystemInstructions || '';
   spOpenShortcut.value       = cfg.translatorOpenShortcut || 'Shift+Alt+T';
   spPasteShortcut.value      = cfg.translatorPasteShortcut || 'Shift+Alt+P';
 
@@ -858,6 +908,10 @@ function loadSettingsForm() {
   const knownUnits = ['sec', 'min', 'hr'];
   spSilenceUnit.value = knownUnits.includes(cfg.translatorSilenceUnit) ? cfg.translatorSilenceUnit : 'sec';
   syncSilenceDurationRow();
+
+  // Fallback toggles
+  if (spFallbackEnabled)  spFallbackEnabled.checked  = cfg.translatorFallbackEnabled !== false;
+  if (spGoogleFallback)   spGoogleFallback.checked   = cfg.translatorGoogleFallback !== false;
 
   renderProfiles();
   renderPresets();
@@ -870,6 +924,13 @@ function loadSettingsForm() {
 
 
 spSilenceEnabled.addEventListener('change', syncSilenceDurationRow);
+
+if (btnResetPrompts) {
+  btnResetPrompts.addEventListener('click', () => {
+    spSystemPrompt.value = '';
+    spSystemInstructions.value = '';
+  });
+}
 
 btnSpSave.addEventListener('click', async () => {
   // Compute silence timeout in seconds
@@ -888,6 +949,8 @@ btnSpSave.addEventListener('click', async () => {
     translatorSilenceVal:         silenceVal,
     translatorSilenceUnit:        silenceUnit,
     translatorSilenceTimeout:     silenceSeconds,   // 0 = infinite
+    translatorFallbackEnabled:    spFallbackEnabled  ? spFallbackEnabled.checked  : true,
+    translatorGoogleFallback:     spGoogleFallback   ? spGoogleFallback.checked   : true,
   };
   Object.assign(cfg, updated);
   await API.saveSettings(updated);
@@ -948,16 +1011,26 @@ function renderProfiles() {
     profileList.innerHTML = '<div style="font-size:12px;color:var(--muted);padding:4px 0;">No profiles yet. Add one below.</div>';
     return;
   }
-  profiles.forEach(p => {
+  profiles.forEach((p, idx) => {
+    const isActive = p.id === cfg.translatorActiveProfileId;
     const div = document.createElement('div');
-    div.className = 'profile-chip' + (p.id === cfg.translatorActiveProfileId ? ' active' : '');
+    div.className = 'profile-chip' + (isActive ? ' active' : '');
     div.innerHTML = `
-      <div class="profile-name">${escapeHtml(p.name)}</div>
+      <div class="profile-name">
+        ${isActive ? '<span style="color:var(--accent);font-size:10px;margin-right:4px;">●</span>' : ''}
+        ${escapeHtml(p.name)}
+      </div>
       <div class="profile-badge">${p.provider} · ${p.model || p.modelName || ''}</div>
-      <button class="profile-del" title="Remove">✕</button>
+      <span class="profile-fallback-order" style="font-size:9px;color:var(--muted);background:rgba(255,255,255,0.04);padding:1px 5px;border-radius:4px;">${isActive ? 'Active' : '#' + (idx + 1)}</span>
+      <button class="profile-del" title="Delete this profile">✕</button>
     `;
-    div.addEventListener('click', (e) => {
-      if (e.target.classList.contains('profile-del')) {
+
+    // Delete button: confirm before removing
+    const delBtn = div.querySelector('.profile-del');
+    delBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      // Inline confirmation
+      if (delBtn.dataset.confirming) {
         const updated = (cfg.translatorApiProfiles || []).filter(x => x.id !== p.id);
         cfg.translatorApiProfiles = updated;
         if (cfg.translatorActiveProfileId === p.id) {
@@ -966,14 +1039,34 @@ function renderProfiles() {
         API.saveSettings({ translatorApiProfiles: updated, translatorActiveProfileId: cfg.translatorActiveProfileId });
         renderProfiles();
         updateModeUI();
+        showToast('✓ Profile deleted');
       } else {
-        cfg.translatorActiveProfileId = p.id;
-        API.saveSettings({ translatorActiveProfileId: p.id });
-        renderProfiles();
-        showToast(`✓ Active: ${p.name}`);
-        updateModeUI();
+        delBtn.dataset.confirming = '1';
+        delBtn.textContent = 'Sure?';
+        delBtn.style.color = 'var(--red)';
+        delBtn.style.fontSize = '10px';
+        delBtn.style.fontWeight = '600';
+        setTimeout(() => {
+          if (delBtn && !delBtn.isConnected) return;
+          delete delBtn.dataset.confirming;
+          delBtn.textContent = '✕';
+          delBtn.style.color = '';
+          delBtn.style.fontSize = '';
+          delBtn.style.fontWeight = '';
+        }, 2500);
       }
     });
+
+    // Click on chip (not on delete) -> set as active
+    div.addEventListener('click', (e) => {
+      if (e.target.closest('.profile-del')) return;
+      cfg.translatorActiveProfileId = p.id;
+      API.saveSettings({ translatorActiveProfileId: p.id });
+      renderProfiles();
+      showToast(`✓ Active: ${p.name}`);
+      updateModeUI();
+    });
+
     profileList.appendChild(div);
   });
 }

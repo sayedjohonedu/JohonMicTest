@@ -33,4 +33,13 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getMicList:                ()           => ipcRenderer.invoke('get-mic-list'),
   setMic:                    (deviceId)   => ipcRenderer.send('set-mic', deviceId),
   getLicenseInfo:            ()           => ipcRenderer.invoke('get-license-info'),
+  // ── AI Dictation ──
+  aiTestConnection:          (profile)    => ipcRenderer.invoke('ai-test-connection', profile),
+  aiGetOllamaModels:         ()           => ipcRenderer.invoke('ai-get-ollama-models'),
+  aiGetStatus:               ()           => ipcRenderer.invoke('ai-get-status'),
+  aiResetSession:            ()           => ipcRenderer.send('ai-reset-session'),
+  aiCheckTrial:              ()           => ipcRenderer.invoke('ai-check-trial'),
+  aiShowTrialPopup:          ()           => ipcRenderer.send('ai-show-trial-popup'),
+  // ── Clipboard Manager ──
+  cbSetEnabled:              (enabled)    => ipcRenderer.invoke('cb-set-enabled', enabled),
 });
