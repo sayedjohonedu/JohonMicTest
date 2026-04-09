@@ -28,6 +28,8 @@ contextBridge.exposeInMainWorld('clipboardAPI', {
   assignCategory:   (id, cat)       => ipcRenderer.invoke('cb-assign-category', id, cat),
   pasteEntry:       (id)            => ipcRenderer.invoke('cb-paste-entry', id),
   copyToClipboard:  (id)            => ipcRenderer.invoke('cb-copy-to-clipboard', id),
+  bumpToTop:        (id)            => ipcRenderer.invoke('cb-bump-to-top', id),
+  showInFolder:     (id)            => ipcRenderer.invoke('cb-show-in-folder', id),
 
   // ── Import / Export ───────────────────────────────────────────────────────
   exportHistory:    ()              => ipcRenderer.invoke('cb-export-history'),
@@ -51,6 +53,7 @@ contextBridge.exposeInMainWorld('clipboardAPI', {
   onNewEntry:       (fn)            => ipcRenderer.on('cb-new-entry', (_, data) => fn(data)),
   onExpiredPrompt:  (fn)            => ipcRenderer.on('cb-expired-prompt', (_, data) => fn(data)),
   onWindowShown:    (fn)            => ipcRenderer.on('cb-window-shown', () => fn()),
+  onConfigUpdate:   (fn)            => ipcRenderer.on('config-updated', (_, data) => fn(data)),
 
   // ── Utility ──────────────────────────────────────────────────────────────
   openUrl:          (url) => ipcRenderer.send('open-url', url),

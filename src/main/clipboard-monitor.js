@@ -7,7 +7,7 @@
  * Handles:
  *   • Text change detection (content hash comparison)
  *   • Image change detection (NativeImage size comparison)
- *   • 5MB image size cap
+ *   • 15MB image size cap
  *   • Saving image files to userData/clipboard-images/
  * ──────────────────────────────────────────────────────────────────────────
  */
@@ -17,7 +17,7 @@ const store = require('../../store/config');
 const historyStore = require('./clipboard-history-store');
 
 const POLL_INTERVAL_MS = 500;
-const MAX_IMAGE_BYTES  = 5 * 1024 * 1024;
+const MAX_IMAGE_BYTES  = 15 * 1024 * 1024;
 
 let _timer        = null;
 let _lastText     = '';

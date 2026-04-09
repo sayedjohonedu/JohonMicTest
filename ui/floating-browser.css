@@ -13,6 +13,75 @@
   --font:       -apple-system, 'SF Pro Display', 'Segoe UI', system-ui, sans-serif;
 }
 
+[data-theme="light"] {
+  --bg:      rgba(244, 244, 248, 0.94);
+  --surface: rgba(0,0,0,0.05);
+  --surface2: rgba(0,0,0,0.03);
+  --border:  rgba(0,0,0,0.11);
+  --text:    #111114;
+  --muted:   rgba(0,0,0,0.5);
+}
+
+[data-theme="bumble"] {
+  --accent:  #F59E0B; --accent-rgb: 245, 158, 11;
+  --bg:      rgba(15, 23, 26, 0.95);
+  --surface: rgba(255, 255, 255, 0.05);
+  --surface2: rgba(255, 255, 255, 0.03);
+  --border:  rgba(245, 158, 11, 0.15);
+  --text:    #F8FAFC;
+  --muted:   rgba(255, 255, 255, 0.45);
+}
+
+[data-theme="ocean"] {
+  --accent:  #06B6D4; --accent-rgb: 6, 182, 212;
+  --bg:      rgba(8, 18, 36, 0.95);
+  --surface: rgba(6, 182, 212, 0.06);
+  --surface2: rgba(6, 182, 212, 0.03);
+  --border:  rgba(6, 182, 212, 0.15);
+  --text:    #E0F7FA;
+  --muted:   rgba(224, 247, 250, 0.45);
+}
+
+[data-theme="sage"] {
+  --accent:  #10B981; --accent-rgb: 16, 185, 129;
+  --bg:      rgba(8, 20, 16, 0.95);
+  --surface: rgba(16, 185, 129, 0.06);
+  --surface2: rgba(16, 185, 129, 0.03);
+  --border:  rgba(16, 185, 129, 0.15);
+  --text:    #ECFDF5;
+  --muted:   rgba(236, 253, 245, 0.45);
+}
+
+[data-theme="rose"] {
+  --accent:  #F43F5E; --accent-rgb: 244, 63, 94;
+  --bg:      rgba(18, 8, 14, 0.95);
+  --surface: rgba(244, 63, 94, 0.06);
+  --surface2: rgba(244, 63, 94, 0.03);
+  --border:  rgba(244, 63, 94, 0.15);
+  --text:    #FFF1F2;
+  --muted:   rgba(255, 241, 242, 0.45);
+}
+
+[data-theme="ember"] {
+  --accent:  #F97316; --accent-rgb: 249, 115, 22;
+  --bg:      rgba(14, 8, 2, 0.95);
+  --surface: rgba(249, 115, 22, 0.06);
+  --surface2: rgba(249, 115, 22, 0.03);
+  --border:  rgba(249, 115, 22, 0.15);
+  --text:    #FFF7ED;
+  --muted:   rgba(255, 247, 237, 0.45);
+}
+
+[data-theme="arctic"] {
+  --accent:  #6366F1; --accent-rgb: 99, 102, 241;
+  --bg:      rgba(240, 242, 248, 0.94);
+  --surface: rgba(0, 0, 0, 0.04);
+  --surface2: rgba(0, 0, 0, 0.02);
+  --border:  rgba(99, 102, 241, 0.15);
+  --text:    #0F172A;
+  --muted:   rgba(15, 23, 42, 0.50);
+}
+
 html, body {
   width: 100%; height: 100%;
   background: transparent;

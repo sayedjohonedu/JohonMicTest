@@ -9,6 +9,26 @@ let wordLimitPopupWindow = null;
 let translatorLockedPopupWindow = null;
 let aiTrialPopupWindow = null;
 
+/**
+ * On macOS, only revert to 'accessory' activation policy (no dock icon)
+ * when NO interactive windows are still open. This prevents double-click
+ * issues where closing one window prematurely drops the activation policy
+ * while another window still needs responsive clicks.
+ */
+function maybRevertToAccessory() {
+  if (process.platform !== 'darwin') return;
+  // Check if any interactive window is still alive
+  const hasSettings  = settingsWindow && !settingsWindow.isDestroyed();
+  // Clipboard window can't be checked via local ref — use BrowserWindow.getAllWindows
+  const hasInteractive = hasSettings || BrowserWindow.getAllWindows().some(w => {
+    if (w === overlayWindow) return false; // overlay is non-activating, skip
+    return w.isVisible() && !w.isDestroyed();
+  });
+  if (!hasInteractive) {
+    setImmediate(() => app.setActivationPolicy('accessory'));
+  }
+}
+
 const OV = {
   FULL_W:        420,
   BASE_H:        302,
@@ -91,6 +111,7 @@ function createOverlay() {
 
 function showSettings() {
   if (settingsWindow && !settingsWindow.isDestroyed()) {
+    if (process.platform === 'darwin') app.setActivationPolicy('regular');
     settingsWindow.show();
     settingsWindow.focus();
     return settingsWindow;
@@ -135,14 +156,24 @@ function showSettings() {
   });
 
   if (isMac) {
-    setImmediate(() => app.setActivationPolicy('accessory'));
+    // Keep app as 'regular' while settings are open so clicks work
+    // without requiring a double-click to re-activate the window.
+    // The 'accessory' policy causes macOS to treat the first click
+    // as a window-activation event (not a real click), which is why
+    // users had to double-click sidebar items after focus changes.
+    app.setActivationPolicy('regular');
+
     settingsWindow.on('closed', () => {
-      setImmediate(() => app.setActivationPolicy('accessory'));
+      settingsWindow = null;
+      // Only revert to accessory if no other interactive windows remain
+      maybRevertToAccessory();
     });
   }
 
   settingsWindow.loadFile(path.join(__dirname, '../../ui/settings.html'));
-  settingsWindow.on('closed', () => settingsWindow = null);
+  if (!isMac) {
+    settingsWindow.on('closed', () => settingsWindow = null);
+  }
   
   return settingsWindow;
 }
@@ -296,5 +327,6 @@ module.exports = {
   applyOverlaySize,
   getOverlayWindow,
   getSettingsWindow,
+  maybRevertToAccessory,
   OV
 };

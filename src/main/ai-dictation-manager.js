@@ -9,22 +9,22 @@ const store = require('../../store/config');
 const { callLlmRaw, httpGet } = require('./llm-client');
 
 // ── Default System Prompt (~120 tokens) ──────────────────────────────────
-const DEFAULT_AI_SYSTEM_PROMPT = `Clean up this dictated speech transcript. Rules:
-1. Remove filler words: um, uh, like, basically, you know
-2. Add proper punctuation and capitalization
-3. Handle spoken corrections: "no no/wait/actually" = discard text before, keep correction. "delete that/scratch that" = remove last sentence. "start over" = output only text after this phrase
-4. Handle "new paragraph" and "new line" as whitespace
-5. Keep the SAME language as input. Do NOT translate
-6. Output ONLY the cleaned text. No explanations.`;
+const DEFAULT_AI_SYSTEM_PROMPT = `Your Only Job is to Refine this STT dictation transcript:
+1. Fix contextual & phonetic STT errors.
+2. Remove filler words. Add logical punctuation, capitalization, and paragraph line breaks.
+3. Apply spoken corrections (e.g., "scratch that", "start over").
+4. Apply any final spoken formatting instructions (e.g., "make this an email", "bullet points", "professional tone", "ai system prompt").
+5. Keep the original language. Do not translate unless user explicitly asks to translate any perticular language.
+6. Return ONLY the final text. No AI chat, no explanations, and no bracketed citations/numbers (e.g., [1]).`;
 
 // ── Language names for prompt building ────────────────────────────────────
 const LANG_NAMES = {
-  'en':'English','bn':'Bengali','es':'Spanish','fr':'French','de':'German','it':'Italian',
-  'pt':'Portuguese','ru':'Russian','ja':'Japanese','ko':'Korean','zh':'Chinese',
-  'ar':'Arabic','hi':'Hindi','tr':'Turkish','pl':'Polish','nl':'Dutch','sv':'Swedish',
-  'da':'Danish','fi':'Finnish','no':'Norwegian','uk':'Ukrainian','vi':'Vietnamese',
-  'th':'Thai','id':'Indonesian','ms':'Malay','fa':'Persian','ur':'Urdu','he':'Hebrew',
-  'ro':'Romanian','hu':'Hungarian','cs':'Czech','el':'Greek','bg':'Bulgarian',
+  'en': 'English', 'bn': 'Bengali', 'es': 'Spanish', 'fr': 'French', 'de': 'German', 'it': 'Italian',
+  'pt': 'Portuguese', 'ru': 'Russian', 'ja': 'Japanese', 'ko': 'Korean', 'zh': 'Chinese',
+  'ar': 'Arabic', 'hi': 'Hindi', 'tr': 'Turkish', 'pl': 'Polish', 'nl': 'Dutch', 'sv': 'Swedish',
+  'da': 'Danish', 'fi': 'Finnish', 'no': 'Norwegian', 'uk': 'Ukrainian', 'vi': 'Vietnamese',
+  'th': 'Thai', 'id': 'Indonesian', 'ms': 'Malay', 'fa': 'Persian', 'ur': 'Urdu', 'he': 'Hebrew',
+  'ro': 'Romanian', 'hu': 'Hungarian', 'cs': 'Czech', 'el': 'Greek', 'bg': 'Bulgarian',
 };
 
 // ── Session Memory ──────────────────────────────────────────────────────

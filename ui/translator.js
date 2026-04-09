@@ -234,6 +234,16 @@ async function init() {
       API.toggleListening({ lang: srcLang.value, forceStart: true });
     }
   });
+
+  if (cfg.theme) applyTheme(cfg.theme);
+  API.onConfigUpdate((newCfg) => {
+    if (newCfg.theme) applyTheme(newCfg.theme);
+  });
+}
+
+function applyTheme(themeVal) {
+  if (!themeVal) return;
+  document.documentElement.setAttribute('data-theme', themeVal);
 }
 
 /* ─── Mic button ─────────────────────────────────────────────*/
@@ -408,31 +418,30 @@ function setTranslating(on) {
   btnTranslate.querySelector('svg').style.display = on ? 'none' : '';
 }
 
-/* ─── Humanize ────────────────────────────────────────────────*/
+/* ─── Humanize (with profile fallback chain) ──────────────────*/
 btnHumanize.addEventListener('click', async () => {
   if (btnHumanize.classList.contains('disabled')) return;
   const text = outputArea.value.trim();
   if (!text) { showToast('Translate something first'); return; }
 
-  const profile = getActiveProfile();
-  if (!profile) { showToast('No API profile — configure in Settings'); return; }
+  const activeProfile = getActiveProfile();
+  if (!activeProfile) { showToast('No API profile — configure in Settings'); return; }
 
   preHumanizedText = text;
   humanizeSpinner.classList.add('visible');
   btnHumanize.style.pointerEvents = 'none';
 
   try {
-    const result = await API.humanize({
-      text,
-      profile,
-      systemInstructions: cfg.translatorSystemInstructions || DEFAULT_HUMANIZE_PROMPT,
-    });
+    const result = await humanizeWithFallback(text);
     if (result.error) {
       showToast('⚠ ' + result.error);
       preHumanizedText = null;
     } else {
       outputArea.value = result.text;
       btnRevert.classList.add('visible');
+      if (result.fallbackUsed) {
+        showToast(`⚠ Fallback: ${result.fallbackUsed}`, 3000);
+      }
     }
   } catch (e) {
     showToast('Humanize failed');
@@ -443,6 +452,43 @@ btnHumanize.addEventListener('click', async () => {
   humanizeSpinner.classList.remove('visible');
   btnHumanize.style.pointerEvents = '';
 });
+
+/* ─── Humanize with fallback chain ────────────────────────────*/
+async function humanizeWithFallback(text) {
+  const payload = {
+    text,
+    systemInstructions: cfg.translatorSystemInstructions || DEFAULT_HUMANIZE_PROMPT,
+  };
+
+  const activeProfile = getActiveProfile();
+  const allProfiles = cfg.translatorApiProfiles || [];
+  const fallbackEnabled = cfg.translatorFallbackEnabled !== false;
+
+  // 1. Try the active profile first
+  if (activeProfile) {
+    const result = await API.humanize({ ...payload, profile: activeProfile });
+    if (!result.error) return result;
+    console.warn(`[Humanize] Active profile "${activeProfile.name}" failed:`, result.error);
+
+    // 2. If fallback enabled, cycle through other profiles
+    if (fallbackEnabled && allProfiles.length > 1) {
+      const otherProfiles = allProfiles.filter(p => p.id !== activeProfile.id);
+      for (const profile of otherProfiles) {
+        showToast(`Trying fallback: ${profile.name}...`, 1500);
+        const fbResult = await API.humanize({ ...payload, profile });
+        if (!fbResult.error) {
+          return { ...fbResult, fallbackUsed: `${profile.name} (fallback)` };
+        }
+        console.warn(`[Humanize] Fallback profile "${profile.name}" failed:`, fbResult.error);
+      }
+    }
+
+    // All profiles failed
+    return { error: `All profiles failed. Last error: ${result.error}` };
+  }
+
+  return { error: 'No API profile configured.' };
+}
 
 btnRevert.addEventListener('click', () => {
   if (preHumanizedText) {

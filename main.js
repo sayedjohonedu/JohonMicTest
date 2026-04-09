@@ -16,7 +16,7 @@ const { setupClipboardIpc } = require('./src/main/clipboard-ipc');
 // Import modules
 const { createOverlay, showSettings, showLicensePopup, showWordLimitPopup, showTranslatorLockedPopup, showAiTrialExpiredPopup, applyOverlaySize, getOverlayWindow, getSettingsWindow } = require('./src/main/window-manager');
 const { onOverlayShow, onOverlayHide } = require('./src/main/floating-browser-manager');
-const { registerHotkeys, stopUiohook, setTranslatorCtx } = require('./src/main/hotkey-manager');
+const { registerHotkeys, stopUiohook, setTranslatorCtx, setAiSendNow } = require('./src/main/hotkey-manager');
 const { checkAuthStatus, checkAndResetDailyWords, checkAiTrialExpiry } = require('./src/main/licensing');
 const { setupUpdater } = require('./src/main/updater');
 const { setupIpcHandlers, aiDictationManager } = require('./src/main/ipc-handlers');
@@ -46,6 +46,52 @@ let aiSilenceTimer = null;
 function clearAiSilenceTimer() {
   if (aiSilenceTimer) { clearTimeout(aiSilenceTimer); aiSilenceTimer = null; }
 }
+
+/**
+ * Process the AI buffer and continue listening.
+ * Used by both the AI silence timer (auto) and Right Alt (manual trigger).
+ * Does NOT stop the dictation session — overlay stays open, listening continues.
+ */
+function processAiBufferAndContinue() {
+  if (!isAiModeActive()) return;
+  clearAiSilenceTimer();
+  const buffered = aiDictationManager.getBufferedText().trim();
+  if (!buffered) return;
+  // Process buffer + paste, but keep the session alive
+  const overlayWindow = getOverlayWindow();
+  if (overlayWindow && !overlayWindow.isDestroyed()) {
+    overlayWindow.webContents.send('ai-processing-start');
+  }
+  aiDictationManager.processBuffer().then(result => {
+    if (overlayWindow && !overlayWindow.isDestroyed()) {
+      overlayWindow.webContents.send('ai-processing-end', result);
+    }
+    if (result.text && !result.error && !result.allFailed) {
+      clipboardManager.injectText(result.text);
+    } else if (result.allFailed && result.rawText && result.rawText.trim()) {
+      clipboardManager.injectText(result.rawText);
+    } else if (result.error) {
+      const raw = aiDictationManager.getBufferedText();
+      if (raw.trim()) clipboardManager.injectText(raw);
+    }
+    // Clear buffer and reset overlay for next dictation segment
+    aiDictationManager.clearBuffer();
+    if (overlayWindow && !overlayWindow.isDestroyed()) {
+      // Reset overlay to listening state
+      setTimeout(() => {
+        if (overlayWindow && !overlayWindow.isDestroyed()) {
+          overlayWindow.webContents.send('ai-buffer-reset');
+        }
+      }, 1200);
+    }
+  }).catch(err => {
+    console.error('AI processing failed:', err);
+    if (overlayWindow && !overlayWindow.isDestroyed()) {
+      overlayWindow.webContents.send('ai-processing-end', { error: err.message });
+    }
+  });
+}
+
 function resetAiSilenceTimer() {
   clearAiSilenceTimer();
   if (!isAiModeActive()) return;
@@ -53,41 +99,7 @@ function resetAiSilenceTimer() {
   aiSilenceTimer = setTimeout(() => {
     aiSilenceTimer = null;
     if (!isAiModeActive()) return;
-    const buffered = aiDictationManager.getBufferedText().trim();
-    if (!buffered) return;
-    // Process buffer + paste, but keep the session alive
-    const overlayWindow = getOverlayWindow();
-    if (overlayWindow && !overlayWindow.isDestroyed()) {
-      overlayWindow.webContents.send('ai-processing-start');
-    }
-    aiDictationManager.processBuffer().then(result => {
-      if (overlayWindow && !overlayWindow.isDestroyed()) {
-        overlayWindow.webContents.send('ai-processing-end', result);
-      }
-      if (result.text && !result.error && !result.allFailed) {
-        clipboardManager.injectText(result.text);
-      } else if (result.allFailed && result.rawText && result.rawText.trim()) {
-        clipboardManager.injectText(result.rawText);
-      } else if (result.error) {
-        const raw = aiDictationManager.getBufferedText();
-        if (raw.trim()) clipboardManager.injectText(raw);
-      }
-      // Clear buffer and reset overlay for next dictation segment
-      aiDictationManager.clearBuffer();
-      if (overlayWindow && !overlayWindow.isDestroyed()) {
-        // Reset overlay to listening state
-        setTimeout(() => {
-          if (overlayWindow && !overlayWindow.isDestroyed()) {
-            overlayWindow.webContents.send('ai-buffer-reset');
-          }
-        }, 1200);
-      }
-    }).catch(err => {
-      console.error('AI silence-timer processing failed:', err);
-      if (overlayWindow && !overlayWindow.isDestroyed()) {
-        overlayWindow.webContents.send('ai-processing-end', { error: err.message });
-      }
-    });
+    processAiBufferAndContinue();
   }, timeoutSec * 1000);
 }
 
@@ -212,8 +224,10 @@ function toggleListening(forceLang = null, fromTranslator = false, forceStart = 
     lastPhraseTimestamp = 0;
     const lang = forceLang || store.get('language') || 'en-US';
     currentSessionLang = lang;
-    // Always use the regular silence timeout for the bridge (AI silence is managed separately)
-    const silenceTimeout = store.get('silenceTimeout') ?? 1;
+    // For AI mode: set bridge silence timeout to 0 (infinite) so it never fires
+    // silence-timeout — the AI silence timer in main.js handles processing independently.
+    // For regular mode: use the normal silence timeout.
+    const silenceTimeout = isAiModeActive() ? 0 : (store.get('silenceTimeout') ?? 1);
     // Clear AI buffer at session start
     if (isAiModeActive()) {
       aiDictationManager.clearBuffer();
@@ -531,6 +545,12 @@ function setupWebSocketServer(server) {
         } else {
           const overlayWindow = getOverlayWindow();
           if (overlayWindow) overlayWindow.webContents.send('interim-text', data.text);
+          // Reset AI silence timer on interim text too — the user is actively speaking,
+          // so the countdown should restart. Without this, the timer could fire mid-sentence
+          // if a single utterance takes longer than the AI silence timeout.
+          if (isAiModeActive() && data.text && data.text.trim()) {
+            resetAiSilenceTimer();
+          }
         }
       } else if (data.type === 'status') {
         if (data.message === 'silence-timeout' && isListening) {
@@ -543,39 +563,12 @@ function setupWebSocketServer(server) {
             if (tw && !tw.isDestroyed()) tw.webContents.send('translator-stt-state', false);
             setTimeout(() => toggleListening(null, true, false), 200);
           } else if (isAiModeActive()) {
-            // AI mode: bridge silence-timeout fires (regular timeout), but we DON'T close
-            // Process any remaining buffer, then restart listening to keep session alive
-            const buffered = aiDictationManager.getBufferedText().trim();
-            if (buffered) {
-              clearAiSilenceTimer(); // cancel pending AI timer since bridge already timed out
-              const overlayWindow = getOverlayWindow();
-              if (overlayWindow && !overlayWindow.isDestroyed()) {
-                overlayWindow.webContents.send('ai-processing-start');
-              }
-              aiDictationManager.processBuffer().then(result => {
-                if (overlayWindow && !overlayWindow.isDestroyed()) {
-                  overlayWindow.webContents.send('ai-processing-end', result);
-                }
-                if (result.text && !result.error && !result.allFailed) {
-                  clipboardManager.injectText(result.text);
-                } else if (result.allFailed && result.rawText && result.rawText.trim()) {
-                  clipboardManager.injectText(result.rawText);
-                }
-                aiDictationManager.clearBuffer();
-                if (overlayWindow && !overlayWindow.isDestroyed()) {
-                  setTimeout(() => {
-                    if (overlayWindow && !overlayWindow.isDestroyed()) {
-                      overlayWindow.webContents.send('ai-buffer-reset');
-                    }
-                  }, 1200);
-                }
-              }).catch(err => {
-                console.error('AI bridge-timeout processing failed:', err);
-              });
-            }
-            // Restart listening (bridge stopped internally after silence-timeout)
-            isListening = false;
-            setTimeout(() => toggleListening(null, false, true), 200);
+            // AI mode: bridge silence-timeout should NOT fire (timeout=0 in AI mode),
+            // but handle gracefully as a safety net. Do NOT process buffer here —
+            // only the AI silence timer or Right Alt trigger should process.
+            // Just transparently restart the bridge to keep the session alive.
+            const lang = currentSessionLang || store.get('language') || 'en-US';
+            try { wsClient.send(JSON.stringify({ command: 'start', language: lang, timeout: 0 })); } catch (e) {}
           } else {
             toggleListening();
             const overlayWindow = getOverlayWindow();
@@ -654,6 +647,8 @@ app.whenReady().then(() => {
   getOverlayWindow().webContents.on('console-message', (event, level, message, line, sourceId) => {
     console.log(`[Overlay Console] ${message} (line ${line})`);
   });
+  // Wire AI instant-process trigger (Right Alt) into hotkey-manager
+  setAiSendNow(processAiBufferAndContinue);
   registerHotkeys(toggleListening);
 
   // ── Wire translator shortcuts into hotkey-manager so they survive unregisterAll()

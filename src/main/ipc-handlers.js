@@ -46,10 +46,11 @@ function setupIpcHandlers(toggleListening, registerHotkeys, getWsClient, resetSi
     if (wsClient) {
       wsClient.send(JSON.stringify({ command: 'set-mic-sensitivity', sensitivity: config.micSensitivity || 1.0 }));
     }
-    const overlayWindow = getOverlayWindow();
-    if (overlayWindow && !overlayWindow.isDestroyed()) {
-      overlayWindow.webContents.send('config-updated', config);
-    }
+    BrowserWindow.getAllWindows().forEach((win) => {
+      if (!win.isDestroyed()) {
+        win.webContents.send('config-updated', config);
+      }
+    });
   });
 
   ipcMain.handle('get-config', () => store.store);

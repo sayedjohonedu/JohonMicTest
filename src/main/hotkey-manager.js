@@ -11,8 +11,15 @@ let middleMousePressed = false;
 // Stored translator context so shortcuts survive re-registration
 let _translatorCtx = null;
 
+// AI instant-process callback (Right Alt trigger)
+let _aiSendNow = null;
+
 function setTranslatorCtx(ctx) {
   _translatorCtx = ctx;
+}
+
+function setAiSendNow(fn) {
+  _aiSendNow = fn;
 }
 
 function uiohookKeyName(keycode) {
@@ -102,6 +109,26 @@ function registerHotkeys(toggleListening) {
   uIOhook.removeAllListeners('keyup');
   uIOhook.removeAllListeners('mousedown');
   uIOhook.removeAllListeners('mouseup');
+
+  // ── AI Instant Send: configurable key trigger ──
+  // Map DOM event.code → UiohookKey name for common modifiers/keys
+  const CODE_TO_UIOHOOK = { AltRight:'AltRight', AltLeft:'Alt', ShiftRight:'ShiftRight', ShiftLeft:'Shift', ControlRight:'CtrlRight', ControlLeft:'Ctrl', Space:'Space', F1:'F1', F2:'F2', F3:'F3', F4:'F4', F5:'F5', F6:'F6', F7:'F7', F8:'F8', F9:'F9', F10:'F10', F11:'F11', F12:'F12' };
+  const aiKeyCode = store.get('aiActivationKey') || 'AltRight';
+  const uiohookName = CODE_TO_UIOHOOK[aiKeyCode] || aiKeyCode;
+  const aiKeyCodeValue = UiohookKey[uiohookName] || UiohookKey.AltRight;
+
+  let aiSendNowLock = false;
+  uIOhook.on('keydown', (e) => {
+    if (e.keycode === aiKeyCodeValue && _aiSendNow && !aiSendNowLock) {
+      aiSendNowLock = true;
+      _aiSendNow();
+    }
+  });
+  uIOhook.on('keyup', (e) => {
+    if (e.keycode === aiKeyCodeValue) {
+      aiSendNowLock = false;
+    }
+  });
 
   const mouseAction = store.get('mouseAction') || 'none';
   const mouseButton = parseInt(store.get('mouseButton') || '3', 10);
@@ -227,4 +254,5 @@ module.exports = {
   registerHotkeys,
   stopUiohook,
   setTranslatorCtx,
+  setAiSendNow,
 };

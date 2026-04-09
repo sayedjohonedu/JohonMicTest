@@ -159,7 +159,25 @@ function setupClipboardIpc() {
         }
       } catch (_) {}
     }
+    // Bump to top of list
+    hs.bumpToTop(id);
     return { ok: true };
+  });
+
+  // Bump entry to top without copying
+  ipcMain.handle('cb-bump-to-top', (_, id) => {
+    return { ok: hs.bumpToTop(id) };
+  });
+
+  // Show image file in system file manager (Finder / Explorer)
+  ipcMain.handle('cb-show-in-folder', (_, id) => {
+    const found = _findEntryById(id);
+    if (!found || !found.imagePath) return { ok: false };
+    if (fs.existsSync(found.imagePath)) {
+      shell.showItemInFolder(found.imagePath);
+      return { ok: true };
+    }
+    return { ok: false, reason: 'file_not_found' };
   });
 
   // ── Export / Import ────────────────────────────────────────────────────
@@ -215,6 +233,7 @@ function setupClipboardIpc() {
   // ── Config ─────────────────────────────────────────────────────────────
 
   ipcMain.handle('cb-get-config', () => ({
+    theme: store.get('theme') || 'light', // Add global UI theme
     clipboard: {
       hotkey:          store.get('clipboardHotkey')          || 'Alt+V',
       hotkeyEnabled:   store.get('clipboardHotkeyEnabled')   !== false,

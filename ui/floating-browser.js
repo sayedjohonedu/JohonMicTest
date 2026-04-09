@@ -325,4 +325,15 @@ document.addEventListener('DOMContentLoaded', async () => {
   // ── Initial load ───────────────────────────────────────────────────────────
   bookmarks = await api.bookmarksGet();
   updateStar('');
+
+  // ── Theming ───────────────────────────────────────────────────────────────
+  function applyTheme(themeVal) {
+    if (!themeVal) return;
+    document.documentElement.setAttribute('data-theme', themeVal);
+  }
+  
+  if (api.getConfig) {
+    api.getConfig().then(cfg => { if (cfg.theme) applyTheme(cfg.theme); });
+  }
+  api.onConfigUpdate((cfg) => { if (cfg.theme) applyTheme(cfg.theme); });
 });

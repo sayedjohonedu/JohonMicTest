@@ -27,6 +27,7 @@ function _liftOverlay() {
 
 function showClipboardManager() {
   if (_clipboardWindow && !_clipboardWindow.isDestroyed()) {
+    if (process.platform === 'darwin') app.setActivationPolicy('regular');
     _clipboardWindow.show();
     _clipboardWindow.focus();
     _liftOverlay();
@@ -97,13 +98,19 @@ function showClipboardManager() {
   });
 
   if (isMac) {
-    setImmediate(() => app.setActivationPolicy('accessory'));
+    // Keep app as 'regular' while clipboard window is open
+    // to avoid macOS double-click-to-activate behavior
+    app.setActivationPolicy('regular');
     _clipboardWindow.on('closed', () => {
-      setImmediate(() => app.setActivationPolicy('accessory'));
+      _clipboardWindow = null;
+      // Only revert to accessory if no other interactive windows remain
+      // (lazy-require to avoid circular dependency)
+      const { maybRevertToAccessory } = require('./window-manager');
+      maybRevertToAccessory();
     });
+  } else {
+    _clipboardWindow.on('closed', () => { _clipboardWindow = null; });
   }
-
-  _clipboardWindow.on('closed', () => { _clipboardWindow = null; });
 
   return _clipboardWindow;
 }
@@ -115,6 +122,10 @@ function getClipboardWindow() {
 function hideClipboardManager() {
   if (_clipboardWindow && !_clipboardWindow.isDestroyed()) {
     _clipboardWindow.hide();
+    if (process.platform === 'darwin') {
+      const { maybRevertToAccessory } = require('./window-manager');
+      maybRevertToAccessory();
+    }
   }
 }
 
@@ -124,7 +135,12 @@ function toggleClipboardManager() {
   }
   if (_clipboardWindow.isVisible()) {
     _clipboardWindow.hide();
+    if (process.platform === 'darwin') {
+      const { maybRevertToAccessory } = require('./window-manager');
+      maybRevertToAccessory();
+    }
   } else {
+    if (process.platform === 'darwin') app.setActivationPolicy('regular');
     _clipboardWindow.show();
     _clipboardWindow.focus();
     _liftOverlay();

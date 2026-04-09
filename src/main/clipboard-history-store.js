@@ -11,7 +11,7 @@
  *   • Never slow the app — fast SQLite queries
  *   • Supports free (7-day rolling) and paid (30/90/6mo/lifetime) retention
  *   • Favorites and pins are exempt from TTL pruning
- *   • Images: auto-captured up to 5 MB
+ *   • Images: auto-captured up to 15 MB
  * ──────────────────────────────────────────────────────────────────────────
  */
 
@@ -23,7 +23,7 @@ const AdmZip = require('adm-zip');
 
 // ── Constants ──────────────────────────────────────────────────────────────
 
-const MAX_IMAGE_BYTES   = 5 * 1024 * 1024;   // 5 MB
+const MAX_IMAGE_BYTES   = 15 * 1024 * 1024;  // 15 MB
 const MAX_FREE_FAVS     = 10;
 const MAX_PINS          = 100;
 const PAGE_SIZE         = 300;               // entries per infinite-scroll page (search queries all)
@@ -486,6 +486,19 @@ function editEntryText(id, newText) {
   return true;
 }
 
+/**
+ * Bump an entry to the top of the list by updating its timestamp.
+ * Also increments copyCount. Used when user clicks to copy an entry.
+ */
+function bumpToTop(id) {
+  load();
+  const entry = _db.prepare('SELECT id FROM entries WHERE id = ?').get(id);
+  if (!entry) return false;
+  const newTimestamp = Date.now();
+  _db.prepare('UPDATE entries SET timestamp = ?, copyCount = copyCount + 1 WHERE id = ?').run(newTimestamp, id);
+  return true;
+}
+
 // ── Query ──────────────────────────────────────────────────────────────────
 
 function query(options = {}) {
@@ -754,6 +767,7 @@ module.exports = {
   addBuiltinCategory,
   addUserCategory,
   editEntryText,
+  bumpToTop,
 
   // Query
   query,

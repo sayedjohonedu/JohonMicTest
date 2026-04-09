@@ -326,6 +326,19 @@ function buildPunctuation(chars) {
   const mid = Math.ceil(chars.length / 2);
   prow1.innerHTML = prow2.innerHTML = prow3.innerHTML = '';
   chars.slice(0, mid).forEach(c => prow1.appendChild(mkBtn(c)));
+  // AI send button in prow1 — disabled (using hotkey instead, kept for future)
+  // if (isAiMode) {
+  //   const aiBtn = document.createElement('button');
+  //   aiBtn.id = 'ai-send-btn';
+  //   aiBtn.className = 'punct-btn ai-send-inline';
+  //   aiBtn.title = 'Send to AI now (Right Alt)';
+  //   aiBtn.innerHTML = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>';
+  //   aiBtn.addEventListener('click', (e) => {
+  //     e.preventDefault(); e.stopPropagation();
+  //     if (window.junoAPI.aiSendNow) window.junoAPI.aiSendNow();
+  //   });
+  //   prow1.appendChild(aiBtn);
+  // }
   prow1.appendChild(mkBackspaceBtn());
   prow2.appendChild(mkShuffleBtn()); 
   chars.slice(mid).forEach(c => prow2.appendChild(mkBtn(c)));
@@ -574,23 +587,19 @@ window.junoAPI.onConfigUpdate && window.junoAPI.onConfigUpdate((cfg) => { if (cf
 
 // ── AI Mode state tracking ──
 let isAiMode = false;
-const aiSendBtn = document.getElementById('ai-send-btn');
 const miniAiSendBtn = document.getElementById('mini-ai-send-btn');
 
 function showAiSendButtons(show) {
-  if (aiSendBtn) aiSendBtn.classList.toggle('visible', show);
-  if (miniAiSendBtn) miniAiSendBtn.classList.toggle('visible', show);
+  // AI send buttons disabled — using configurable hotkey instead (kept for future)
+  // if (miniAiSendBtn) miniAiSendBtn.classList.toggle('visible', show);
+  // if (currentLang && currentLang.punct) buildPunctuation(currentLang.punct);
 }
 
-// AI Send Now button click handlers
-if (aiSendBtn) aiSendBtn.addEventListener('click', (e) => {
-  e.preventDefault(); e.stopPropagation();
-  if (window.junoAPI.aiSendNow) window.junoAPI.aiSendNow();
-});
-if (miniAiSendBtn) miniAiSendBtn.addEventListener('click', (e) => {
-  e.preventDefault(); e.stopPropagation();
-  if (window.junoAPI.aiSendNow) window.junoAPI.aiSendNow();
-});
+// AI Send Now — mini pill button click handler (disabled, using hotkey)
+// if (miniAiSendBtn) miniAiSendBtn.addEventListener('click', (e) => {
+//   e.preventDefault(); e.stopPropagation();
+//   if (window.junoAPI.aiSendNow) window.junoAPI.aiSendNow();
+// });
 
 window.junoAPI.onSessionStart((data) => {
   window.junoAPI.getConfig().then(cfg => {
@@ -820,8 +829,10 @@ if (window.junoAPI.onAiBufferUpdate) {
 
 if (window.junoAPI.onAiProcessingStart) {
   window.junoAPI.onAiProcessingStart(() => {
-    // Hide Send buttons during processing
-    showAiSendButtons(false);
+    // Show loading spinner on Send buttons instead of hiding them
+    const inlineBtn = document.getElementById('ai-send-btn');
+    if (inlineBtn) inlineBtn.classList.add('ai-loading');
+    if (miniAiSendBtn) miniAiSendBtn.classList.add('ai-loading');
     const statusLabel = document.getElementById('status-label');
     if (statusLabel) {
       statusLabel.innerHTML = '<span style="color:#a855f7">AI ✦</span> Processing…';
@@ -859,7 +870,10 @@ if (window.junoAPI.onAiBufferReset) {
     if (statusLabel) statusLabel.innerHTML = '<span style="color:#a855f7">AI ✦</span> Listening…';
     if (phraseText) { phraseText.textContent = ''; phraseText.classList.remove('fading'); }
     interimEl.textContent = '';
-    // Re-show Send buttons since we're still in AI mode
+    // Clear loading spinner from Send buttons and restore them
+    const inlineBtn = document.getElementById('ai-send-btn');
+    if (inlineBtn) inlineBtn.classList.remove('ai-loading');
+    if (miniAiSendBtn) miniAiSendBtn.classList.remove('ai-loading');
     if (isAiMode) showAiSendButtons(true);
   });
 }

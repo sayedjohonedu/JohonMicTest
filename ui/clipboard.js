@@ -48,10 +48,12 @@ document.addEventListener('DOMContentLoaded', async () => {
   try { await loadStats();         } catch (e) { console.warn('[CB] loadStats:', e.message); }
   try { await loadEntries(true);   } catch (e) { console.warn('[CB] loadEntries:', e.message); }
 
-  // Apply theme from settings
-  applyTheme();
+  // Apply theme happens globally via config updates or loadConfig
 
-  // Primary trigger: main process sends cb-window-shown whenever the window
+  // Sync theme immediately on config broadcast
+  window.clipboardAPI.onConfigUpdate((cfg) => {
+    if (cfg.theme) applyTheme(cfg.theme);
+  });
   // becomes visible via show()/toggle(). Much more reliable than visibilitychange
   // in Electron on Windows during hide/show cycles.
   window.clipboardAPI.onWindowShown(() => {
@@ -121,7 +123,10 @@ async function loadLicenseStatus() {
 }
 
 async function loadConfig() {
-  // Config loaded if needed (retention etc.)
+  _cbConfig = await window.clipboardAPI.getConfig();
+  if (_cbConfig && _cbConfig.theme) {
+    applyTheme(_cbConfig.theme);
+  }
 }
 
 // ── Stats ──────────────────────────────────────────────────────────────────
@@ -370,6 +375,16 @@ function buildEntryCard(entry) {
   copyBtn.onclick = (e) => { e.stopPropagation(); doCopyToClipboard(entry.id); };
   actions.appendChild(copyBtn);
 
+  // Show in folder button (images only)
+  if (entry.type === 'image' && entry.imagePath) {
+    const folderBtn = document.createElement('button');
+    folderBtn.className = 'entry-btn';
+    folderBtn.innerHTML = '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/></svg>';
+    folderBtn.title = 'Show in folder';
+    folderBtn.onclick = (e) => { e.stopPropagation(); doShowInFolder(entry.id); };
+    actions.appendChild(folderBtn);
+  }
+
   // Add to Category button (tag icon) with dropdown
   const catBtn = document.createElement('button');
   catBtn.className = 'entry-btn cat-assign-btn';
@@ -386,22 +401,20 @@ function buildEntryCard(entry) {
   delBtn.onclick = (e) => { e.stopPropagation(); doDeleteEntry(entry.id); };
   actions.appendChild(delBtn);
 
-  // (paste button hidden - clicking card now pastes)
-
   card.appendChild(actions);
 
-  // Click card to paste (or select in selecting mode)
+  // Click card to paste (text) or copy-to-clipboard (image)
   card.onclick = (e) => {
-    // Don't paste if click was on an action button/checkbox
-    if (e.target.closest('.entry-actions') || e.target.closest('.entry-checkbox')) return;
+    // Don't act if click was on an action button/checkbox/thumbnail
+    if (e.target.closest('.entry-actions') || e.target.closest('.entry-checkbox') || e.target.closest('.entry-thumb')) return;
     if (_state.selecting) {
       toggleSelectEntry(entry.id, !_state.selectedIds.has(entry.id));
       cb.checked = _state.selectedIds.has(entry.id);
       return;
     }
-    // Paste on click
     if (entry.type === 'image') {
-      showImageModal(`file://${entry.imagePath}`);
+      // Copy image to clipboard and bump to top
+      doCopyToClipboard(entry.id);
     } else {
       doPasteEntry(entry);
     }
@@ -485,7 +498,17 @@ async function doPasteEntry(entry) {
 
 async function doCopyToClipboard(id) {
   await window.clipboardAPI.copyToClipboard(id);
-  showToast('Copied to clipboard!');
+  showToast('Copied! Go to destination and paste (Ctrl+V / ⌘V)');
+  // Refresh the list so the bumped entry appears on top
+  await loadEntries(true);
+  await loadStats();
+}
+
+async function doShowInFolder(id) {
+  const res = await window.clipboardAPI.showInFolder(id);
+  if (!res || !res.ok) {
+    showToast('Could not locate the image file.', 'error');
+  }
 }
 
 function removeCardFromDom(id) {
@@ -857,6 +880,10 @@ function switchSection(section, el) {
     contentBody.style.display   = 'none';
     if (filterBar)     filterBar.style.display = 'none';
 
+    // Hide category delete button when entering settings
+    const catClearBtnSettings = document.getElementById('cat-clear-btn');
+    if (catClearBtnSettings) catClearBtnSettings.style.display = 'none';
+
     document.querySelectorAll('.nav-item, .sidebar-btn').forEach(n => n.classList.remove('active'));
     el.classList.add('active');
     document.getElementById('panel-title').textContent = '⚙️ Settings';
@@ -890,11 +917,20 @@ function switchSection(section, el) {
 }
 
 function switchCategory(cat, el) {
+  // Close settings panel if it's open (fix: clicking category while settings is open)
+  const settingsPanel = document.getElementById('settings-panel');
+  const contentBody   = document.getElementById('content-body');
+  const filterBar     = document.getElementById('filter-bar');
+  settingsPanel.style.display = 'none';
+  contentBody.style.display   = 'flex';
+  if (filterBar) filterBar.style.display = 'flex';
+
   _state.section  = 'all';
   _state.category = cat;
   _state.page     = 0;
 
-  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  // Update active nav (also deactivate any sidebar buttons like Settings)
+  document.querySelectorAll('.nav-item, .sidebar-btn').forEach(n => n.classList.remove('active'));
   el.classList.add('active');
   document.getElementById('panel-title').textContent = `🏷️ ${cat}`;
 
@@ -982,10 +1018,9 @@ function updateStatsBadges() {
   loadStats();
 }
 
-function applyTheme() {
-  // Mirror settings theme from electron store (best effort)
-  // Theme CSS variables already default to dark; no additional action needed
-  // unless we wire it via config
+function applyTheme(themeVal) {
+  if (!themeVal) return;
+  document.documentElement.setAttribute('data-theme', themeVal);
 }
 
 // Keyboard shortcut: Escape closes any open modal

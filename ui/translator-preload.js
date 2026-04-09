@@ -41,4 +41,5 @@ contextBridge.exposeInMainWorld('translatorAPI', {
   onPaste:       (cb) => on('translator-do-paste', cb),
   onSttState:    (cb) => on('translator-stt-state', cb),
   onAutoStart:   (cb) => on('translator-auto-start', cb),
+  onConfigUpdate: (cb) => on('config-updated', cb),
 });

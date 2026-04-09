@@ -1,0 +1,95 @@
+# MicTab - Complete Feature Documentation & Specifications
+
+MicTab is a powerful, cross-platform voice dictation application, intelligent clipboard manager, floating translator, floating web browser, and AI assistant. This document catalogs every feature, setting, shortcut, and systemic capability of the application to serve as a comprehensive reference point for further AI extensions and developmental architecture.
+
+## 🌟 Ambition: The AI Assistant
+MicTab is actively transitioning from a dictation tool into a holistic **AI Assistant**. Its core infrastructure has been built to process user input, augment it using Large Language Models (LLMs), and seamlessly inject it into any external operating context. 
+
+## 1. 🎙️ Core Voice Dictation & Input
+* **Cross-App Dictation:** Capture speech-to-text globally and paste it automatically into the active text field of any third-party app.
+* **110+ Languages Supported:** Pre-configured with regional language flags and specialized models.
+* **Floating, Dynamic Overlay:** The dictation UI is a completely frameless, free-floating, draggable, and resizable window that sits above other apps.
+* **Miniature Mode:** The overlay can collapse into a small, non-intrusive compact bar when full dictation elements aren't needed.
+* **Punctuation & Emoji Insertion:** Dedicated overlay panels to manually inject punctuation or emojis into the text stream during active dictation.
+* **Direct Control Injection:** Send raw keystrokes (Enter, Backspace, Select All, Copy, Cut, Paste, Undo) without needing the physical keyboard.
+* **Text Replacements (Snippets):** "Say this, type that" engine. Users can map specific spoken phrases to output pre-configured strings. Supports custom JSON Import/Export with conflict merging.
+* **Microphone System:** Capable of scanning, selecting, and persisting a specific microphone device from the local machine along with manual sensitivity adjustments (1.0 to 5.0).
+* **Silence Timeout Customization:** Configure the specific time required for silence before the app stops dictation or sends the buffer. Granular units including Seconds, Minutes, Hours, or Days.
+
+## 2. 🧠 AI & LLM Capabilities (The Assistant Edge)
+* **AI Dictation Mode:** Rather than injecting raw transcription, the text is aggregated into a buffer and sent to an LLM (using a defined system prompt) before it is output to the user's screen.
+* **Send to AI (Instant Process):** Instead of waiting for a pause/silence in speech, users can hit a dedicated shortcut button to immediately force the buffer through the AI logic stream and inject the result.
+* **AI Translation:** Employs LLMs to translate text while strictly maintaining tone and formatting, bypassing the rigidity of typical translation APIs.
+* **AI Humanizer Engine:** Re-writes the spoken or provided text to sound more "natural, human, and conversational" while preserving the exact language and original meaning.
+* **Fallback API Routing:** A highly robust error-handling chain that automatically cycles to secondary AI profile configurations if the primary connection times out or fails natively. 
+* **Backend Flexibility:** Define Custom Model names, Base URLs (useful for local inference like Ollama), API Keys, and control the AI's Temperature slider (0.1 to 1.0).
+* **Personal Dictionary:** Users can define a comma-separated list of proper nouns and specific spellings that the AI must always output correctly in dictation.
+
+## 3. 📋 Intelligent Clipboard Manager
+* **Universal History Store:** Continuously intercepts and stores text and image clipboard history.
+* **Advanced Filtering & Search:** Filter clipboard entries by Type (Text or Image) or Date (Today, Yesterday, Week, Month). Full-text search functionality.
+* **Categorization Engine:** Organize clips using built-in categories (URL, Email, Code, Phone) or create unlimited custom User Categories.
+* **Favorite & Pin Features:** Pin items to keep them at the top or favorite them for long-term storage in the database. (Image favorites reserved for licensed users).
+* **Image Management:** Features thumbnails that can be fully expanded in a preview modal, coupled with a "Show in Folder" button to locate the raw file on the OS.
+* **Smart Re-use Flow:** Clicking an old item triggers a "copied" notification, injects it, and automatically bumps the entry to the top of the timeline to prevent duplicates.
+* **Entry Editing:** Directly edit text inside past clipboard entries via an editing modal.
+* **Multi-Select & Bulk Actions:** Clean up the clipboard history effectively using checkbox multi-seletes. 
+* **Self-Aware Exclusions:** Knows when it performs a paste action so it does not pollute the clipboard history with its own dictation/injection outputs.
+* **Import/Export Backups:** Backup and restore the entire history (including raw images) using native `.mictab-backup` package files.
+* **Data Clearing Options:** Delete the oldest day of history, clear all history, or use Auto-Delete functions.
+
+## 4. 🌍 Floating Translator Manager
+* **Dedicated Floating Window:** A seamless UI widget specifically for quick translation of content out-of-band.
+* **Pasting Intelligence:** When the translation is complete, the application handles a complex yield-focus procedure (via minimize/hide strategies) to securely return the user's cursor to the previous app, immediately pasting the translation.
+* **Translation History & Language Presets:** Recalls up to 200 previous translation operations and allows users to save layout presets.
+* **Provider Switch:** Easily pivot between basic translation (`google-translate-api-x`) and AI-powered translation (`LLM`).
+
+## 5. 🌐 Floating Web Browser Manager
+* **Mini Browser Context:** Capable of launching an encapsulated, floating Chromium-backed web browser window directly inside the MicTab ecosystem for quick research without navigating away.
+* **Multi-Tab System:** Fully supports opening multiple tabs simultaneously, closing tabs, and switching between them seamlessly.
+* **Built-In History & Bookmarks:** Tracks navigation history natively and allows bookmarking specific pages to a persisted list.
+* **Internal Download Manager:** Intercepts and displays progress for file downloads (`downloads` directory) triggered within the floating browser.
+* **Password Manager:** Independently stores and manages saved passwords for websites inside the floating context.
+* **Contextual Features:** Find-in-page support, browser zoom controls, and full Chrome DevTools integration.
+* **Session Management & Power off:** Safely "Power Off" the browser to immediately dump RAM usage while persisting the tabs to restore them later, or use "Hard Reset" to wipe all cache and cookies like incognito mode.
+* **Rich Context Menus:** Right-click context menus automatically adapting to copy text, copy images, copy link addresses, or force a Google search on highlighted text.
+
+## 6. ⚙️ Application Settings, UI, & Lifecycle
+* **Visualizer Styles:** Beautiful audio waveform overlays including Wave, Bars, Pulse, Particles, Line, and Matrix designs.
+* **Global Theming:** Comprehensive theme engine supporting System, Dark, Light, Bumble, Ocean, Sage, Rose, Ember, and Arctic styles. Applies across the main app, clipboard, browser, and translator.
+* **User Statistics Engine:** Logs and calculates metrics such as total Words Typed, Time Saved, Total Sessions, and a graphical Language Breakdown.
+* **Import & Export Full Configuration:** Users can spit out their entire operational configuration into a JSON backup file and restore it later. Imports include logic to warn users if incoming global shortcuts clash with their current OS architecture.
+* **Licensing System:** Supports a 7-Day Free Trial model or Gumroad Pro Subscription verification logic.
+* **Silent Updating Pipeline:** Integrated `electron-updater` allows MicTab to seamlessly fetch new patches released to the public GitHub repository. 
+* **Automated Bootup:** Native OS hook to Auto-Launch at login.
+* **OS Adaptive Injection:** Employs a blended keystroke-simulator (`robotjs`) and clipboard swap architecture depending on the OS (RobotJS TypeString for macOS, structured Clipboard Paste for Windows) to ensure zero double-typings or native input hooks failing.
+
+---
+
+## ⌨️ Global Shortcuts & Control Configuration
+MicTab has one of the most flexible triggering architectures, designed to operate from the background without stealing user focus.
+
+### Default Shortcuts
+* **`Alt + C`**: Toggle Dictation Listening (Global Combo).
+* **`Alt` (Hold)**: Hold-to-Talk functionality. Initiates dictation while held, stops when released.
+* **`Right Alt`**: "AI Send Now" trigger. Immediately process and inject the AI dictation buffer.
+* **`Alt + V`**: Toggle the Clipboard Manager Window.
+* **`Shift + Alt + T`**: Open the Floating Translator Window.
+* **`Shift + Alt + P`**: Trigger the paste sequence from the Translator to the system.
+
+### Programmable Custom Triggers
+* **Language-Specific Hotkeys:** You can program multiple combo shortcuts (e.g., `Ctrl+E`, `Ctrl+S`) where each natively overrides the language engine when pressed (e.g., hitting `Ctrl+S` will toggle dictation directly into Spanish).
+* **Suspend/Resume Triggers:** Hotkeys can be globally suspended entirely from the software UI.
+* **Mouse Integrations (`Middle Mouse Button` default):**
+  * **Single Click:** Toggle dictation.
+  * **Double Click:** Toggle dictation (with double-fire protection).
+  * **Hold:** Starts holding timer, executes dictation loop, auto-cancels if the mouse up is swallowed by OS Bluetooth miscommunications.
+
+---
+
+## 🛠 Required System Setup & Requirements
+To properly operate MicTab, the host system must satisfy the following constraints:
+1. **Google Chrome Installation:** Required as the engine (`puppeteer-core`) connects natively to a Chromium/Chrome instance to power the internal speech recognition and advanced integrations.
+2. **System Accessibility Permissions:** Due to the global hotkey hooks (`uiohook-napi`) and simulated keystroke injections (`robotjs`), the OS (especially macOS) heavily requires Accessibility & Input Monitoring permissions.
+3. **Microphone Hardware Permissions:** Explicit grant rights for the microphone.
+4. **Internet Connection / Local LLM Base:** For AI features, a successful connection to a remote profile endpoint or a locally running Ollama instance is mandatory.
