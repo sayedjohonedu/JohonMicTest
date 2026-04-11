@@ -84,11 +84,11 @@ const schema = {
   // ── Voice Behaviour ───────────────────────────────────────
   silenceTimeoutEnabled: {
     type: 'boolean',
-    default: true
+    default: false   // off by default — user must opt in
   },
   silenceTimeoutVal: {
     type: 'number',
-    default: 1
+    default: 10
   },
   silenceTimeoutUnit: {
     type: 'string',
@@ -96,7 +96,7 @@ const schema = {
   },
   silenceTimeout: {
     type: 'number',
-    default: 1       // calculated seconds (0 = disabled/infinite)
+    default: 0       // 0 = disabled/infinite (matches silenceTimeoutEnabled: false)
   },
   // ── Overlay mode ─────────────────────────────────────────
   overlayMini: {

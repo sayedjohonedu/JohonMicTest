@@ -16,7 +16,7 @@ const { setupClipboardIpc } = require('./src/main/clipboard-ipc');
 // Import modules
 const { createOverlay, showSettings, showLicensePopup, showWordLimitPopup, showTranslatorLockedPopup, showAiTrialExpiredPopup, applyOverlaySize, getOverlayWindow, getSettingsWindow } = require('./src/main/window-manager');
 const { onOverlayShow, onOverlayHide } = require('./src/main/floating-browser-manager');
-const { registerHotkeys, stopUiohook, setTranslatorCtx, setAiSendNow } = require('./src/main/hotkey-manager');
+const { registerHotkeys, stopUiohook, setTranslatorCtx, setAiSendNow, setAiModeToggle } = require('./src/main/hotkey-manager');
 const { checkAuthStatus, checkAndResetDailyWords, checkAiTrialExpiry } = require('./src/main/licensing');
 const { setupUpdater } = require('./src/main/updater');
 const { setupIpcHandlers, aiDictationManager } = require('./src/main/ipc-handlers');
@@ -101,6 +101,42 @@ function resetAiSilenceTimer() {
     if (!isAiModeActive()) return;
     processAiBufferAndContinue();
   }, timeoutSec * 1000);
+}
+
+/**
+ * Toggle AI dictation mode on/off via hotkey (Alt+Shift+C).
+ * Notifies all windows so UI stays in sync.
+ */
+function toggleAiMode() {
+  const { checkAiTrialExpiry } = require('./src/main/licensing');
+  const current = store.get('aiModeEnabled') === true;
+  const newState = !current;
+
+  // If enabling, enforce AI trial
+  if (newState) {
+    if (!store.get('aiFirstEnabledDate')) {
+      store.set('aiFirstEnabledDate', Date.now());
+    }
+    const trial = checkAiTrialExpiry();
+    if (trial.expired) {
+      const { showAiTrialExpiredPopup } = require('./src/main/window-manager');
+      showAiTrialExpiredPopup();
+      return;
+    }
+  }
+
+  store.set('aiModeEnabled', newState);
+
+  // Notify all windows (settings, overlay, etc.) so UI stays in sync
+  const { BrowserWindow } = require('electron');
+  BrowserWindow.getAllWindows().forEach(win => {
+    if (!win.isDestroyed()) {
+      win.webContents.send('config-updated', { aiModeEnabled: newState });
+      win.webContents.send('ai-mode-toggled', newState);
+    }
+  });
+
+  console.log(`[AI Mode] Toggled ${newState ? 'ON' : 'OFF'} via hotkey`);
 }
 
 // Windows fix: Re-enable GPU for smoother dragging, but add stability flags
@@ -227,7 +263,7 @@ function toggleListening(forceLang = null, fromTranslator = false, forceStart = 
     // For AI mode: set bridge silence timeout to 0 (infinite) so it never fires
     // silence-timeout — the AI silence timer in main.js handles processing independently.
     // For regular mode: use the normal silence timeout.
-    const silenceTimeout = isAiModeActive() ? 0 : (store.get('silenceTimeout') ?? 1);
+    const silenceTimeout = isAiModeActive() ? 0 : (store.get('silenceTimeout') ?? 10);
     // Clear AI buffer at session start
     if (isAiModeActive()) {
       aiDictationManager.clearBuffer();
@@ -369,7 +405,7 @@ function switchTrayLanguage(langCode) {
       wsClient.send(JSON.stringify({ command: 'stop' }));
       setTimeout(() => {
         if (isListening && wsClient && wsClient.readyState === WebSocket.OPEN) {
-          wsClient.send(JSON.stringify({ command: 'start', language: langCode, timeout: store.get('silenceTimeout') ?? 1 }));
+          wsClient.send(JSON.stringify({ command: 'start', language: langCode, timeout: store.get('silenceTimeout') ?? 10 }));
         }
       }, 200);
     } catch (e) {
@@ -649,6 +685,8 @@ app.whenReady().then(() => {
   });
   // Wire AI instant-process trigger (Right Alt) into hotkey-manager
   setAiSendNow(processAiBufferAndContinue);
+  // Wire AI mode toggle (Alt+Shift+C) into hotkey-manager
+  setAiModeToggle(toggleAiMode);
   registerHotkeys(toggleListening);
 
   // ── Wire translator shortcuts into hotkey-manager so they survive unregisterAll()

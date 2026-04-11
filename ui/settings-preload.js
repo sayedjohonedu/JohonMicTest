@@ -42,4 +42,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   aiShowTrialPopup:          ()           => ipcRenderer.send('ai-show-trial-popup'),
   // ── Clipboard Manager ──
   cbSetEnabled:              (enabled)    => ipcRenderer.invoke('cb-set-enabled', enabled),
+  // ── Live sync (hotkey toggles while settings is open) ──
+  onConfigUpdate:            (cb)         => onChannel('config-updated', (_, cfg) => cb(cfg)),
+  onAiModeToggled:           (cb)         => onChannel('ai-mode-toggled', (_, on) => cb(on)),
 });

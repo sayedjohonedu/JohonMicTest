@@ -14,12 +14,19 @@ let _translatorCtx = null;
 // AI instant-process callback (Right Alt trigger)
 let _aiSendNow = null;
 
+// AI mode toggle callback (Alt+Shift+C)
+let _aiModeToggle = null;
+
 function setTranslatorCtx(ctx) {
   _translatorCtx = ctx;
 }
 
 function setAiSendNow(fn) {
   _aiSendNow = fn;
+}
+
+function setAiModeToggle(fn) {
+  _aiModeToggle = fn;
 }
 
 function uiohookKeyName(keycode) {
@@ -82,6 +89,13 @@ function registerHotkeys(toggleListening) {
       const { toggleClipboardManager } = require('./clipboard-window-manager');
       globalShortcut.register(cbHotkey, () => toggleClipboardManager());
     } catch (e) { console.log('Clipboard hotkey failed:', e.message); }
+  }
+
+  // ── AI Mode toggle shortcut (Alt+Shift+C) ──
+  if (_aiModeToggle) {
+    try {
+      globalShortcut.register('Shift+Alt+C', () => _aiModeToggle());
+    } catch (e) { console.log('AI toggle shortcut failed:', e.message); }
   }
 
   // 1b) Language-specific Combo Hotkeys
@@ -255,4 +269,5 @@ module.exports = {
   stopUiohook,
   setTranslatorCtx,
   setAiSendNow,
+  setAiModeToggle,
 };

@@ -55,5 +55,6 @@ contextBridge.exposeInMainWorld('junoAPI', {
   onAiProcessingStart:          (cb) => onChannel('ai-processing-start',  ()        => cb()),
   onAiProcessingEnd:            (cb) => onChannel('ai-processing-end',    (_, data) => cb(data)),
   onAiBufferReset:              (cb) => onChannel('ai-buffer-reset',      ()        => cb()),
+  onAiModeToggled:              (cb) => onChannel('ai-mode-toggled',      (_, on)   => cb(on)),
   aiSendNow:                    ()   => ipcRenderer.send('ai-send-now'),
 });

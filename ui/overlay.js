@@ -877,3 +877,26 @@ if (window.junoAPI.onAiBufferReset) {
     if (isAiMode) showAiSendButtons(true);
   });
 }
+
+// ── AI Mode toggle notification (Alt+Shift+C hotkey) ─────────────────
+if (window.junoAPI.onAiModeToggled) {
+  window.junoAPI.onAiModeToggled((on) => {
+    isAiMode = on;
+    showAiSendButtons(on);
+    // Show a brief toast on the overlay
+    const statusLabel = document.getElementById('status-label');
+    if (statusLabel) {
+      statusLabel.innerHTML = on
+        ? '<span style="color:#a855f7">🤖 AI Mode ON</span>'
+        : '<span style="color:#4ade80">📝 Normal Mode</span>';
+      // Revert to default label after 2s
+      setTimeout(() => {
+        if (statusLabel) {
+          statusLabel.innerHTML = on
+            ? '<span style="color:#a855f7">AI ✦</span> Listening…'
+            : 'Listening…';
+        }
+      }, 2000);
+    }
+  });
+}

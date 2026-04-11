@@ -650,7 +650,7 @@ async function loadConfig() {
   document.getElementById('toggle-autolunch').checked = cfg.autoLaunch !== false; ensureCfdBuilt(); setCfdValue(cfg.language || 'en-US');
   // Clipboard Manager master toggle
   document.getElementById('toggle-clipboard-enabled').checked = cfg.clipboardEnabled !== false;
-  document.getElementById('toggle-silence').checked = cfg.silenceTimeoutEnabled !== false; syncSilenceEnable(); document.getElementById('silence-timeout-val').value = String(cfg.silenceTimeoutVal ?? '1'); const tU = document.getElementById('silence-timeout-unit'); if ([...tU.options].some(o => o.value === String(cfg.silenceTimeoutUnit || 'sec'))) tU.value = String(cfg.silenceTimeoutUnit || 'sec');
+  document.getElementById('toggle-silence').checked = cfg.silenceTimeoutEnabled === true; syncSilenceEnable(); document.getElementById('silence-timeout-val').value = String(cfg.silenceTimeoutVal ?? '10'); const tU = document.getElementById('silence-timeout-unit'); if ([...tU.options].some(o => o.value === String(cfg.silenceTimeoutUnit || 'sec'))) tU.value = String(cfg.silenceTimeoutUnit || 'sec');
   document.getElementById('toggle-sim-typing').checked = cfg.simulateTyping === true; loadMicList(false, cfg.selectedMicId || '');
   document.getElementById('toggle-replace').checked = cfg.textReplaceEnabled === true; syncReplaceEnable();
   const rL = document.getElementById('replacement-list'); rL.innerHTML = ''; if (!(cfg.textReplacements || []).length) addReplacementRow('', ''); else cfg.textReplacements.forEach(r => addReplacementRow(r.say || '', r.replace || ''));
@@ -874,3 +874,11 @@ window.confirmImport = async function(mode) {
 document.getElementById('import-modal').addEventListener('click', (e) => { if (e.target === e.currentTarget) closeImportModal(); });
 window.electronAPI.onLicenseExpired?.(() => document.querySelector('.nav-item[data-panel="license"]')?.click());
 loadConfig();
+
+// ── Live sync: AI mode toggled via Alt+Shift+C while settings is open ──
+if (window.electronAPI.onAiModeToggled) {
+  window.electronAPI.onAiModeToggled((on) => {
+    const toggle = document.getElementById('toggle-ai-mode');
+    if (toggle) { toggle.checked = on; syncAiEnable(); }
+  });
+}
