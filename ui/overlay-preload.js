@@ -57,4 +57,11 @@ contextBridge.exposeInMainWorld('junoAPI', {
   onAiBufferReset:              (cb) => onChannel('ai-buffer-reset',      ()        => cb()),
   onAiModeToggled:              (cb) => onChannel('ai-mode-toggled',      (_, on)   => cb(on)),
   aiSendNow:                    ()   => ipcRenderer.send('ai-send-now'),
+  // ── Update Reminder ──
+  onUpdateReminderInfo:         (cb) => onChannel('update-reminder-info', (_, info) => cb(info)),
+  onUpdateStatus:               (cb) => onChannel('update-status',        (_, info) => cb(info)),
+  downloadUpdate:               ()   => ipcRenderer.send('download-update'),
+  installUpdate:                ()   => ipcRenderer.send('install-update'),
+  dismissUpdateReminder:        ()   => ipcRenderer.send('dismiss-update-reminder'),
+  closeLicenseCelebration:       ()   => ipcRenderer.send('close-license-celebration'),
 });

@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<title>Update Available</title>
+<link rel="stylesheet" href="overlay.css">
+<style>
+  body {
+    margin: 0; overflow: hidden; user-select: none; -webkit-user-select: none;
+    display: flex; justify-content: center; align-items: center; height: 100vh;
+  }
+  #card {
+    position: relative;
+    width: 100%; height: 100%; box-sizing: border-box;
+    padding: 24px 22px 20px;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    text-align: center; gap: 12px; -webkit-app-region: drag;
+    box-shadow: none !important;
+    border: 1px solid rgba(74,222,128,0.2) !important;
+    border-radius: 14px !important;
+    background: rgba(22, 22, 28, 0.98) !important;
+  }
+  .icon-ring {
+    width: 52px; height: 52px; border-radius: 50%;
+    background: rgba(74, 222, 128, 0.12);
+    border: 1px solid rgba(74, 222, 128, 0.3);
+    display: flex; justify-content: center; align-items: center;
+    color: #4ade80; flex-shrink: 0;
+    animation: pulse-ring 2.5s ease-in-out infinite;
+  }
+  @keyframes pulse-ring {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(74, 222, 128, 0.15); }
+    50% { box-shadow: 0 0 0 10px rgba(74, 222, 128, 0); }
+  }
+  h2 { margin: 0; font-size: 17px; color: #fff; font-weight: 700; }
+  p  { margin: 0; font-size: 12.5px; color: rgba(255,255,255,0.65); line-height: 1.55; max-width: 280px; }
+  .version-badge {
+    display: inline-flex; align-items: center; gap: 6px;
+    background: rgba(74,222,128,0.1); border: 1px solid rgba(74,222,128,0.25);
+    border-radius: 20px; padding: 5px 14px;
+    font-size: 12px; font-weight: 600; color: #4ade80;
+  }
+  .version-badge svg { width: 12px; height: 12px; }
+  .btn-row {
+    display: flex; gap: 9px; width: 100%; margin-top: 4px;
+    -webkit-app-region: no-drag;
+  }
+  button {
+    flex: 1; padding: 9px 10px; border: none; border-radius: 8px;
+    font-size: 12.5px; font-weight: 600; cursor: pointer; transition: all 0.18s;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  }
+  .btn-update {
+    background: linear-gradient(135deg, #4ade80, #22c55e);
+    color: #fff; box-shadow: 0 2px 10px rgba(74,222,128,0.35);
+  }
+  .btn-update:hover { transform: translateY(-1px); box-shadow: 0 4px 16px rgba(74,222,128,0.5); }
+  .btn-later {
+    background: rgba(255,255,255,0.09); color: rgba(255,255,255,0.8);
+    border: 1px solid rgba(255,255,255,0.15);
+  }
+  .btn-later:hover { background: rgba(255,255,255,0.14); }
+  .progress-text {
+    font-size: 11px; color: rgba(255,255,255,0.5); margin-top: -4px;
+    min-height: 16px;
+  }
+</style>
+</head>
+<body>
+<div id="card">
+  <div class="icon-ring">
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+      <polyline points="7 10 12 15 17 10"/>
+      <line x1="12" y1="15" x2="12" y2="3"/>
+    </svg>
+  </div>
+  <h2>Update Available!</h2>
+
+  <div class="version-badge" id="version-badge">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+      <path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/>
+    </svg>
+    <span id="version-text">v0.0.0</span>
+  </div>
+
+  <p>A new version of MicTab is ready. Update now for the latest features, improvements, and bug fixes.</p>
+
+  <div class="progress-text" id="progress-text"></div>
+
+  <div class="btn-row" id="btn-row">
+    <button class="btn-later" id="btn-later">Remind me later</button>
+    <button class="btn-update" id="btn-update">Update Now</button>
+  </div>
+</div>
+<script>
+  const versionBadge = document.getElementById('version-text');
+  const progressText = document.getElementById('progress-text');
+  const btnUpdate = document.getElementById('btn-update');
+  const btnLater = document.getElementById('btn-later');
+  const btnRow = document.getElementById('btn-row');
+
+  // Receive the available version from main process
+  window.junoAPI.onUpdateReminderInfo((info) => {
+    if (info.version) {
+      versionBadge.textContent = 'v' + info.version;
+    }
+  });
+
+  // Listen for update-status events (progress, downloaded, error)
+  window.junoAPI.onUpdateStatus((info) => {
+    if (info.type === 'progress') {
+      progressText.textContent = 'Downloading: ' + Math.round(info.percent) + '%';
+      btnUpdate.textContent = 'Downloading...';
+      btnUpdate.disabled = true;
+      btnUpdate.style.opacity = '0.7';
+    } else if (info.type === 'downloaded') {
+      progressText.textContent = 'Download complete!';
+      btnUpdate.textContent = 'Restart & Install';
+      btnUpdate.disabled = false;
+      btnUpdate.style.opacity = '1';
+      btnUpdate.onclick = () => window.junoAPI.installUpdate();
+    } else if (info.type === 'error') {
+      progressText.textContent = 'Download failed. Try again later.';
+      btnUpdate.textContent = 'Update Now';
+      btnUpdate.disabled = false;
+      btnUpdate.style.opacity = '1';
+    }
+  });
+
+  btnUpdate.addEventListener('click', () => {
+    progressText.textContent = 'Starting download...';
+    btnUpdate.textContent = 'Downloading...';
+    btnUpdate.disabled = true;
+    btnUpdate.style.opacity = '0.7';
+    window.junoAPI.downloadUpdate();
+  });
+
+  btnLater.addEventListener('click', () => {
+    window.junoAPI.dismissUpdateReminder();
+  });
+</script>
+</body>
+</html>

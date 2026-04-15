@@ -40,8 +40,22 @@ function setupClipboardIpc() {
   ipcMain.handle('cb-get-entry-dates', () => hs.getEntryDates());
 
   ipcMain.handle('cb-get-user-cats', () => {
-    try { return hs.getUserCategoryList(); } catch (e) {
-      console.warn('[ClipboardIPC] getUserCategoryList error:', e.message);
+    try {
+      const meta = store.get('clipboardUserCategories') || [];
+      // Merge any entry-level categories not yet in config meta
+      const entryNames = hs.getUserCategoryList();
+      const metaNames = new Set(meta.map(m => m.name));
+      for (const name of entryNames) {
+        if (!metaNames.has(name)) {
+          meta.push({ name, emoji: '🏷️' });
+        }
+      }
+      if (meta.length > 0) {
+        store.set('clipboardUserCategories', meta);
+      }
+      return meta;
+    } catch (e) {
+      console.warn('[ClipboardIPC] getUserCats error:', e.message);
       return [];
     }
   });
@@ -110,13 +124,15 @@ function setupClipboardIpc() {
       }
     }
 
-    // Text: minimize clipboard window → inject → restore
+    // Text: hide clipboard window → inject → restore
     const cw = cwm.getClipboardWindow();
     if (cw && !cw.isDestroyed()) {
+      // Save window bounds before hiding — Windows minimize/restore can lose dimensions
+      const savedBounds = cw.getBounds();
+
       if (process.platform === 'darwin') {
         app.hide();
       } else {
-        cw.minimize();
         cw.hide();
       }
 
@@ -131,7 +147,11 @@ function setupClipboardIpc() {
         if (process.platform === 'darwin') {
           app.show();
         } else {
-          if (cw && !cw.isDestroyed()) { cw.restore(); cw.show(); }
+          if (cw && !cw.isDestroyed()) {
+            cw.setBounds(savedBounds);
+            cw.show();
+            cw.focus();
+          }
         }
       }
 
@@ -191,7 +211,8 @@ function setupClipboardIpc() {
     });
     if (canceled || !filePath) return { ok: false, reason: 'canceled' };
     try {
-      hs.exportBackup(filePath);
+      const userCatsMeta = store.get('clipboardUserCategories') || [];
+      hs.exportBackup(filePath, userCatsMeta);
       return { ok: true };
     } catch (e) {
       return { ok: false, reason: e.message };
@@ -220,7 +241,19 @@ function setupClipboardIpc() {
 
   ipcMain.handle('cb-import-commit', (_, { filePath, mode, raw }) => {
     // raw is kept for backwards compat just in case old payload hits here
-    return hs.importBackup(filePath, mode);
+    const result = hs.importBackup(filePath, mode);
+    // Restore user category metadata if present in the backup
+    if (result.ok && result.userCategoryMeta && result.userCategoryMeta.length > 0) {
+      const existing = store.get('clipboardUserCategories') || [];
+      const existingNames = new Set(existing.map(c => c.name));
+      for (const cat of result.userCategoryMeta) {
+        if (!existingNames.has(cat.name)) {
+          existing.push(cat);
+        }
+      }
+      store.set('clipboardUserCategories', existing);
+    }
+    return result;
   });
 
   // ── Image folder ───────────────────────────────────────────────────────
@@ -302,6 +335,21 @@ function setupClipboardIpc() {
   ipcMain.on('cb-hide-window', (event) => {
     const bw = BrowserWindow.fromWebContents(event.sender);
     if (bw) bw.hide();
+  });
+
+  // ── User category management ─────────────────────────────────────────────
+
+  ipcMain.handle('cb-delete-user-cat', (_, catName) => {
+    hs.deleteUserCategory(catName);
+    let meta = store.get('clipboardUserCategories') || [];
+    meta = meta.filter(c => c.name !== catName);
+    store.set('clipboardUserCategories', meta);
+    return { ok: true };
+  });
+
+  ipcMain.handle('cb-save-user-cats-meta', (_, cats) => {
+    store.set('clipboardUserCategories', cats);
+    return { ok: true };
   });
 
   // ── Runtime clipboard enable/disable ────────────────────────────────────

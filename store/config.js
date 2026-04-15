@@ -305,6 +305,15 @@ const schema = {
   aiFirstEnabledDate: {
     type: 'number',
     default: 0
+  },
+  // ── Update Reminder ──────────────────────────────────────────────
+  updateReminderDismissedAt: {
+    type: 'number',
+    default: 0          // timestamp when user last clicked "Remind me later"
+  },
+  updateReminderVersion: {
+    type: 'string',
+    default: ''          // version string that was dismissed (e.g. '1.3.0')
   }
 };
 

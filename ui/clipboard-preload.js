@@ -26,6 +26,8 @@ contextBridge.exposeInMainWorld('clipboardAPI', {
   editEntry:        (id, text)      => ipcRenderer.invoke('cb-edit-entry', id, text),
   setUserCats:      (id, cats)      => ipcRenderer.invoke('cb-set-user-cats', id, cats),
   assignCategory:   (id, cat)       => ipcRenderer.invoke('cb-assign-category', id, cat),
+  deleteUserCat:    (catName)       => ipcRenderer.invoke('cb-delete-user-cat', catName),
+  saveUserCatsMeta: (cats)          => ipcRenderer.invoke('cb-save-user-cats-meta', cats),
   pasteEntry:       (id)            => ipcRenderer.invoke('cb-paste-entry', id),
   copyToClipboard:  (id)            => ipcRenderer.invoke('cb-copy-to-clipboard', id),
   bumpToTop:        (id)            => ipcRenderer.invoke('cb-bump-to-top', id),

@@ -44,6 +44,8 @@ function createTranslatorWindow() {
     visualEffectState: 'active',
     hasShadow: true,
     resizable: true,
+    maximizable: false,
+    fullscreenable: false,
     alwaysOnTop: true,
     skipTaskbar: true,
     webPreferences: {

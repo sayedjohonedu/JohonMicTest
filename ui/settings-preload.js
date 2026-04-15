@@ -40,6 +40,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   aiResetSession:            ()           => ipcRenderer.send('ai-reset-session'),
   aiCheckTrial:              ()           => ipcRenderer.invoke('ai-check-trial'),
   aiShowTrialPopup:          ()           => ipcRenderer.send('ai-show-trial-popup'),
+  showLicenseCelebration:    ()           => ipcRenderer.send('show-license-celebration'),
   // ── Clipboard Manager ──
   cbSetEnabled:              (enabled)    => ipcRenderer.invoke('cb-set-enabled', enabled),
   // ── Live sync (hotkey toggles while settings is open) ──

@@ -12,7 +12,7 @@ let _state = {
   dateFilter:   '',
   typeFilter:   '',
   page:         0,
-  view:         'list',      // 'list' | 'grid'
+  view:         'list',      // always list view
   entries:      [],
   hasMore:      false,
   total:        0,
@@ -30,6 +30,16 @@ let _state = {
 let _hotkeyRecording = false;
 let _cbConfig        = {};
 let _newEntryTimer   = null;
+
+// Emoji options for user-created categories
+const EMOJI_OPTIONS = [
+  '🏷️', '📁', '📂', '💼', '🏠', '🎓', '💡', '📝',
+  '🔖', '⭐', '❤️', '🔥', '💎', '🎯', '🎨', '🛒',
+  '💰', '📧', '🔗', '💻', '📱', '🎮', '🎵', '📸',
+  '✈️', '🍽️', '🏋️', '📊', '🔬', '🌍', '🤖', '📚',
+  '🎬', '🏆', '🔔', '📰', '🛡️', '⚡', '🌟', '💬',
+];
+let _selectedEmoji = '🏷️';
 
 // Debounce: only fire after `ms` ms of silence
 function _debounce(fn, ms) {
@@ -136,12 +146,17 @@ async function loadStats() {
   document.getElementById('badge-all').textContent  = stats.total;
   document.getElementById('badge-favs').textContent = stats.favorites;
   document.getElementById('badge-pins').textContent = stats.pinned;
-  document.getElementById('badge-imgs').textContent = stats.images;
+  const badgeImgs = document.getElementById('badge-imgs');
+  if (badgeImgs) badgeImgs.textContent = stats.images;
 }
 
 // ── User categories ────────────────────────────────────────────────────────
 async function loadUserCats() {
-  _state.userCats = await window.clipboardAPI.getUserCats();
+  const raw = await window.clipboardAPI.getUserCats();
+  // Ensure format is {name, emoji} objects (backward compat with old string format)
+  _state.userCats = (raw || []).map(c =>
+    typeof c === 'string' ? { name: c, emoji: '🏷️' } : c
+  );
   renderUserCatNav();
 }
 
@@ -150,10 +165,22 @@ function renderUserCatNav() {
   container.innerHTML = '';
   for (const cat of _state.userCats) {
     const el = document.createElement('div');
-    el.className = 'nav-item cat-item';
-    el.dataset.cat = cat;
-    el.onclick = () => switchCategory(cat, el);
-    el.innerHTML = `<span class="nav-icon">🏷️</span> ${escHtml(cat)}`;
+    el.className = 'nav-item cat-item user-cat-item';
+    el.dataset.cat = cat.name;
+    el.onclick = () => switchCategory(cat.name, el);
+
+    const label = document.createElement('span');
+    label.className = 'cat-label';
+    label.innerHTML = `<span class="nav-icon">${cat.emoji}</span> ${escHtml(cat.name)}`;
+    el.appendChild(label);
+
+    const delBtn = document.createElement('button');
+    delBtn.className = 'cat-delete-btn';
+    delBtn.title = 'Delete category';
+    delBtn.innerHTML = '✕';
+    delBtn.onclick = (e) => { e.stopPropagation(); doDeleteUserCategory(cat.name); };
+    el.appendChild(delBtn);
+
     container.appendChild(el);
   }
 }
@@ -238,7 +265,7 @@ function renderEntries(reset = true) {
   if (reset) list.innerHTML = '';
 
   // Set view class
-  list.className = `entry-list${_state.view === 'grid' ? ' grid-view' : ''}`;
+  list.className = 'entry-list';
 
   if (_state.entries.length === 0) {
     emptyEl.style.display = 'flex';
@@ -261,7 +288,6 @@ function buildEntryCard(entry) {
     'entry-card',
     entry.isFavorite ? 'favorited' : '',
     entry.isPinned   ? 'pinned'    : '',
-    _state.view === 'grid' ? 'grid-view' : '',
   ].filter(Boolean).join(' ');
   card.dataset.id = entry.id;
 
@@ -536,7 +562,7 @@ function showCatDropdown(entry, anchorBtn) {
 
   const allCats = [
     ...BUILTIN_CATS,
-    ..._state.userCats.map(k => ({ key: k, emoji: '🏷️', label: k }))
+    ..._state.userCats.map(c => ({ key: c.name, emoji: c.emoji || '🏷️', label: c.name }))
   ];
 
   const currentCats = new Set([
@@ -695,6 +721,7 @@ function confirmDeleteAll() {
     _state.page         = 0;
     _state.category     = null;
     _state.userCats     = [];
+    await window.clipboardAPI.saveUserCatsMeta([]);
     document.getElementById('entry-list').innerHTML = '';
     document.getElementById('empty-state').style.display = 'flex';
     // Clear user category nav (all custom cats are gone)
@@ -767,6 +794,7 @@ async function commitImport(mode) {
   _importFilePath = null;
   await loadEntries(true);
   await loadStats();
+  await loadUserCats();   // Refresh category sidebar with imported categories
   if (res && res.ok) {
     showToast(`Imported ${res.added} entries successfully!`);
   } else {
@@ -808,8 +836,25 @@ function openUpgrade() {
 
 // ── Category management ────────────────────────────────────────────────────
 function showAddCategoryPrompt() {
+  _selectedEmoji = '🏷️';
   document.getElementById('addcat-input').value = '';
   document.getElementById('addcat-modal').style.display = 'flex';
+
+  // Render emoji grid
+  const grid = document.getElementById('emoji-picker-grid');
+  grid.innerHTML = '';
+  for (const emoji of EMOJI_OPTIONS) {
+    const btn = document.createElement('button');
+    btn.className = `emoji-option${emoji === _selectedEmoji ? ' selected' : ''}`;
+    btn.textContent = emoji;
+    btn.onclick = () => {
+      document.querySelectorAll('.emoji-option').forEach(b => b.classList.remove('selected'));
+      btn.classList.add('selected');
+      _selectedEmoji = emoji;
+    };
+    grid.appendChild(btn);
+  }
+
   setTimeout(() => document.getElementById('addcat-input').focus(), 100);
 }
 
@@ -822,10 +867,34 @@ async function confirmAddCategory() {
   const name = document.getElementById('addcat-input').value.trim();
   if (!name) return;
   document.getElementById('addcat-modal').style.display = 'none';
-  if (!_state.userCats.includes(name)) {
-    _state.userCats.push(name);
+  if (!_state.userCats.find(c => c.name === name)) {
+    const newCat = { name, emoji: _selectedEmoji };
+    _state.userCats.push(newCat);
+    await window.clipboardAPI.saveUserCatsMeta(_state.userCats);
     renderUserCatNav();
+    showToast(`Category "${name}" created!`);
+  } else {
+    showToast(`Category "${name}" already exists.`, 'warn');
   }
+}
+
+async function doDeleteUserCategory(catName) {
+  _state.confirmCb = async () => {
+    await window.clipboardAPI.deleteUserCat(catName);
+    _state.userCats = _state.userCats.filter(c => c.name !== catName);
+    renderUserCatNav();
+    // If we're viewing this deleted category, switch back to all items
+    if (_state.category === catName) {
+      const allItem = document.querySelector('.nav-item[data-section="all"]');
+      switchSection('all', allItem);
+    }
+    await loadEntries(true);
+    await loadStats();
+    showToast(`Category "${catName}" deleted.`);
+  };
+  document.getElementById('confirm-title').textContent = `🗑️ Delete "${catName}"`;
+  document.getElementById('confirm-text').textContent  = `This will remove the "${catName}" category and unlink all entries from it. The entries themselves will NOT be deleted.`;
+  document.getElementById('confirm-modal').style.display = 'flex';
 }
 
 // ── Multi-select ───────────────────────────────────────────────────────────
@@ -910,7 +979,7 @@ function switchSection(section, el) {
   document.querySelectorAll('.nav-item, .sidebar-btn').forEach(n => n.classList.remove('active'));
   el.classList.add('active');
 
-  const titles = { all: 'All Items', favorites: '⭐ Favorites', pinned: '📌 Pinned', images: '🖼️ Images' };
+  const titles = { all: 'All Items', favorites: '⭐ Favorites', pinned: '📌 Pinned' };
   document.getElementById('panel-title').textContent = titles[section] || 'All Items';
 
   loadEntries(true);
@@ -970,12 +1039,6 @@ function onTypeFilter(val) {
 }
 
 // ── View toggle ────────────────────────────────────────────────────────────
-function setView(view) {
-  _state.view = view;
-  document.getElementById('btn-list-view').classList.toggle('active', view === 'list');
-  document.getElementById('btn-grid-view').classList.toggle('active', view === 'grid');
-  renderEntries(false); // re-render current entries with new view class
-}
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 function formatTime(ts) {
@@ -1113,15 +1176,24 @@ function startHotkeyRecord() {
     e.preventDefault();
     e.stopPropagation();
     const parts = [];
-    if (e.ctrlKey)  parts.push('Ctrl');
+    if (e.ctrlKey || e.metaKey) parts.push('CommandOrControl');
     if (e.altKey)   parts.push('Alt');
     if (e.shiftKey) parts.push('Shift');
-    if (e.metaKey)  parts.push('Meta');
-    const key = e.key;
-    if (!['Control','Alt','Shift','Meta'].includes(key)) {
-      parts.push(key.length === 1 ? key.toUpperCase() : key);
+
+    // Use e.code to get the physical key (avoids macOS Alt+Key producing symbols like Ω)
+    const IGNORE = ['Meta','Control','Shift','Alt','CapsLock','Tab','Escape'];
+    let rawKey = null;
+    if (!IGNORE.includes(e.key) && !IGNORE.includes(e.code)) {
+      if (e.code && e.code.startsWith('Key'))   rawKey = e.code.substring(3);       // KeyZ → Z
+      else if (e.code && e.code.startsWith('Digit')) rawKey = e.code.substring(5);   // Digit1 → 1
+      else if (/^F([1-9]|1[0-2])$/.test(e.code)) rawKey = e.code;                   // F1-F12
+      else if (e.code === 'Space' || e.key === ' ') rawKey = 'Space';
+      else rawKey = e.key.length === 1 ? e.key.toUpperCase() : e.key;
     }
-    if (parts.length > 1 || (parts.length === 1 && !['Control','Alt','Shift','Meta'].includes(parts[0]))) {
+
+    if (rawKey) parts.push(rawKey);
+    const hasMod = parts.some(p => ['CommandOrControl','Alt','Shift'].includes(p));
+    if (rawKey && hasMod) {
       const combo = parts.join('+');
       disp.textContent = combo;
       rec.classList.remove('recording');

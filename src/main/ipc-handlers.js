@@ -3,7 +3,7 @@ const { autoUpdater } = require('electron-updater');
 const fs = require('fs');
 const store = require('../../store/config');
 const { verifyLicense } = require('./licensing');
-const { applyOverlaySize, getOverlayWindow, getSettingsWindow, OV, closeLicensePopup, closeWordLimitPopup, closeTranslatorLockedPopup, closeAiTrialPopup, showAiTrialExpiredPopup } = require('./window-manager');
+const { applyOverlaySize, getOverlayWindow, getSettingsWindow, OV, closeLicensePopup, closeWordLimitPopup, closeTranslatorLockedPopup, closeAiTrialPopup, showAiTrialExpiredPopup, showLicenseCelebration, closeLicenseCelebration } = require('./window-manager');
 const { uIOhook } = require('uiohook-napi');
 const { setupFloatingBrowserIpc } = require('./floating-browser-manager');
 const { callLlmRaw, httpPost, httpGet } = require('./llm-client');
@@ -138,6 +138,12 @@ function setupIpcHandlers(toggleListening, registerHotkeys, getWsClient, resetSi
   ipcMain.on('close-ai-trial-popup', () => {
     if (typeof closeAiTrialPopup === 'function') closeAiTrialPopup();
   });
+  ipcMain.on('show-license-celebration', () => {
+    showLicenseCelebration();
+  });
+  ipcMain.on('close-license-celebration', () => {
+    if (typeof closeLicenseCelebration === 'function') closeLicenseCelebration();
+  });
   ipcMain.on('open-url', (event, url) => shell.openExternal(url));
 
   ipcMain.on('inject-punct', (event, char) => {
@@ -223,6 +229,18 @@ function setupIpcHandlers(toggleListening, registerHotkeys, getWsClient, resetSi
   ipcMain.on('check-updates', () => autoUpdater.checkForUpdates());
   ipcMain.on('download-update', () => autoUpdater.downloadUpdate());
   ipcMain.on('install-update', () => autoUpdater.quitAndInstall());
+
+  // ── Update Reminder ──
+  ipcMain.on('dismiss-update-reminder', () => {
+    const { getLatestAvailableVersion } = require('./updater');
+    const { closeUpdateReminderPopup } = require('./window-manager');
+    const version = getLatestAvailableVersion();
+    if (version) {
+      store.set('updateReminderDismissedAt', Date.now());
+      store.set('updateReminderVersion', version);
+    }
+    closeUpdateReminderPopup();
+  });
 
   ipcMain.on('set-mini-mode', (event, isMini) => {
     const overlayWindow = getOverlayWindow();
@@ -468,7 +486,7 @@ function setupIpcHandlers(toggleListening, registerHotkeys, getWsClient, resetSi
     aiDictationManager.resetSession();
   });
 
-  // AI Trial: check if free user's 7-day AI trial has expired
+  // AI Trial: check if free user's 15-day AI trial has expired
   ipcMain.handle('ai-check-trial', () => {
     const { checkAiTrialExpiry } = require('./licensing');
     return checkAiTrialExpiry();

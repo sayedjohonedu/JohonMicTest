@@ -589,7 +589,7 @@ function getEntryDates() {
 
 function getUserCategoryList() {
   load();
-  const rows = _db.prepare('SELECT userCategories FROM entries WHERE userCategories != "[]"').all();
+  const rows = _db.prepare("SELECT userCategories FROM entries WHERE userCategories != '[]'").all();
   const set = new Set();
   for (const r of rows) {
     try {
@@ -624,7 +624,7 @@ function getStats() {
 /**
  * Generate a .mictab-backup zip file at outPath
  */
-function exportBackup(outPath) {
+function exportBackup(outPath, userCatsMeta) {
   load();
   const textEntries = _db.prepare("SELECT * FROM entries").all().map(parseEntryRow);
   
@@ -632,6 +632,7 @@ function exportBackup(outPath) {
     schema:        3,
     exportedAt:    new Date().toISOString(),
     entries:       textEntries,
+    userCategoryMeta: userCatsMeta || [],
   };
 
   const zip = new AdmZip();
@@ -702,7 +703,9 @@ function importBackup(inPath, mode = 'merge') {
         if (existing) continue; // Skip identical ID images
       }
       
-      const categoriesStr = JSON.stringify(e.type === 'text' ? autoDetectCategories(e.text) : ['image']);
+      const categoriesStr = Array.isArray(e.categories) && e.categories.length > 0
+        ? JSON.stringify(e.categories)
+        : JSON.stringify(e.type === 'text' ? autoDetectCategories(e.text) : ['image']);
       
       insertStmt.run(
         e.id || uuid(),
@@ -728,7 +731,7 @@ function importBackup(inPath, mode = 'merge') {
     }
   });
 
-  return { ok: true, added, total: _db.prepare('SELECT count(*) as c FROM entries').get().c };
+  return { ok: true, added, total: _db.prepare('SELECT count(*) as c FROM entries').get().c, userCategoryMeta: parsed.userCategoryMeta || [] };
 }
 
 // ── Image file helpers ─────────────────────────────────────────────────────
@@ -742,6 +745,24 @@ function saveImageFile(id, buffer) {
   const filePath = path.join(getImagesDir(), `${id}.png`);
   fs.writeFileSync(filePath, buffer);
   return filePath;
+}
+
+// ── Delete user category ───────────────────────────────────────────────
+
+/**
+ * Remove a user category from every entry's userCategories array.
+ */
+function deleteUserCategory(catName) {
+  load();
+  const rows = _db.prepare('SELECT id, userCategories FROM entries WHERE userCategories LIKE ?').all(`%"${catName}"%`);
+  for (const row of rows) {
+    try {
+      const cats = JSON.parse(row.userCategories || '[]');
+      const updated = cats.filter(c => c !== catName);
+      _db.prepare('UPDATE entries SET userCategories = ? WHERE id = ?').run(JSON.stringify(updated), row.id);
+    } catch (_) {}
+  }
+  return true;
 }
 
 // ── Exports ────────────────────────────────────────────────────────────────
@@ -767,6 +788,7 @@ module.exports = {
   addBuiltinCategory,
   addUserCategory,
   editEntryText,
+  deleteUserCategory,
   bumpToTop,
 
   // Query

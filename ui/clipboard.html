@@ -48,11 +48,7 @@
         Pinned
         <span class="nav-badge" id="badge-pins">0</span>
       </div>
-      <div class="nav-item" data-section="images" onclick="switchSection('images',this)">
-        <span class="nav-icon">🖼️</span>
-        Images
-        <span class="nav-badge" id="badge-imgs">0</span>
-      </div>
+
 
       <div class="nav-divider">CATEGORIES</div>
 
@@ -112,15 +108,6 @@
           <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/></svg>
           Delete All in Category
         </button>
-        <!-- View toggle -->
-        <div class="view-toggle">
-          <button class="view-btn active" id="btn-list-view" onclick="setView('list')" title="List view">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
-          </button>
-          <button class="view-btn" id="btn-grid-view" onclick="setView('grid')" title="Grid view">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
-          </button>
-        </div>
       </div>
     </div>
 
@@ -393,9 +380,11 @@
 
 <!-- ── CATEGORY ADD PROMPT ── -->
 <div class="modal-overlay" id="addcat-modal" style="display:none" onclick="closeAddCatModal(event)">
-  <div class="modal-box" onclick="event.stopPropagation()" style="max-width:300px">
+  <div class="modal-box" onclick="event.stopPropagation()" style="max-width:340px">
     <div class="modal-title">＋ Add Category</div>
-    <input type="text" id="addcat-input" class="search-input" placeholder="Category name..." style="width:100%;margin:12px 0" maxlength="30">
+    <input type="text" id="addcat-input" class="search-input" placeholder="Category name..." style="width:100%;margin:12px 0 8px" maxlength="30">
+    <div class="emoji-picker-label">Choose an icon:</div>
+    <div class="emoji-picker-grid" id="emoji-picker-grid"></div>
     <div class="modal-footer">
       <button class="modal-btn" onclick="closeAddCatModal()">Cancel</button>
       <button class="modal-btn primary" onclick="confirmAddCategory()">Add</button>

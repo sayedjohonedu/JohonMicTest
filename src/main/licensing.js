@@ -53,8 +53,8 @@ async function checkAuthStatus() {
       store.set('firstLaunchDate', firstLaunch);
     }
     const daysUsed = (Date.now() - firstLaunch) / (1000 * 60 * 60 * 24);
-    if (daysUsed > 7) {
-      // Free tier: trial ended, no paid license — gets 300 words/day
+    if (daysUsed > 15) {
+      // Free tier: trial ended, no paid license — gets 500 words/day
       store.set('licenseStatus', 'free');
     } else {
       store.set('licenseStatus', 'trial');
@@ -94,7 +94,7 @@ async function verifyLicense(key) {
 }
 
 /**
- * Checks whether the free AI trial (7 days) has expired for non-licensed users.
+ * Checks whether the free AI trial (15 days) has expired for non-licensed users.
  * If expired, auto-disables AI mode.
  * Returns { expired: true, daysUsed } if the trial is over, or { expired: false, daysLeft } if still valid.
  */
@@ -104,15 +104,15 @@ function checkAiTrialExpiry() {
   if (status === 'active') return { expired: false, daysLeft: Infinity };
 
   const firstEnabled = store.get('aiFirstEnabledDate') || 0;
-  if (!firstEnabled) return { expired: false, daysLeft: 7 }; // Never enabled yet
+  if (!firstEnabled) return { expired: false, daysLeft: 15 }; // Never enabled yet
 
   const daysUsed = (Date.now() - firstEnabled) / (1000 * 60 * 60 * 24);
-  if (daysUsed > 7) {
+  if (daysUsed > 15) {
     // Trial is over — force-disable AI mode
     store.set('aiModeEnabled', false);
     return { expired: true, daysUsed: Math.floor(daysUsed) };
   }
-  return { expired: false, daysLeft: Math.ceil(7 - daysUsed) };
+  return { expired: false, daysLeft: Math.ceil(15 - daysUsed) };
 }
 
 module.exports = {

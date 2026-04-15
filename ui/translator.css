@@ -708,7 +708,7 @@ html, body {
   transition: transform 0.22s cubic-bezier(0.4,0,0.2,1);
   overflow: hidden;
   border-radius: var(--radius);
-  -webkit-app-region: drag;
+  -webkit-app-region: no-drag;
 }
 #settings-pane.open { transform: translateX(0); }
 
@@ -719,7 +719,7 @@ html, body {
   border-right: 1px solid rgba(255,255,255,0.08);
   display: flex; flex-direction: column;
   overflow: hidden;
-  -webkit-app-region: drag;
+  -webkit-app-region: no-drag;
 }
 #sp-sidebar-top {
   flex: 1; overflow-y: auto; overflow-x: hidden;

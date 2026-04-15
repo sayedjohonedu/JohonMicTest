@@ -14,7 +14,7 @@ const { showClipboardManager, toggleClipboardManager, getClipboardWindow, notify
 const { setupClipboardIpc } = require('./src/main/clipboard-ipc');
 
 // Import modules
-const { createOverlay, showSettings, showLicensePopup, showWordLimitPopup, showTranslatorLockedPopup, showAiTrialExpiredPopup, applyOverlaySize, getOverlayWindow, getSettingsWindow } = require('./src/main/window-manager');
+const { createOverlay, showSettings, showLicensePopup, showWordLimitPopup, showTranslatorLockedPopup, showAiTrialExpiredPopup, applyOverlaySize, getOverlayWindow, getSettingsWindow, showUpdateReminderPopup, getUpdateReminderPopupWindow } = require('./src/main/window-manager');
 const { onOverlayShow, onOverlayHide } = require('./src/main/floating-browser-manager');
 const { registerHotkeys, stopUiohook, setTranslatorCtx, setAiSendNow, setAiModeToggle } = require('./src/main/hotkey-manager');
 const { checkAuthStatus, checkAndResetDailyWords, checkAiTrialExpiry } = require('./src/main/licensing');
@@ -191,7 +191,7 @@ function toggleListening(forceLang = null, fromTranslator = false, forceStart = 
   if (status === 'free') {
     checkAndResetDailyWords();
     const used = store.get('freeDailyWords') || 0;
-    if (used >= 300) {
+    if (used >= 500) {
       showWordLimitPopup();
       return;
     }
@@ -354,7 +354,7 @@ function toggleListening(forceLang = null, fromTranslator = false, forceStart = 
     }
 
     // Show word limit popup at session end if free-tier user has hit today's limit
-    if (store.get('licenseStatus') === 'free' && (store.get('freeDailyWords') || 0) >= 300) {
+    if (store.get('licenseStatus') === 'free' && (store.get('freeDailyWords') || 0) >= 500) {
       setTimeout(() => showWordLimitPopup(), 400);
     }
   }
@@ -670,7 +670,7 @@ app.whenReady().then(() => {
   }
   checkAuthStatus();
   checkAndResetDailyWords(); // Reset daily word counter if it's a new day
-  checkAiTrialExpiry();       // Auto-disable AI mode if 7-day free trial expired
+  checkAiTrialExpiry();       // Auto-disable AI mode if 15-day free trial expired
   
   // Apply the unified login item setting
   app.setLoginItemSettings({
@@ -707,7 +707,7 @@ app.whenReady().then(() => {
     resetSilenceTimer,
   { openTranslator, closeTranslatorAndRestoreOverlay, toggleListening, getCurrentSttMode: () => sttMode }
   );
-  setupUpdater(getSettingsWindow);  // pass getter so updater always gets current window, not null
+  setupUpdater(getSettingsWindow, getUpdateReminderPopupWindow, showUpdateReminderPopup);  // pass getters + shower so updater can show reminder popup
 
   // ── Clipboard Manager init ───────────────────────────────────────────────
   setupClipboardIpc();

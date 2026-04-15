@@ -203,6 +203,21 @@ html, body {
 [data-theme="light"] #mini-btn:hover,
 [data-theme="light"] #expand-btn:hover { background: rgba(0,0,0,0.08); }
 
+/* ── Mini AI badge (pill only) ── */
+#mini-ai-badge {
+  display: none;           /* hidden in full overlay */
+  font-size: 12px;
+  color: #a855f7;
+  flex-shrink: 0;
+  line-height: 1;
+  text-shadow: 0 0 8px rgba(168,85,247,0.6);
+  animation: miniAiBadgePulse 2s ease-in-out infinite;
+}
+@keyframes miniAiBadgePulse {
+  0%, 100% { opacity: 1;   text-shadow: 0 0 8px rgba(168,85,247,0.6); }
+  50%      { opacity: 0.65; text-shadow: 0 0 14px rgba(168,85,247,0.9); }
+}
+
 /* ── PILL / MINI MODE ───────────────────────────────────────────────── */
 #card.mini-mode {
   border-radius: 24px;   /* fully rounded pill shape */
@@ -236,6 +251,8 @@ html, body {
 #card.mini-mode #mini-lang-flag    { display: flex !important; }
 #card.mini-mode #mini-browser-btn  { display: flex !important; }
 #card.mini-mode #mini-clipboard-btn { display: flex !important; }
+/* AI badge: visible in pill mode ONLY when AI is active */
+#card.mini-mode #mini-ai-badge.active { display: flex !important; }
 
 #mini-wave-wrap {
   display: none;

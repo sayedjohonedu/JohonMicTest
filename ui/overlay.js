@@ -588,11 +588,14 @@ window.junoAPI.onConfigUpdate && window.junoAPI.onConfigUpdate((cfg) => { if (cf
 // ── AI Mode state tracking ──
 let isAiMode = false;
 const miniAiSendBtn = document.getElementById('mini-ai-send-btn');
+const miniAiBadge = document.getElementById('mini-ai-badge');
 
 function showAiSendButtons(show) {
   // AI send buttons disabled — using configurable hotkey instead (kept for future)
   // if (miniAiSendBtn) miniAiSendBtn.classList.toggle('visible', show);
   // if (currentLang && currentLang.punct) buildPunctuation(currentLang.punct);
+  // Toggle mini AI badge in pill mode
+  if (miniAiBadge) miniAiBadge.classList.toggle('active', show);
 }
 
 // AI Send Now — mini pill button click handler (disabled, using hotkey)

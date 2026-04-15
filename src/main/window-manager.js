@@ -8,6 +8,8 @@ let licensePopupWindow = null;
 let wordLimitPopupWindow = null;
 let translatorLockedPopupWindow = null;
 let aiTrialPopupWindow = null;
+let updateReminderPopupWindow = null;
+let licenseCelebrationWindow = null;
 
 /**
  * On macOS, only revert to 'accessory' activation policy (no dock icon)
@@ -310,6 +312,74 @@ function closeAiTrialPopup() {
   }
 }
 
+function showUpdateReminderPopup() {
+  if (updateReminderPopupWindow && !updateReminderPopupWindow.isDestroyed()) {
+    updateReminderPopupWindow.show();
+    updateReminderPopupWindow.focus();
+    return updateReminderPopupWindow;
+  }
+  updateReminderPopupWindow = new BrowserWindow({
+    width: 360,
+    height: 310,
+    transparent: true,
+    frame: false,
+    alwaysOnTop: true,
+    resizable: false,
+    skipTaskbar: true,
+    webPreferences: {
+      nodeIntegration: false,
+      contextIsolation: true,
+      preload: path.join(__dirname, '../../ui', 'overlay-preload.js')
+    }
+  });
+  updateReminderPopupWindow.loadFile(path.join(__dirname, '../../ui/update-reminder-popup.html'));
+  updateReminderPopupWindow.on('closed', () => updateReminderPopupWindow = null);
+  updateReminderPopupWindow.center();
+  return updateReminderPopupWindow;
+}
+
+function closeUpdateReminderPopup() {
+  if (updateReminderPopupWindow && !updateReminderPopupWindow.isDestroyed()) {
+    updateReminderPopupWindow.close();
+  }
+}
+
+function getUpdateReminderPopupWindow() {
+  return updateReminderPopupWindow;
+}
+
+function showLicenseCelebration() {
+  if (licenseCelebrationWindow && !licenseCelebrationWindow.isDestroyed()) {
+    licenseCelebrationWindow.show();
+    licenseCelebrationWindow.focus();
+    return licenseCelebrationWindow;
+  }
+  licenseCelebrationWindow = new BrowserWindow({
+    width: 360,
+    height: 320,
+    transparent: true,
+    frame: false,
+    alwaysOnTop: true,
+    resizable: false,
+    skipTaskbar: true,
+    webPreferences: {
+      nodeIntegration: false,
+      contextIsolation: true,
+      preload: path.join(__dirname, '../../ui', 'overlay-preload.js')
+    }
+  });
+  licenseCelebrationWindow.loadFile(path.join(__dirname, '../../ui/license-celebration.html'));
+  licenseCelebrationWindow.on('closed', () => licenseCelebrationWindow = null);
+  licenseCelebrationWindow.center();
+  return licenseCelebrationWindow;
+}
+
+function closeLicenseCelebration() {
+  if (licenseCelebrationWindow && !licenseCelebrationWindow.isDestroyed()) {
+    licenseCelebrationWindow.close();
+  }
+}
+
 function getOverlayWindow() { return overlayWindow; }
 function getSettingsWindow() { return settingsWindow; }
 
@@ -324,6 +394,11 @@ module.exports = {
   closeTranslatorLockedPopup,
   showAiTrialExpiredPopup,
   closeAiTrialPopup,
+  showUpdateReminderPopup,
+  closeUpdateReminderPopup,
+  getUpdateReminderPopupWindow,
+  showLicenseCelebration,
+  closeLicenseCelebration,
   applyOverlaySize,
   getOverlayWindow,
   getSettingsWindow,

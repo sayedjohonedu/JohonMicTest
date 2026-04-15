@@ -721,17 +721,30 @@ function updateLicenseUI(status, firstLaunch, purchase, extra) {
     const dateStr = activatedDate
       ? new Date(activatedDate).toLocaleDateString(undefined, { year:'numeric', month:'short', day:'numeric' })
       : null;
-    const daysSince = activatedDate ? Math.floor((Date.now() - activatedDate) / 86400000) : null;
     h.textContent = '✦ Pro Version Unlocked';
     c.style.background = 'rgba(72, 199, 116, 0.15)';
     c.style.borderColor = '#48c774';
     h.style.color = '#48c774';
     b.textContent = 'Verified'; b.disabled = true;
     const isSubscription = purchase?.subscription_id && !purchase?.subscription_ended_at;
-    let sub = isSubscription ? 'Active Subscription — thank you! ⭐' : 'Lifetime License — Valid Forever. Thank you! ⭐';
-    if (dateStr) sub += `\nLicensed since: ${dateStr}${daysSince !== null ? ` (${daysSince}d ago)` : ''}`;
+    const planLabel = isSubscription ? 'Active Subscription' : 'Lifetime License';
+
+    // Live count-up timer from activation date
     s.style.whiteSpace = 'pre-line';
-    s.textContent = sub;
+    const updateActiveTimer = () => {
+      if (!activatedDate) {
+        s.textContent = `${planLabel} — Thank you! ⭐`;
+        return;
+      }
+      const elapsed = Date.now() - activatedDate;
+      const d   = Math.floor(elapsed / 86400000);
+      const hr  = Math.floor((elapsed % 86400000) / 3600000);
+      const min = Math.floor((elapsed % 3600000) / 60000);
+      const sec = Math.floor((elapsed % 60000) / 1000);
+      s.textContent = `${planLabel} — Thank you! ⭐\nLicensed since: ${dateStr}\nPro for: ${d}d ${hr}h ${min}m ${sec}s`;
+    };
+    updateActiveTimer();
+    licenseTimer = setInterval(updateActiveTimer, 1000);
 
   } else if (status === 'expired') {
     h.textContent = 'License Expired';
@@ -743,15 +756,15 @@ function updateLicenseUI(status, firstLaunch, purchase, extra) {
 
   } else if (status === 'free') {
     const used = extra?.freeDailyWords || 0;
-    const remaining = Math.max(0, 300 - used);
-    const pct = Math.min(100, Math.round((used / 300) * 100));
+    const remaining = Math.max(0, 500 - used);
+    const pct = Math.min(100, Math.round((used / 500) * 100));
     h.textContent = 'Free Tier';
     h.style.color = '#fb923c';
     c.style.background = 'rgba(251,146,60,0.1)';
     c.style.borderColor = '#fb923c';
     b.disabled = false; b.textContent = 'Get License';
     s.style.whiteSpace = 'normal';
-    s.innerHTML = `Today: <strong style="color:#fb923c">${used} / 300</strong> words used &nbsp;·&nbsp; <strong style="color:#fff">${remaining}</strong> remaining<br>
+    s.innerHTML = `Today: <strong style="color:#fb923c">${used} / 500</strong> words used &nbsp;·&nbsp; <strong style="color:#fff">${remaining}</strong> remaining<br>
       <div style="margin-top:8px;background:rgba(255,255,255,0.07);border-radius:6px;height:5px;overflow:hidden;">
         <div style="height:100%;width:${pct}%;background:linear-gradient(90deg,#fb923c,#f97316);border-radius:6px;transition:width 0.5s;"></div>
       </div>
@@ -762,9 +775,9 @@ function updateLicenseUI(status, firstLaunch, purchase, extra) {
     c.style.background = 'rgba(124,111,255,0.1)'; c.style.borderColor = 'var(--accent)'; h.style.color = 'var(--text)';
     b.disabled = false; b.textContent = 'Activate Pro';
     s.style.whiteSpace = 'normal';
-    s.textContent = 'You are currently enjoying the fully-featured 7-day free trial.';
+    s.textContent = 'You are currently enjoying the fully-featured 15-day free trial.';
     const update = () => {
-      const left = Math.max(0, firstLaunch + (7*24*60*60*1000) - Date.now());
+      const left = Math.max(0, firstLaunch + (15*24*60*60*1000) - Date.now());
       if (!left) { h.textContent = 'Free Trial: Expired'; clearInterval(licenseTimer); return; }
       const d = Math.floor(left/86400000), hr = Math.floor((left%86400000)/3600000),
             min = Math.floor((left%3600000)/60000), sec = Math.floor((left%60000)/1000);
@@ -775,8 +788,21 @@ function updateLicenseUI(status, firstLaunch, purchase, extra) {
 }
 
 window.activateLicense = async function() {
-  const k = document.getElementById('input-license').value.trim(); if (!k) return; const b = document.getElementById('btn-verify-license'); b.textContent = 'Verifying...'; b.disabled = true;
-  const res = await window.electronAPI.verifyLicense(k); res.success ? loadConfig() : (alert(res.message), b.textContent = 'Activate', b.disabled = false);
+  const k = document.getElementById('input-license').value.trim();
+  if (!k) return;
+  const b = document.getElementById('btn-verify-license');
+  b.textContent = 'Verifying...'; b.disabled = true;
+  const res = await window.electronAPI.verifyLicense(k);
+  if (res.success) {
+    // Show celebration popup (3s countdown + 2.5s success = ~5.5s total)
+    window.electronAPI.showLicenseCelebration();
+    // Reload config after celebration finishes so the license UI updates
+    setTimeout(() => loadConfig(), 6000);
+  } else {
+    alert(res.message);
+    b.textContent = 'Activate';
+    b.disabled = false;
+  }
 };
 
 window.markDirty = function() { document.getElementById('header-save-container').classList.add('dirty'); };
