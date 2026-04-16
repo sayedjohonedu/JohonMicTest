@@ -244,7 +244,7 @@ function singleKeyFromEvent(e) {
 }
 
 // ── AI send key: uses event.code to distinguish Left/Right ──
-const AI_SENDKEY_DEFAULT = 'MetaRight';
+const AI_SENDKEY_DEFAULT = IS_MAC ? 'MetaRight' : 'ControlRight';
 const AI_SENDKEY_NAMES = { AltRight:'Right Alt', AltLeft:'Left Alt', ShiftRight:'Right Shift', ShiftLeft:'Left Shift', ControlRight:'Right Ctrl', ControlLeft:'Left Ctrl', MetaRight:'Right ⌘', MetaLeft:'Left ⌘', Space:'Space', Backquote:'`', Minus:'-', Equal:'=', BracketLeft:'[', BracketRight:']', Backslash:'\\', Semicolon:';', Quote:"'", Comma:',', Period:'.', Slash:'/', CapsLock:'CapsLock', NumLock:'NumLock', ScrollLock:'ScrollLock', Insert:'Insert', Delete:'Delete', Home:'Home', End:'End', PageUp:'PageUp', PageDown:'PageDown', ArrowUp:'↑', ArrowDown:'↓', ArrowLeft:'←', ArrowRight:'→' };
 function aiSendKeyDisplayName(code) {
   if (AI_SENDKEY_NAMES[code]) return AI_SENDKEY_NAMES[code];

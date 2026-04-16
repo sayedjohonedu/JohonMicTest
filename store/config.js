@@ -291,7 +291,7 @@ const schema = {
   },
   aiActivationKey: {
     type: 'string',
-    default: 'MetaRight'     // uiohook key name (Right ⌘ / Right Win)
+    default: process.platform === 'darwin' ? 'MetaRight' : 'ControlRight'  // Right ⌘ (Mac) / Right Ctrl (Win)
   },
   aiTemperature: {
     type: 'number',
