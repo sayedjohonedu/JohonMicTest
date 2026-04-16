@@ -1,103 +1,154 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
-<meta charset="UTF-8"/>
-<title>Juno Listening</title>
-<link rel="stylesheet" href="overlay.css">
+  <meta charset="UTF-8" />
+  <title>Juno Listening</title>
+  <link rel="stylesheet" href="overlay.css">
 </head>
+
 <body>
-<div id="card">
-  <div id="titlebar">
-    <div class="dot" id="dot-close" title="Stop"></div>
-    <!-- AI indicator for pill mode: visible only when mini + AI enabled -->
-    <span id="mini-ai-badge" title="AI Mode active">✦</span>
-    <div id="pulse-dot"></div>
-    <span id="status-label">Listening…</span>
-    <!-- Mini waveform: only visible in pill mode -->
-    <div id="mini-wave-wrap"><canvas id="mini-wave"></canvas></div>
-    <!-- Language flag: only visible in pill mode, clicking opens lang switcher -->
-    <span id="mini-lang-flag" title="Change language">🇺🇸<span id="mini-lang-chevron" style="font-size:9px;margin-left:1px;color:rgba(255,255,255,0.5);">▾</span></span>
-    <button id="mini-btn" title="Compact mode"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 14 10 14 10 20"/><polyline points="20 10 14 10 14 4"/><line x1="14" y1="10" x2="21" y2="3"/><line x1="3" y1="21" x2="10" y2="14"/></svg></button>
-    <button id="browser-btn" title="Open Browser"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg></button>
-    <button id="translator-btn" title="Open Translator (Shift+Alt+T)"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6M5 3v2M2 5h6M8 3l4 9M10.5 8H15M12.5 3l-4 9"/></svg></button>
-    <button id="clipboard-btn" title="Clipboard Manager (Alt+V)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/><line x1="9" y1="12" x2="15" y2="12"/><line x1="9" y1="16" x2="13" y2="16"/></svg></button>
-    <button id="settings-btn" title="Open Settings"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg></button>
-    <div id="lang-wrapper">
-      <button id="lang-btn">
-        <span id="lang-flag">🇺🇸</span>
-        <span id="lang-name">English (US)</span>
-        <span id="lang-chevron">▾</span>
-      </button>
+  <div id="card">
+    <div id="titlebar">
+      <div class="dot" id="dot-close" title="Stop"></div>
+      <!-- AI indicator for pill mode: visible only when mini + AI enabled -->
+      <span id="mini-ai-badge" title="AI Mode active">✦</span>
+      <div id="pulse-dot"></div>
+      <span id="status-label">Listening…</span>
+      <!-- Mini waveform: only visible in pill mode -->
+      <div id="mini-wave-wrap"><canvas id="mini-wave"></canvas></div>
+      <!-- Language flag: only visible in pill mode, clicking opens lang switcher -->
+      <span id="mini-lang-flag" title="Change language">🇺🇸<span id="mini-lang-chevron"
+          style="font-size:9px;margin-left:1px;color:rgba(255,255,255,0.5);">▾</span></span>
+      <button id="mini-btn" title="Compact mode"><svg width="14" height="14" viewBox="0 0 24 24" fill="none"
+          stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="4 14 10 14 10 20" />
+          <polyline points="20 10 14 10 14 4" />
+          <line x1="14" y1="10" x2="21" y2="3" />
+          <line x1="3" y1="21" x2="10" y2="14" />
+        </svg></button>
+      <button id="browser-btn" title="Open Browser"><svg width="14" height="14" viewBox="0 0 24 24" fill="none"
+          stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="10" />
+          <line x1="2" y1="12" x2="22" y2="12" />
+          <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
+        </svg></button>
+      <button id="translator-btn" title="Open Translator (Shift+Alt+T)"><svg width="14" height="14" viewBox="0 0 16 16"
+          fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M2 3h6M5 3v2M2 5h6M8 3l4 9M10.5 8H15M12.5 3l-4 9" />
+        </svg></button>
+      <button id="clipboard-btn" title="Clipboard Manager (Alt+V)"><svg width="14" height="14" viewBox="0 0 24 24"
+          fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2" />
+          <rect x="9" y="3" width="6" height="4" rx="1" />
+          <line x1="9" y1="12" x2="15" y2="12" />
+          <line x1="9" y1="16" x2="13" y2="16" />
+        </svg></button>
+      <button id="settings-btn" title="Open Settings"><svg width="14" height="14" viewBox="0 0 24 24" fill="none"
+          stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <path
+            d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z" />
+          <circle cx="12" cy="12" r="3" />
+        </svg></button>
+      <div id="lang-wrapper">
+        <button id="lang-btn">
+          <span id="lang-flag">🇺🇸</span>
+          <span id="lang-name">English (US)</span>
+          <span id="lang-chevron">▾</span>
+        </button>
+      </div>
+      <!-- Mini-mode browser icon -->
+      <button id="mini-browser-btn" title="Toggle browser"><svg width="13" height="13" viewBox="0 0 24 24" fill="none"
+          stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="10" />
+          <line x1="2" y1="12" x2="22" y2="12" />
+          <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
+        </svg></button>
+      <!-- Mini-mode clipboard icon (pill mode only) -->
+      <button id="mini-clipboard-btn" title="Clipboard Manager (Alt+V)"><svg width="13" height="13" viewBox="0 0 24 24"
+          fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2" />
+          <rect x="9" y="3" width="6" height="4" rx="1" />
+          <line x1="9" y1="12" x2="15" y2="12" />
+          <line x1="9" y1="16" x2="13" y2="16" />
+        </svg></button>
+      <!-- AI Send Now: only visible in pill mode when AI is active -->
+      <button id="mini-ai-send-btn" class="ai-send-btn-mini" title="Send to AI now" style="display:none;"><svg
+          width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+          stroke-linecap="round" stroke-linejoin="round">
+          <line x1="22" y1="2" x2="11" y2="13"></line>
+          <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+        </svg></button>
+      <!-- Expand button: only visible in pill mode -->
+      <button id="expand-btn" title="Expand"><svg width="14" height="14" viewBox="0 0 24 24" fill="none"
+          stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="15 3 21 3 21 9" />
+          <polyline points="9 21 3 21 3 15" />
+          <line x1="21" y1="3" x2="14" y2="10" />
+          <line x1="3" y1="21" x2="10" y2="14" />
+        </svg></button>
     </div>
-    <!-- Mini-mode browser icon -->
-    <button id="mini-browser-btn" title="Toggle browser"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg></button>
-    <!-- Mini-mode clipboard icon (pill mode only) -->
-    <button id="mini-clipboard-btn" title="Clipboard Manager (Alt+V)"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/><line x1="9" y1="12" x2="15" y2="12"/><line x1="9" y1="16" x2="13" y2="16"/></svg></button>
-    <!-- AI Send Now: only visible in pill mode when AI is active -->
-    <button id="mini-ai-send-btn" class="ai-send-btn-mini" title="Send to AI now" style="display:none;"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg></button>
-    <!-- Expand button: only visible in pill mode -->
-    <button id="expand-btn" title="Expand"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></svg></button>
-  </div>
 
-  <div id="transcript-area">
-    <div id="phrase-text"></div>
-    <div id="interim-text"></div>
-  </div>
+    <div id="transcript-area">
+      <div id="phrase-text"></div>
+      <div id="interim-text"></div>
+    </div>
 
-  <div id="waveform-wrap">
-    <canvas id="waveform"></canvas>
-  </div>
+    <div id="waveform-wrap">
+      <canvas id="waveform"></canvas>
+    </div>
 
-  <div class="divider"></div>
+    <div class="divider"></div>
 
-  <div id="punct-panel">
-    <div class="punct-row" id="prow1"></div>
-    <div class="punct-row" id="prow2"></div>
-    <div class="punct-row" id="prow-extra"></div>
-    <div id="page-dots"></div>
-    <div class="shortcut-sep">Shortcuts</div>
-    <div class="punct-row" id="prow3"></div>
-  </div>
+    <div id="punct-panel">
+      <div class="punct-row" id="prow1"></div>
+      <div class="punct-row" id="prow2"></div>
+      <div class="punct-row" id="prow-extra"></div>
+      <div id="page-dots"></div>
+      <div class="shortcut-sep">Shortcuts</div>
+      <div class="punct-row" id="prow3"></div>
+    </div>
 
-  <!-- Full keyboard tray (Phase 2) — hidden until expand-kb-btn pressed -->
-  <div id="keyboard-panel">
-    <!-- Number row -->
-    <div class="kb-row" id="kb-row-num"></div>
-    <!-- QWERTY top row -->
-    <div class="kb-row" id="kb-row-q"></div>
-    <!-- Home row -->
-    <div class="kb-row" id="kb-row-a"></div>
-    <!-- Bottom row -->
-    <div class="kb-row" id="kb-row-z"></div>
-    <!-- Modifier / Space row -->
-    <div class="kb-row" id="kb-row-mod"></div>
-  </div>
+    <!-- Full keyboard tray (Phase 2) — hidden until expand-kb-btn pressed -->
+    <div id="keyboard-panel">
+      <!-- Number row -->
+      <div class="kb-row" id="kb-row-num"></div>
+      <!-- QWERTY top row -->
+      <div class="kb-row" id="kb-row-q"></div>
+      <!-- Home row -->
+      <div class="kb-row" id="kb-row-a"></div>
+      <!-- Bottom row -->
+      <div class="kb-row" id="kb-row-z"></div>
+      <!-- Modifier / Space row -->
+      <div class="kb-row" id="kb-row-mod"></div>
+    </div>
 
-  <!-- Emoji picker wrapper -->
-  <div id="panels-row">
-    <!-- Emoji picker panel (Phase 3) -->
-    <div id="emoji-panel">
-      <div id="emoji-cat-tabs"></div>
-      <div id="emoji-grid"></div>
+    <!-- Emoji picker wrapper -->
+    <div id="panels-row">
+      <!-- Emoji picker panel (Phase 3) -->
+      <div id="emoji-panel">
+        <div id="emoji-cat-tabs"></div>
+        <div id="emoji-grid"></div>
+      </div>
+    </div>
+
+    <div id="footer">
+      <a onclick="window.junoAPI.openUrl('https://mictab.com')">MicTab</a>
+      <span class="footer-sep">•</span>
+      <a onclick="window.junoAPI.openUrl('https://www.youtube.com/@junoverseai')">JunoverseAI</a>
+      <span class="footer-sep">•</span>
+      <a onclick="window.junoAPI.openUrl('https://www.peeai.com')">PeeAI.com</a>
+      <span class="footer-sep" id="wc-sep" style="display:none">•</span>
+      <span id="wc-badge" style="display:none; font-variant-numeric: tabular-nums;">&#x1F4DD; 0 words</span>
     </div>
   </div>
 
-  <div id="footer">
-    <span>By Sayed Johon</span>
-    <span class="footer-sep">•</span>
-    <a onclick="window.junoAPI.openUrl('https://www.youtube.com/@junoverseai')">YouTube</a>
-    <span class="footer-sep">•</span>
-    <a onclick="window.junoAPI.openUrl('https://www.peeai.com')">PeeAI.com</a>
-    <span class="footer-sep" id="wc-sep" style="display:none">•</span>
-    <span id="wc-badge" style="display:none; font-variant-numeric: tabular-nums;">&#x1F4DD; 0 words</span>
-  </div>
-</div>
+  <!-- Dropdown is OUTSIDE the card so it's never clipped -->
+  <div id="lang-dropdown"></div>
 
-<!-- Dropdown is OUTSIDE the card so it's never clipped -->
-<div id="lang-dropdown"></div>
-
-<!-- Load emoji data BEFORE overlay.js -->
-<script src="../assets/emoji-data.js"></script>
-<script src="overlay.js"></script>
+  <!-- Load emoji data BEFORE overlay.js -->
+  <script src="../assets/emoji-data.js"></script>
+  <script src="overlay.js"></script>
 </body>
+
 </html>

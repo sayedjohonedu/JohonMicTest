@@ -291,7 +291,7 @@ const schema = {
   },
   aiActivationKey: {
     type: 'string',
-    default: 'AltRight'      // uiohook key name
+    default: 'MetaRight'     // uiohook key name (Right ⌘ / Right Win)
   },
   aiTemperature: {
     type: 'number',

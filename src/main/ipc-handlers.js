@@ -194,7 +194,7 @@ function setupIpcHandlers(toggleListening, registerHotkeys, getWsClient, resetSi
   });
 
   ipcMain.on('overlay-set-emoji-size', (event, open) => {
-    OV.emojiH = open ? 215 : 0;
+    OV.emojiH = open ? 295 : 0;
     applyOverlaySize();
   });
 
