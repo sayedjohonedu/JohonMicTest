@@ -133,6 +133,9 @@ function setupClipboardIpc() {
       if (process.platform === 'darwin') {
         app.hide();
       } else {
+        // minimize() is required on Windows to transfer focus back to the previous app
+        // (otherwise the injected keystrokes have no target window)
+        cw.minimize();
         cw.hide();
       }
 
@@ -148,6 +151,7 @@ function setupClipboardIpc() {
           app.show();
         } else {
           if (cw && !cw.isDestroyed()) {
+            // Restore exact bounds to prevent window shrinking from minimize/restore cycle
             cw.setBounds(savedBounds);
             cw.show();
             cw.focus();
