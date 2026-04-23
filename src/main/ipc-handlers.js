@@ -4,7 +4,7 @@ const fs = require('fs');
 const path = require('path');
 const store = require('../../store/config');
 const { verifyLicense } = require('./licensing');
-const { applyOverlaySize, getOverlayWindow, getSettingsWindow, OV, closeLicensePopup, closeWordLimitPopup, closeTranslatorLockedPopup, closeAiTrialPopup, showAiTrialExpiredPopup, showOfflineLockedPopup, closeOfflineLockedPopup, showWhisperApiLockedPopup, closeWhisperApiLockedPopup, showLicenseCelebration, closeLicenseCelebration } = require('./window-manager');
+const { applyOverlaySize, getOverlayWindow, getSettingsWindow, OV, closeLicensePopup, closeWordLimitPopup, closeTranslatorLockedPopup, closeAiTrialPopup, showAiTrialExpiredPopup, showWhisperApiLockedPopup, closeWhisperApiLockedPopup, showLicenseCelebration, closeLicenseCelebration } = require('./window-manager');
 const { uIOhook } = require('uiohook-napi');
 const { setupFloatingBrowserIpc } = require('./floating-browser-manager');
 const { callLlmRaw, httpPost, httpGet } = require('./llm-client');
@@ -33,17 +33,6 @@ function setupIpcHandlers(toggleListening, registerHotkeys, getWsClient, resetSi
       }
     }
 
-    // ── Offline Trial enforcement: stamp first-enable date + block expired trials ──
-    if (config.offlineModeEnabled === true) {
-      const { checkOfflineTrialExpiry } = require('./licensing');
-      if (!store.get('offlineFirstEnabledDate')) {
-        store.set('offlineFirstEnabledDate', Date.now());
-      }
-      const offTrial = checkOfflineTrialExpiry();
-      if (offTrial.expired) {
-        config.offlineModeEnabled = false; // Force-disable
-      }
-    }
 
     store.set(config);
     registerHotkeys(toggleListening);
@@ -516,17 +505,6 @@ function setupIpcHandlers(toggleListening, registerHotkeys, getWsClient, resetSi
     showAiTrialExpiredPopup();
   });
 
-  // Offline Mode Trial: check if free user's 15-day trial has expired
-  ipcMain.handle('offline-check-trial', () => {
-    const { checkOfflineTrialExpiry } = require('./licensing');
-    return checkOfflineTrialExpiry();
-  });
-
-  // Offline Mode Trial: show popup when trial is expired and user tries to enable
-  ipcMain.on('offline-show-locked-popup', () => {
-    showOfflineLockedPopup();
-  });
-
   // Whisper API Trial: check if free user's 15-day Whisper API trial has expired
   ipcMain.handle('whisper-api-check-trial', () => {
     const { checkWhisperApiTrialExpiry } = require('./licensing');
@@ -538,123 +516,23 @@ function setupIpcHandlers(toggleListening, registerHotkeys, getWsClient, resetSi
     showWhisperApiLockedPopup();
   });
 
-  /* ── Offline Mode IPC ───────────────────────────────────────── */
-  // Guarded: offline native modules (sherpa-onnx-node, node-llama-cpp) are
-  // in optionalDependencies and excluded from "Lite" builds. If they are
-  // missing the try/catch prevents a startup crash; stub handlers are
-  // registered so the UI never hangs waiting for a response.
-  try {
-    const offlineModeManager = require('./offline-mode-manager');
-    const { offlineSttEngine } = require('./offline-stt-engine');
-    const { offlineLlmEngine } = require('./offline-llm-engine');
-    const offlineRecorder = require('./offline-recorder');
 
-    ipcMain.handle('offline-get-status', () => offlineModeManager.getStatus());
+  /* ── Shared audio IPC (used by Whisper API recording pipeline) ──── */
+  const offlineRecorder = require('./offline-recorder');
 
-    ipcMain.handle('offline-enable', (event, enabled) => {
-      if (enabled === true) {
-        const { checkOfflineTrialExpiry } = require('./licensing');
-        if (!store.get('offlineFirstEnabledDate')) {
-          store.set('offlineFirstEnabledDate', Date.now());
-        }
-        const trial = checkOfflineTrialExpiry();
-        if (trial.expired) {
-          store.set('offlineModeEnabled', false);
-          registerHotkeys(toggleListening);
-          return { ok: false, trialExpired: true };
-        }
+  ipcMain.on('offline-audio-data', (event, data) => {
+    offlineRecorder.onAudioDataReceived(data);
+  });
+
+  ipcMain.on('offline-cancel-recording', () => {
+    offlineRecorder.cancelRecording();
+    try {
+      const whisperMgr = require('./whisper-api-manager');
+      if (whisperMgr._isProcessing) {
+        whisperMgr._isProcessing = false;
       }
-      store.set('offlineModeEnabled', enabled === true);
-      registerHotkeys(toggleListening);
-      return { ok: true };
-    });
-
-    ipcMain.handle('offline-llm-enable', (event, enabled) => {
-      store.set('offlineLlmEnabled', enabled === true);
-      return { ok: true };
-    });
-
-    ipcMain.handle('offline-download-model', async (event, opts) => {
-      try {
-        const result = await offlineModeManager.downloadModel(
-          opts.modelId, opts.url, opts.type, opts.filename
-        );
-        return { ok: true, path: result };
-      } catch (e) {
-        return { ok: false, error: e.message };
-      }
-    });
-
-    ipcMain.handle('offline-delete-model', (event, modelPath) => {
-      return { ok: offlineModeManager.deleteModel(modelPath) };
-    });
-
-    ipcMain.handle('offline-load-stt-model', async (event, modelPath) => {
-      try {
-        await offlineSttEngine.loadModel(modelPath);
-        store.set('offlineSttModelPath', modelPath);
-        return { ok: true };
-      } catch (e) {
-        return { ok: false, error: e.message };
-      }
-    });
-
-    ipcMain.handle('offline-load-llm-model', async (event, modelPath) => {
-      try {
-        await offlineLlmEngine.loadModel(modelPath);
-        store.set('offlineLlmModelPath', modelPath);
-        return { ok: true };
-      } catch (e) {
-        return { ok: false, error: e.message };
-      }
-    });
-
-    ipcMain.handle('offline-set-key', (event, keyCode) => {
-      store.set('offlineActivationKey', keyCode);
-      registerHotkeys(toggleListening);
-      return { ok: true };
-    });
-
-    ipcMain.handle('offline-set-system-prompt', (event, prompt) => {
-      store.set('offlineSystemPrompt', prompt);
-      return { ok: true };
-    });
-
-    ipcMain.handle('offline-get-system-prompt', () => {
-      return store.get('offlineSystemPrompt') || '';
-    });
-
-    ipcMain.handle('offline-open-models-folder', (event, type) => {
-      const dir = path.join(app.getPath('userData'), 'offline-models', type || 'stt');
-      if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-      require('electron').shell.openPath(dir);
-      return { ok: true };
-    });
-
-    ipcMain.on('offline-audio-data', (event, data) => {
-      offlineRecorder.onAudioDataReceived(data);
-    });
-
-    ipcMain.on('offline-cancel-recording', () => {
-      offlineRecorder.cancelRecording();
-      offlineModeManager._hidePill();
-      offlineModeManager._isProcessing = false;
-    });
-  } catch (offlineErr) {
-    console.log('[Offline] Native modules not available — offline mode disabled:', offlineErr.message);
-    // Register stub handlers so UI calls don't hang
-    ipcMain.handle('offline-get-status', () => ({ enabled: false, sttLoaded: false, llmLoaded: false, unavailable: true }));
-    ipcMain.handle('offline-enable', () => ({ ok: false, error: 'Offline modules not installed' }));
-    ipcMain.handle('offline-llm-enable', () => ({ ok: false }));
-    ipcMain.handle('offline-download-model', () => ({ ok: false, error: 'Offline modules not installed' }));
-    ipcMain.handle('offline-delete-model', () => ({ ok: false }));
-    ipcMain.handle('offline-load-stt-model', () => ({ ok: false, error: 'Offline modules not installed' }));
-    ipcMain.handle('offline-load-llm-model', () => ({ ok: false, error: 'Offline modules not installed' }));
-    ipcMain.handle('offline-set-key', () => ({ ok: true }));
-    ipcMain.handle('offline-set-system-prompt', () => ({ ok: true }));
-    ipcMain.handle('offline-get-system-prompt', () => '');
-    ipcMain.handle('offline-open-models-folder', () => ({ ok: true }));
-  }
+    } catch (_) {}
+  });
 
   /* ── Whisper API (Cloud) IPC ────────────────────────────────────── */
   const whisperApiEngine = require('./whisper-api-engine');
@@ -700,7 +578,7 @@ function setupIpcHandlers(toggleListening, registerHotkeys, getWsClient, resetSi
       activeProfileId: store.get('whisperApiActiveProfileId') || '',
       fallbackEnabled: store.get('whisperApiFallbackEnabled') !== false,
       language: store.get('whisperApiLanguage') || '',
-      activationKey: store.get('whisperApiActivationKey') || 'AltRight',
+      activationKey: store.get('whisperApiActivationKey') || (process.platform === 'darwin' ? 'MetaRight' : 'ControlRight'),
     };
   });
 

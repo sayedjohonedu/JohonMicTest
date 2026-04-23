@@ -43,21 +43,6 @@ contextBridge.exposeInMainWorld('electronAPI', {
   showLicenseCelebration:    ()           => ipcRenderer.send('show-license-celebration'),
   // ── Clipboard Manager ──
   cbSetEnabled:              (enabled)    => ipcRenderer.invoke('cb-set-enabled', enabled),
-  // ── Offline Mode ──
-  offlineCheckTrial:           ()           => ipcRenderer.invoke('offline-check-trial'),
-  offlineShowLockedPopup:      ()           => ipcRenderer.send('offline-show-locked-popup'),
-  offlineGetStatus:          ()           => ipcRenderer.invoke('offline-get-status'),
-  offlineEnable:             (enabled)    => ipcRenderer.invoke('offline-enable', enabled),
-  offlineLlmEnable:          (enabled)    => ipcRenderer.invoke('offline-llm-enable', enabled),
-  offlineDownloadModel:      (opts)       => ipcRenderer.invoke('offline-download-model', opts),
-  offlineDeleteModel:        (modelPath)  => ipcRenderer.invoke('offline-delete-model', modelPath),
-  offlineLoadSttModel:       (modelPath)  => ipcRenderer.invoke('offline-load-stt-model', modelPath),
-  offlineLoadLlmModel:       (modelPath)  => ipcRenderer.invoke('offline-load-llm-model', modelPath),
-  offlineSetKey:             (keyCode)    => ipcRenderer.invoke('offline-set-key', keyCode),
-  offlineSetSystemPrompt:    (prompt)     => ipcRenderer.invoke('offline-set-system-prompt', prompt),
-  offlineGetSystemPrompt:    ()           => ipcRenderer.invoke('offline-get-system-prompt'),
-  offlineOpenModelsFolder:   (type)       => ipcRenderer.invoke('offline-open-models-folder', type),
-  onOfflineDownloadProgress: (cb)         => onChannel('offline-download-progress', (_, data) => cb(data)),
   // ── Whisper API (Cloud) ──
   whisperApiCheckTrial:        ()           => ipcRenderer.invoke('whisper-api-check-trial'),
   whisperApiShowLockedPopup:   ()           => ipcRenderer.send('whisper-api-show-locked-popup'),

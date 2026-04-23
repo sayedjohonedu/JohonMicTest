@@ -14,21 +14,24 @@ const { showClipboardManager, toggleClipboardManager, getClipboardWindow, notify
 const { setupClipboardIpc } = require('./src/main/clipboard-ipc');
 
 // Import modules
-const { createOverlay, showSettings, showLicensePopup, showWordLimitPopup, showTranslatorLockedPopup, showAiTrialExpiredPopup, applyOverlaySize, getOverlayWindow, getSettingsWindow, showUpdateReminderPopup, getUpdateReminderPopupWindow, createOfflinePill, getOfflinePillWindow } = require('./src/main/window-manager');
+const { createOverlay, showSettings, showLicensePopup, showWordLimitPopup, showTranslatorLockedPopup, showAiTrialExpiredPopup, applyOverlaySize, getOverlayWindow, getSettingsWindow, showUpdateReminderPopup, getUpdateReminderPopupWindow, createOfflinePill } = require('./src/main/window-manager');
 const { onOverlayShow, onOverlayHide } = require('./src/main/floating-browser-manager');
-const { registerHotkeys, stopUiohook, setTranslatorCtx, setAiSendNow, setAiModeToggle, setOfflineModeCallbacks, setWhisperApiCallbacks } = require('./src/main/hotkey-manager');
+const { registerHotkeys, stopUiohook, setTranslatorCtx, setAiSendNow, setAiModeToggle, setWhisperApiCallbacks } = require('./src/main/hotkey-manager');
 const { checkAuthStatus, checkAndResetDailyWords, checkAiTrialExpiry } = require('./src/main/licensing');
 const { setupUpdater } = require('./src/main/updater');
 const { setupIpcHandlers, aiDictationManager } = require('./src/main/ipc-handlers');
 const { createTray, updateTrayMenu } = require('./src/main/tray-manager');
 const translatorManager = require('./src/main/translator-manager');
 
-// ── Feature Flag: Offline Mode ──────────────────────────────────────────────
-// Set to true to re-enable offline STT (sherpa-onnx) and LLM (node-llama-cpp).
-// When false, the offline packages are excluded from the build to reduce size.
-// All offline code remains in the codebase — flip this to true and move the
-// packages back to "dependencies" in package.json to restore functionality.
-const OFFLINE_ENABLED = false;
+
+
+// One-time migration (v1.2.8): Swap keys — Whisper: ShiftRight→MetaRight, AI Send: MetaRight→ShiftRight
+if (store.get('whisperApiActivationKey') === 'AltRight' || store.get('whisperApiActivationKey') === 'ShiftRight') {
+  store.set('whisperApiActivationKey', process.platform === 'darwin' ? 'MetaRight' : 'ControlRight');
+}
+if (store.get('aiActivationKey') === 'MetaRight' || store.get('aiActivationKey') === 'ControlRight') {
+  store.set('aiActivationKey', 'ShiftRight');
+}
 
 // Global state
 let wss = null;
@@ -706,23 +709,10 @@ app.whenReady().then(() => {
   // Re-run registerHotkeys now that translatorCtx is set
   registerHotkeys(toggleListening);
 
-  // ── Offline Mode init ──────────────────────────────────────────────
-  if (OFFLINE_ENABLED) {
-    const offlineModeManager = require('./src/main/offline-mode-manager');
-    const offlinePill = createOfflinePill();
-    offlineModeManager.setPillWindow(offlinePill);
-    offlineModeManager.setClipboardManager(clipboardManager);
-    offlineModeManager.init();
-    setOfflineModeCallbacks({
-      onKeyDown: () => offlineModeManager.onKeyDown(),
-      onKeyUp:   () => offlineModeManager.onKeyUp(),
-    });
-  }
-
   // ── Whisper API (Cloud) init ──────────────────────────────────────
   const whisperApiManager = require('./src/main/whisper-api-manager');
-  const offlinePillForWhisper = OFFLINE_ENABLED ? getOfflinePillWindow() : createOfflinePill();
-  whisperApiManager.setPillWindow(offlinePillForWhisper);
+  const whisperPill = createOfflinePill();
+  whisperApiManager.setPillWindow(whisperPill);
   whisperApiManager.setClipboardManager(clipboardManager);
   whisperApiManager.init();
   setWhisperApiCallbacks({
@@ -730,7 +720,7 @@ app.whenReady().then(() => {
     onKeyUp:   () => whisperApiManager.onKeyUp(),
   });
 
-  // Re-register so offline + whisper API hold-keys are active
+  // Re-register so whisper API hold-key is active
   registerHotkeys(toggleListening);
 
   setupHttpServer();

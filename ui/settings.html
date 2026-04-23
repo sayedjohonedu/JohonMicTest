@@ -33,9 +33,6 @@
       <div class="nav-item" data-panel="ai" onclick="switchPanel('ai', this)">
         <span class="nav-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/><path d="M5 3v4"/><path d="M19 17v4"/><path d="M3 5h4"/><path d="M17 19h4"/></svg></span> AI Dictation
       </div>
-      <div class="nav-item" data-panel="offline" onclick="switchPanel('offline', this)" style="display:none;">
-        <span class="nav-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12h6"/><path d="M22 12h-6"/><path d="M12 2v6"/><path d="M12 22v-6"/><circle cx="12" cy="12" r="4"/></svg></span> Offline Mode
-      </div>
       <div class="nav-item" data-panel="whisper" onclick="switchPanel('whisper', this)">
         <span class="nav-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z"/></svg></span> Whisper Engine
       </div>
@@ -486,7 +483,7 @@
               <small>Press this key during AI dictation to instantly process &amp; paste the buffered text. Click the badge to change.</small>
             </div>
             <div class="key-controls">
-              <div class="key-badge" id="ai-sendkey-display">Right Alt</div>
+              <div class="key-badge" id="ai-sendkey-display">Right Shift</div>
               <button class="btn-action" onclick="resetAiSendKey()">⟳ Reset</button>
             </div>
           </div>
@@ -702,135 +699,6 @@
 
       </div>
 
-      <!-- ── OFFLINE MODE PANEL ── -->
-      <div class="panel" id="panel-offline">
-
-        <!-- Master Enable Toggle -->
-        <div class="section-label">Offline Dictation</div>
-        <div class="settings-group">
-          <div class="settings-row">
-            <div class="row-icon" style="background:rgba(96,165,250,0.1);"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12h6"/><path d="M22 12h-6"/><path d="M12 2v6"/><path d="M12 22v-6"/><circle cx="12" cy="12" r="4"/></svg></div>
-            <div class="row-info">
-              <label>Enable Offline Mode</label>
-              <small>Use local Whisper STT (Right Shift hold-to-record). Works without internet.</small>
-            </div>
-            <label class="toggle"><input type="checkbox" id="chk-offline-enabled"><div class="toggle-track"></div></label>
-          </div>
-        </div>
-
-
-        <!-- Activation Key -->
-        <div class="section-label" style="margin-top:18px;">Activation Key</div>
-        <div class="settings-group">
-          <div class="settings-row">
-            <div class="row-icon" style="background:rgba(167,139,250,0.1);"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#a78bfa" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M6 8h.01"/><path d="M10 8h.01"/><path d="M14 8h.01"/><path d="M18 8h.01"/><path d="M8 12h.01"/><path d="M12 12h.01"/><path d="M16 12h.01"/><path d="M7 16h10"/></svg></div>
-            <div class="row-info">
-              <label>Hold Key to Record</label>
-              <small>Press and hold to start recording. Release to process and paste.</small>
-            </div>
-            <button id="btn-offline-key" class="btn-action" style="min-width:120px; font-size:12px; font-weight:600; letter-spacing:0.3px;">Right Shift</button>
-          </div>
-          <div id="offline-key-capture" style="display:none; padding:12px; text-align:center; background:rgba(167,139,250,0.06); border-radius:8px; margin-top:8px;">
-            <div style="font-size:12px; color:var(--accent);">Press any key to assign…</div>
-            <button onclick="cancelOfflineKeyCapture()" style="margin-top:8px; font-size:11px; color:var(--text-dim); background:none; border:1px solid var(--border); border-radius:4px; padding:3px 10px; cursor:pointer; font-family:var(--font);">Cancel</button>
-          </div>
-        </div>
-
-        <!-- STT Model -->
-        <div class="section-label" style="margin-top:18px;">Speech-to-Text Model</div>
-        <div class="settings-group">
-          <div class="settings-row">
-            <div class="row-icon" style="background:rgba(74,222,128,0.1);"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#4ade80" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="22"/></svg></div>
-            <div class="row-info">
-              <label>Active STT Model</label>
-              <small id="offline-stt-status">No model loaded</small>
-            </div>
-            <select id="sel-offline-stt-model" style="background:var(--card-bg); border:1px solid var(--border); border-radius:6px; padding:5px 10px; color:var(--text); font-size:12px; font-family:var(--font); min-width:160px;">
-              <option value="">— Select model —</option>
-            </select>
-          </div>
-
-          <!-- Download Models -->
-          <div id="offline-stt-models-list" style="margin-top:12px; display:flex; flex-direction:column; gap:8px;"></div>
-          <div style="padding:8px 0 4px; text-align:right;">
-            <button onclick="window.electronAPI.offlineOpenModelsFolder('stt')" style="background:none; border:1px solid var(--border); border-radius:6px; padding:5px 12px; font-size:11px; font-weight:500; color:var(--muted2); cursor:pointer; font-family:var(--font); transition:all 0.15s; display:inline-flex; align-items:center; gap:5px;" onmouseover="this.style.borderColor='var(--accent)';this.style.color='var(--accent)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--muted2)'">
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
-              Open STT Models Folder
-            </button>
-          </div>
-        </div>
-
-        <!-- AI Polishing Toggle -->
-        <div class="section-label" style="margin-top:18px;">Offline AI Polish</div>
-        <div class="settings-group">
-          <div class="settings-row">
-            <div class="row-icon" style="background:rgba(192,132,252,0.1);"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#c084fc" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/></svg></div>
-            <div class="row-info">
-              <label>Enable AI Polish (LLM)</label>
-              <small>After Whisper transcribes, a local LLM cleans grammar, removes filler words, and fixes punctuation.</small>
-            </div>
-            <label class="toggle"><input type="checkbox" id="chk-offline-llm-enabled"><div class="toggle-track"></div></label>
-          </div>
-
-          <!-- LLM Model Selector -->
-          <div id="offline-llm-section" style="display:none;">
-            <div class="settings-row" style="margin-top:8px;">
-              <div class="row-icon" style="background:rgba(251,146,60,0.1);"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fb923c" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg></div>
-              <div class="row-info">
-                <label>Active LLM Model</label>
-                <small id="offline-llm-status">No model loaded</small>
-              </div>
-              <select id="sel-offline-llm-model" style="background:var(--card-bg); border:1px solid var(--border); border-radius:6px; padding:5px 10px; color:var(--text); font-size:12px; font-family:var(--font); min-width:160px;">
-                <option value="">— Select model —</option>
-              </select>
-            </div>
-
-            <!-- LLM Download Models -->
-            <div id="offline-llm-models-list" style="margin-top:12px; display:flex; flex-direction:column; gap:8px;"></div>
-            <div style="padding:8px 0 4px; text-align:right;">
-              <button onclick="window.electronAPI.offlineOpenModelsFolder('llm')" style="background:none; border:1px solid var(--border); border-radius:6px; padding:5px 12px; font-size:11px; font-weight:500; color:var(--muted2); cursor:pointer; font-family:var(--font); transition:all 0.15s; display:inline-flex; align-items:center; gap:5px;" onmouseover="this.style.borderColor='var(--accent)';this.style.color='var(--accent)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--muted2)'">
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
-                Open LLM Models Folder
-              </button>
-            </div>
-          </div>
-        </div>
-
-        <!-- System Prompt -->
-        <div class="section-label" style="margin-top:18px;">System Prompt</div>
-        <div class="settings-group">
-          <div style="padding:14px 18px;">
-            <div style="display:flex; align-items:center; gap:8px; margin-bottom:8px;">
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><line x1="10" y1="9" x2="8" y2="9"/></svg>
-              <span style="font-size:12.5px; font-weight:600; color:var(--text);">LLM Instructions</span>
-            </div>
-            <small style="display:block; font-size:11px; color:var(--muted); margin-bottom:10px; line-height:1.4;">Custom instructions for the AI. Leave empty to use the built-in prompt (handles punctuation, bullet points, lists, line breaks, and editing commands like <strong style="color:var(--accent);">scratch that</strong>). Setting a custom prompt replaces the default entirely.</small>
-            <textarea id="offline-system-prompt" rows="5" style="width:100%; background:var(--card2); border:1px solid var(--border2); border-radius:8px; padding:10px 12px; color:var(--text); font-size:12px; font-family:var(--font); line-height:1.5; resize:vertical; outline:none; transition:border-color 0.15s;" placeholder="Leave empty to use the default AI prompt. Or type your own instructions here…"></textarea>
-            <div style="display:flex; justify-content:flex-end; gap:8px; margin-top:8px;">
-              <button id="btn-reset-offline-prompt" onclick="resetOfflineSystemPrompt()" style="background:rgba(251,146,60,0.08); color:#fb923c; border:1px solid rgba(251,146,60,0.2); border-radius:6px; padding:6px 16px; font-size:11.5px; cursor:pointer; font-weight:600; font-family:var(--font); transition:all 0.15s; display:flex; align-items:center; gap:5px;">
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>
-              Reset
-              </button>
-              <button id="btn-save-offline-prompt" onclick="saveOfflineSystemPrompt()" style="background:rgba(108,99,255,0.1); color:var(--accent); border:1px solid rgba(108,99,255,0.2); border-radius:6px; padding:6px 16px; font-size:11.5px; cursor:pointer; font-weight:600; font-family:var(--font); transition:all 0.15s; display:flex; align-items:center; gap:5px;">
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
-              Save Prompt
-              </button>
-            </div>
-          </div>
-        </div>
-
-        <!-- Status Display -->
-        <div style="margin-top:20px; padding:14px; background:rgba(96,165,250,0.04); border:1px solid rgba(96,165,250,0.12); border-radius:10px;">
-          <div style="display:flex; align-items:center; gap:8px; margin-bottom:8px;">
-            <div id="offline-status-dot" style="width:8px; height:8px; border-radius:50%; background:#ef4444;"></div>
-            <span id="offline-status-label" style="font-size:12px; font-weight:600; color:var(--text);">Not Ready</span>
-          </div>
-          <div style="font-size:11px; color:var(--text-dim); line-height:1.5;" id="offline-status-detail">
-            Enable offline mode and download a STT model to get started.
-          </div>
-        </div>
-
-      </div><!-- /panel-offline -->
 
       <!-- ── WHISPER API PANEL ── -->
       <div class="panel" id="panel-whisper">
@@ -953,16 +821,18 @@
           </div>
         </div>
 
-        <!-- Activation Key -->
         <div class="section-label" style="margin-top:18px;">Activation Key</div>
         <div class="settings-group">
           <div class="settings-row">
             <div class="row-icon" style="background:rgba(167,139,250,0.1);"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#a78bfa" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M6 8h.01"/><path d="M10 8h.01"/><path d="M14 8h.01"/><path d="M18 8h.01"/><path d="M8 12h.01"/><path d="M12 12h.01"/><path d="M16 12h.01"/><path d="M7 16h10"/></svg></div>
             <div class="row-info">
               <label>Hold Key to Record</label>
-              <small>Press and hold to start recording. Release to transcribe via cloud and paste.</small>
+              <small>Press and hold to start recording. Release to transcribe via cloud and paste. Click the key to change.</small>
             </div>
-            <button id="btn-whisper-key" class="btn-action" style="min-width:120px; font-size:12px; font-weight:600; letter-spacing:0.3px;">Right Alt</button>
+            <div class="key-controls">
+              <button id="btn-whisper-key" class="btn-action" style="min-width:120px; font-size:12px; font-weight:600; letter-spacing:0.3px;">Right ⌘</button>
+              <button class="btn-action" onclick="resetWhisperKey()">⟳ Reset</button>
+            </div>
           </div>
           <div id="whisper-key-capture" style="display:none; padding:12px; text-align:center; background:rgba(167,139,250,0.06); border-radius:8px; margin-top:8px;">
             <div style="font-size:12px; color:var(--accent);">Press any key to assign…</div>

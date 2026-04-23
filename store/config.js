@@ -291,7 +291,7 @@ const schema = {
   },
   aiActivationKey: {
     type: 'string',
-    default: process.platform === 'darwin' ? 'MetaRight' : 'ControlRight'  // Right ⌘ (Mac) / Right Ctrl (Win)
+    default: 'ShiftRight'  // Right Shift — instant send in AI Dictation mode
   },
   aiTemperature: {
     type: 'number',
@@ -329,7 +329,7 @@ const schema = {
   },
   whisperApiActivationKey: {
     type: 'string',
-    default: 'AltRight'   // Default activation key (Right Alt)
+    default: process.platform === 'darwin' ? 'MetaRight' : 'ControlRight'  // Right ⌘ (Mac) / Right Ctrl (Win) — hold to record
   },
   // ── Whisper API — AI Post-Processing ──────────────────────────────
   whisperApiAiEnabled: {

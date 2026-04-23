@@ -154,7 +154,6 @@ const PANELS = {
   voice: { title: 'Voice & Language', desc: 'Speech recognition and language options' },
   replace: { title: 'Text Replacement', desc: 'Auto-replace your spoken words with custom text' },
   ai: { title: 'AI Dictation', desc: 'Clean up speech with AI before typing' },
-  offline: { title: 'Offline Mode', desc: 'Local Whisper STT & LLM — works without internet' },
   whisper: { title: 'Whisper Engine', desc: 'Cloud transcription via OpenAI or Groq' },
   stats: { title: 'My Stats', desc: 'Usage statistics and time saved by voice dictation' },
   license: { title: 'License', desc: 'Manage your subscription and trial' },
@@ -168,7 +167,6 @@ window.switchPanel = function(id, el) {
   document.getElementById('panel-title').textContent = PANELS[id].title;
   document.getElementById('panel-desc').textContent = PANELS[id].desc;
   if (id === 'stats') loadStats();
-  if (id === 'offline') loadOfflinePanel();
   if (id === 'whisper') loadWhisperPanel();
 };
 
@@ -248,7 +246,7 @@ function singleKeyFromEvent(e) {
 }
 
 // ── AI send key: uses event.code to distinguish Left/Right ──
-const AI_SENDKEY_DEFAULT = IS_MAC ? 'MetaRight' : 'ControlRight';
+const AI_SENDKEY_DEFAULT = 'ShiftRight';
 const AI_SENDKEY_NAMES = { AltRight:'Right Alt', AltLeft:'Left Alt', ShiftRight:'Right Shift', ShiftLeft:'Left Shift', ControlRight:'Right Ctrl', ControlLeft:'Left Ctrl', MetaRight:'Right ⌘', MetaLeft:'Left ⌘', Space:'Space', Backquote:'`', Minus:'-', Equal:'=', BracketLeft:'[', BracketRight:']', Backslash:'\\', Semicolon:';', Quote:"'", Comma:',', Period:'.', Slash:'/', CapsLock:'CapsLock', NumLock:'NumLock', ScrollLock:'ScrollLock', Insert:'Insert', Delete:'Delete', Home:'Home', End:'End', PageUp:'PageUp', PageDown:'PageDown', ArrowUp:'↑', ArrowDown:'↓', ArrowLeft:'←', ArrowRight:'→' };
 function aiSendKeyDisplayName(code) {
   if (AI_SENDKEY_NAMES[code]) return AI_SENDKEY_NAMES[code];
@@ -914,144 +912,7 @@ if (window.electronAPI.onAiModeToggled) {
   });
 }
 
-/* ═══════════════════════════════════════════════════════════════════
-   ██  OFFLINE MODE PANEL LOGIC
-   ═══════════════════════════════════════════════════════════════════ */
 
-const KEY_NAMES = {
-  ShiftRight: 'Right Shift', ShiftLeft: 'Left Shift',
-  AltRight: 'Right Alt', AltLeft: 'Left Alt',
-  ControlRight: 'Right Ctrl', ControlLeft: 'Left Ctrl',
-  MetaRight: 'Right ⌘', MetaLeft: 'Left ⌘',
-  Space: 'Space', F1:'F1', F2:'F2', F3:'F3', F4:'F4', F5:'F5',
-  F6:'F6', F7:'F7', F8:'F8', F9:'F9', F10:'F10', F11:'F11', F12:'F12',
-};
-
-let offlineKeyCapturing = false;
-
-async function loadOfflinePanel() {
-  if (!window.electronAPI.offlineGetStatus) return;
-  const status = await window.electronAPI.offlineGetStatus();
-
-  // Master toggle
-  const chk = document.getElementById('chk-offline-enabled');
-  chk.checked = status.enabled;
-  chk.onchange = async () => {
-    if (chk.checked) {
-      // ── Offline Mode Trial Gate ──
-      try {
-        const trial = await window.electronAPI.offlineCheckTrial();
-        if (trial.expired) {
-          // Trial over — revert toggle and show locked popup
-          chk.checked = false;
-          window.electronAPI.offlineShowLockedPopup();
-          return;
-        }
-      } catch (e) {
-        console.error('Offline trial check failed:', e);
-      }
-    }
-    const result = await window.electronAPI.offlineEnable(chk.checked);
-    if (result && result.trialExpired) {
-      // Backend rejected — trial expired
-      chk.checked = false;
-      window.electronAPI.offlineShowLockedPopup();
-      return;
-    }
-    loadOfflinePanel();
-  };
-
-  // Activation key button
-  const keyBtn = document.getElementById('btn-offline-key');
-  const currentKey = (await window.electronAPI.getConfig()).offlineActivationKey || 'ShiftRight';
-  keyBtn.textContent = KEY_NAMES[currentKey] || currentKey;
-  keyBtn.onclick = () => startOfflineKeyCapture();
-
-  // LLM toggle
-  const llmChk = document.getElementById('chk-offline-llm-enabled');
-  llmChk.checked = status.llmEnabled;
-  llmChk.onchange = async () => {
-    await window.electronAPI.offlineLlmEnable(llmChk.checked);
-    document.getElementById('offline-llm-section').style.display = llmChk.checked ? 'block' : 'none';
-  };
-  document.getElementById('offline-llm-section').style.display = status.llmEnabled ? 'block' : 'none';
-
-  // Populate STT model selector
-  const sttSel = document.getElementById('sel-offline-stt-model');
-  sttSel.innerHTML = '<option value="">— Select model —</option>';
-  status.installedSttModels.forEach(m => {
-    const opt = document.createElement('option');
-    opt.value = m.path;
-    opt.textContent = m.id;
-    if (m.id === status.sttModel) opt.selected = true;
-    sttSel.appendChild(opt);
-  });
-  sttSel.onchange = async () => {
-    if (sttSel.value) {
-      const res = await window.electronAPI.offlineLoadSttModel(sttSel.value);
-      if (!res.ok) alert('Failed to load STT model: ' + res.error);
-      loadOfflinePanel();
-    }
-  };
-
-  // STT status
-  document.getElementById('offline-stt-status').textContent = status.sttReady
-    ? `✓ ${status.sttModel} loaded` : 'No model loaded';
-
-  // Render recommended STT models
-  renderModelList('offline-stt-models-list', status.recommendedSttModels, 'stt');
-
-  // Populate LLM model selector
-  const llmSel = document.getElementById('sel-offline-llm-model');
-  llmSel.innerHTML = '<option value="">— Select model —</option>';
-  status.installedLlmModels.forEach(m => {
-    const opt = document.createElement('option');
-    opt.value = m.path;
-    opt.textContent = m.name;
-    if (m.id === status.llmModel) opt.selected = true;
-    llmSel.appendChild(opt);
-  });
-  llmSel.onchange = async () => {
-    if (llmSel.value) {
-      const res = await window.electronAPI.offlineLoadLlmModel(llmSel.value);
-      if (!res.ok) alert('Failed to load LLM model: ' + res.error);
-      loadOfflinePanel();
-    }
-  };
-
-  document.getElementById('offline-llm-status').textContent = status.llmReady
-    ? `✓ ${status.llmModel} loaded` : 'No model loaded';
-
-  // Render recommended LLM models
-  renderModelList('offline-llm-models-list', status.recommendedLlmModels, 'llm');
-
-  // Overall status — pure local-only display
-  const dot = document.getElementById('offline-status-dot');
-  const label = document.getElementById('offline-status-label');
-  const detail = document.getElementById('offline-status-detail');
-  if (dot && label && detail) {
-    if (!status.enabled) {
-      dot.style.background = '#6b7280';
-      label.textContent = 'Disabled';
-      detail.textContent = 'Enable offline mode to use local dictation with Right Shift.';
-    } else if (!status.sttReady) {
-      dot.style.background = '#fb923c';
-      label.textContent = 'No STT Model';
-      detail.textContent = 'Download and select a Whisper model above to start transcribing.';
-    } else {
-      dot.style.background = '#4ade80';
-      label.textContent = 'Ready';
-      detail.textContent = `STT: ${status.sttModel}` + (status.llmReady ? ` | LLM: ${status.llmModel}` : ' | LLM: off') + '\nHold Right Shift to record, release to process.';
-    }
-  }
-
-  // Load system prompt
-  if (window.electronAPI.offlineGetSystemPrompt) {
-    const prompt = await window.electronAPI.offlineGetSystemPrompt();
-    const textarea = document.getElementById('offline-system-prompt');
-    if (textarea) textarea.value = prompt || '';
-  }
-}
 
 /* ═══════════════════════════════════════════════════════════════════
    ██  WHISPER API (CLOUD) — PROFILE-BASED PANEL LOGIC
@@ -1141,7 +1002,7 @@ async function loadWhisperPanel() {
   // Activation key button
   const keyBtn = document.getElementById('btn-whisper-key');
   if (keyBtn) {
-    keyBtn.textContent = formatKeyName(cfg.activationKey || 'AltRight');
+    keyBtn.textContent = formatKeyName(cfg.activationKey || (navigator.platform?.includes('Mac') ? 'MetaRight' : 'ControlRight'));
     keyBtn.onclick = () => startWhisperKeyCapture();
   }
 
@@ -1259,7 +1120,7 @@ async function updateWhisperStatus() {
       const provName = activeProfile.provider === 'groq' ? 'Groq' : 'OpenAI';
       dot.style.background = '#4ade80';
       label.textContent = 'Ready';
-      detail.textContent = `Active: ${activeProfile.name} (${provName} / ${activeProfile.model})\nHold ${formatKeyName(cfg.activationKey || 'AltRight')} to record, release to transcribe.`;
+      detail.textContent = `Active: ${activeProfile.name} (${provName} / ${activeProfile.model})\nHold ${formatKeyName(cfg.activationKey || (navigator.platform?.includes('Mac') ? 'MetaRight' : 'ControlRight'))} to record, release to transcribe.`;
     }
   } catch {
     dot.style.background = '#ef4444';
@@ -1302,6 +1163,15 @@ window.cancelWhisperKeyCapture = function() {
   whisperKeyCaptureActive = false;
   document.getElementById('whisper-key-capture').style.display = 'none';
   document.removeEventListener('keydown', onWhisperKeyCaptured);
+};
+
+window.resetWhisperKey = function() {
+  if (whisperKeyCaptureActive) cancelWhisperKeyCapture();
+  const defaultKey = navigator.platform?.includes('Mac') ? 'MetaRight' : 'ControlRight';
+  const keyBtn = document.getElementById('btn-whisper-key');
+  if (keyBtn) keyBtn.textContent = formatKeyName(defaultKey);
+  window.electronAPI.whisperApiSetKey(defaultKey);
+  updateWhisperStatus();
 };
 
 window.addWhisperProfile = function() {
@@ -1636,184 +1506,3 @@ window.refreshWhisperAiOllamaModels = async function() {
   }
 };
 
-window.saveOfflineSystemPrompt = async function() {
-  const textarea = document.getElementById('offline-system-prompt');
-  const btn = document.getElementById('btn-save-offline-prompt');
-  if (!textarea || !btn) return;
-
-  await window.electronAPI.offlineSetSystemPrompt(textarea.value);
-
-  const orig = btn.innerHTML;
-  btn.innerHTML = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg> Saved!';
-  btn.style.background = 'rgba(74,222,128,0.15)';
-  btn.style.color = '#4ade80';
-  btn.style.borderColor = 'rgba(74,222,128,0.3)';
-  setTimeout(() => {
-    btn.innerHTML = orig;
-    btn.style.background = 'rgba(108,99,255,0.1)';
-    btn.style.color = 'var(--accent)';
-    btn.style.borderColor = 'rgba(108,99,255,0.2)';
-  }, 1500);
-};
-
-window.resetOfflineSystemPrompt = async function() {
-  const textarea = document.getElementById('offline-system-prompt');
-  const btn = document.getElementById('btn-reset-offline-prompt');
-  if (!textarea || !btn) return;
-
-  // Clear the textarea — empty prompt = use hidden default (with Jarvis commands)
-  textarea.value = '';
-  await window.electronAPI.offlineSetSystemPrompt('');
-
-  const orig = btn.innerHTML;
-  btn.innerHTML = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg> Reset!';
-  btn.style.background = 'rgba(74,222,128,0.15)';
-  btn.style.color = '#4ade80';
-  btn.style.borderColor = 'rgba(74,222,128,0.3)';
-  setTimeout(() => {
-    btn.innerHTML = orig;
-    btn.style.background = 'rgba(251,146,60,0.08)';
-    btn.style.color = '#fb923c';
-    btn.style.borderColor = 'rgba(251,146,60,0.2)';
-  }, 1500);
-};
-
-function renderModelList(containerId, models, type) {
-  const container = document.getElementById(containerId);
-  container.innerHTML = '';
-
-  models.forEach(m => {
-    const card = document.createElement('div');
-    card.style.cssText = 'padding:10px 12px; background:rgba(108,99,255,0.03); border:1px solid var(--border); border-radius:8px; display:flex; align-items:center; gap:10px;';
-
-    const info = document.createElement('div');
-    info.style.cssText = 'flex:1; min-width:0;';
-    info.innerHTML = `
-      <div style="font-size:12px; font-weight:600; color:var(--text);">${m.name}</div>
-      <div style="font-size:11px; color:var(--text-dim); margin-top:2px;">${m.description}</div>
-      <div id="dl-progress-${m.id}" style="display:none; margin-top:6px;">
-        <div style="height:4px; background:rgba(108,99,255,0.1); border-radius:2px; overflow:hidden;">
-          <div id="dl-bar-${m.id}" style="height:100%; width:0%; background:var(--accent); border-radius:2px; transition:width 0.3s;"></div>
-        </div>
-        <div id="dl-text-${m.id}" style="font-size:10px; color:var(--text-dim); margin-top:3px;">0%</div>
-      </div>
-    `;
-
-    const btn = document.createElement('button');
-    btn.style.cssText = 'flex-shrink:0; padding:5px 14px; border-radius:6px; font-size:11px; font-weight:600; font-family:var(--font); cursor:pointer; border:1px solid; transition:all 0.15s;';
-
-    if (m.installed) {
-      btn.textContent = '✓ Installed';
-      btn.style.background = 'rgba(74,222,128,0.1)';
-      btn.style.color = '#4ade80';
-      btn.style.borderColor = 'rgba(74,222,128,0.25)';
-      btn.disabled = true;
-    } else {
-      btn.textContent = `Download (${m.size})`;
-      btn.style.background = 'rgba(96,165,250,0.1)';
-      btn.style.color = '#60a5fa';
-      btn.style.borderColor = 'rgba(96,165,250,0.25)';
-      btn.onclick = () => downloadOfflineModel(m, type, btn);
-    }
-
-    card.appendChild(info);
-    card.appendChild(btn);
-    container.appendChild(card);
-  });
-}
-
-async function downloadOfflineModel(model, type, btn) {
-  btn.textContent = 'Starting…';
-  btn.disabled = true;
-
-  // Determine the download URL and filename
-  let url, filename;
-  if (type === 'stt') {
-    url = model.urls?.encoder || '';
-    // Extract the archive filename from the URL (e.g. sherpa-onnx-whisper-tiny.en.tar.bz2)
-    filename = url.split('/').pop() || (model.id + '.tar.bz2');
-  } else {
-    url = model.url || '';
-    filename = model.filename || (model.id + '.gguf');
-  }
-
-  const progressEl = document.getElementById(`dl-progress-${model.id}`);
-  const barEl = document.getElementById(`dl-bar-${model.id}`);
-  const textEl = document.getElementById(`dl-text-${model.id}`);
-  if (progressEl) progressEl.style.display = 'block';
-
-  const result = await window.electronAPI.offlineDownloadModel({
-    modelId: model.id, url, type, filename,
-  });
-
-  if (result.ok) {
-    btn.textContent = '✓ Downloaded';
-    btn.style.background = 'rgba(74,222,128,0.1)';
-    btn.style.color = '#4ade80';
-    btn.style.borderColor = 'rgba(74,222,128,0.25)';
-    loadOfflinePanel();
-  } else {
-    btn.textContent = 'Download Failed';
-    btn.style.color = '#ef4444';
-    btn.disabled = false;
-  }
-}
-
-// Listen for download progress updates
-if (window.electronAPI.onOfflineDownloadProgress) {
-  window.electronAPI.onOfflineDownloadProgress((data) => {
-    const barEl = document.getElementById(`dl-bar-${data.modelId}`);
-    const textEl = document.getElementById(`dl-text-${data.modelId}`);
-    const progressEl = document.getElementById(`dl-progress-${data.modelId}`);
-
-    if (!barEl || !textEl) return;
-
-    if (data.status === 'downloading') {
-      if (progressEl) progressEl.style.display = 'block';
-      const pct = data.progress >= 0 ? data.progress : 0;
-      barEl.style.width = pct + '%';
-      if (data.total > 0) {
-        const dlMB = (data.downloaded / 1024 / 1024).toFixed(1);
-        const totalMB = (data.total / 1024 / 1024).toFixed(1);
-        textEl.textContent = `${dlMB} MB / ${totalMB} MB (${pct}%)`;
-      } else {
-        textEl.textContent = `${(data.downloaded / 1024 / 1024).toFixed(1)} MB downloaded…`;
-      }
-    } else if (data.status === 'complete') {
-      barEl.style.width = '100%';
-      textEl.textContent = 'Complete!';
-      setTimeout(() => loadOfflinePanel(), 500);
-    } else if (data.status === 'error') {
-      textEl.textContent = 'Error: ' + (data.error || 'unknown');
-      textEl.style.color = '#ef4444';
-    }
-  });
-}
-
-function startOfflineKeyCapture() {
-  offlineKeyCapturing = true;
-  document.getElementById('offline-key-capture').style.display = 'block';
-
-  const handler = async (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    const code = e.code;
-    if (code === 'Escape') {
-      cancelOfflineKeyCapture();
-      return;
-    }
-    offlineKeyCapturing = false;
-    document.getElementById('offline-key-capture').style.display = 'none';
-    document.removeEventListener('keydown', handler, true);
-
-    await window.electronAPI.offlineSetKey(code);
-    document.getElementById('btn-offline-key').textContent = KEY_NAMES[code] || code;
-  };
-
-  document.addEventListener('keydown', handler, true);
-}
-
-window.cancelOfflineKeyCapture = function() {
-  offlineKeyCapturing = false;
-  document.getElementById('offline-key-capture').style.display = 'none';
-};

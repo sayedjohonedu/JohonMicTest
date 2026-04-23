@@ -17,9 +17,6 @@ let _aiSendNow = null;
 // AI mode toggle callback (Alt+Shift+C)
 let _aiModeToggle = null;
 
-// Offline mode press-and-hold callbacks
-let _offlineModeCallbacks = null; // { onKeyDown, onKeyUp }
-
 // Whisper API mode press-and-hold callbacks
 let _whisperApiCallbacks = null; // { onKeyDown, onKeyUp }
 
@@ -33,10 +30,6 @@ function setAiSendNow(fn) {
 
 function setAiModeToggle(fn) {
   _aiModeToggle = fn;
-}
-
-function setOfflineModeCallbacks(cbs) {
-  _offlineModeCallbacks = cbs; // { onKeyDown, onKeyUp }
 }
 
 function setWhisperApiCallbacks(cbs) {
@@ -141,10 +134,10 @@ function registerHotkeys(toggleListening) {
   // ── AI Instant Send: configurable key trigger ──
   // Map DOM event.code → UiohookKey name for common modifiers/keys
   const CODE_TO_UIOHOOK = { AltRight:'AltRight', AltLeft:'Alt', ShiftRight:'ShiftRight', ShiftLeft:'Shift', ControlRight:'CtrlRight', ControlLeft:'Ctrl', MetaRight:'MetaRight', MetaLeft:'Meta', Space:'Space', F1:'F1', F2:'F2', F3:'F3', F4:'F4', F5:'F5', F6:'F6', F7:'F7', F8:'F8', F9:'F9', F10:'F10', F11:'F11', F12:'F12' };
-  const aiDefaultKey = process.platform === 'darwin' ? 'MetaRight' : 'ControlRight';
+  const aiDefaultKey = 'ShiftRight';
   const aiKeyCode = store.get('aiActivationKey') || aiDefaultKey;
   const uiohookName = CODE_TO_UIOHOOK[aiKeyCode] || aiKeyCode;
-  const aiDefaultUiohook = process.platform === 'darwin' ? UiohookKey.MetaRight : UiohookKey.CtrlRight;
+  const aiDefaultUiohook = UiohookKey.ShiftRight;
   const aiKeyCodeValue = UiohookKey[uiohookName] || aiDefaultUiohook;
 
   let aiSendNowLock = false;
@@ -261,36 +254,15 @@ function registerHotkeys(toggleListening) {
     });
   }
 
-  // ── Offline Mode: configurable press-and-hold (default: Right Shift) ──
-  const offlineEnabled = store.get('offlineModeEnabled') === true;
-  if (offlineEnabled && _offlineModeCallbacks) {
-    const offlineDefaultKey = 'ShiftRight';
-    const offlineKeyCode = store.get('offlineActivationKey') || offlineDefaultKey;
-    const offlineUiohookName = CODE_TO_UIOHOOK[offlineKeyCode] || offlineKeyCode;
-    const offlineKeyCodeValue = UiohookKey[offlineUiohookName] || UiohookKey.ShiftRight;
 
-    let offlineHeld = false;
-    uIOhook.on('keydown', (e) => {
-      if (e.keycode === offlineKeyCodeValue && !offlineHeld) {
-        offlineHeld = true;
-        _offlineModeCallbacks.onKeyDown();
-      }
-    });
-    uIOhook.on('keyup', (e) => {
-      if (e.keycode === offlineKeyCodeValue && offlineHeld) {
-        offlineHeld = false;
-        _offlineModeCallbacks.onKeyUp();
-      }
-    });
-  }
-
-  // ── Whisper API: configurable press-and-hold (default: Right Alt) ──
+  // ── Whisper API: configurable press-and-hold (default: Right ⌘ / Right Ctrl) ──
   const whisperApiEnabled = store.get('whisperApiEnabled') === true;
   if (whisperApiEnabled && _whisperApiCallbacks) {
-    const whisperDefaultKey = 'AltRight';
+    const whisperDefaultKey = process.platform === 'darwin' ? 'MetaRight' : 'ControlRight';
     const whisperKeyCode = store.get('whisperApiActivationKey') || whisperDefaultKey;
     const whisperUiohookName = CODE_TO_UIOHOOK[whisperKeyCode] || whisperKeyCode;
-    const whisperKeyCodeValue = UiohookKey[whisperUiohookName] || UiohookKey.AltRight;
+    const whisperDefaultUiohook = process.platform === 'darwin' ? UiohookKey.MetaRight : UiohookKey.CtrlRight;
+    const whisperKeyCodeValue = UiohookKey[whisperUiohookName] || whisperDefaultUiohook;
 
     let whisperHeld = false;
     uIOhook.on('keydown', (e) => {
@@ -332,6 +304,6 @@ module.exports = {
   setTranslatorCtx,
   setAiSendNow,
   setAiModeToggle,
-  setOfflineModeCallbacks,
+  setOfflineModeCallbacks: () => {}, // no-op stub for backward compat
   setWhisperApiCallbacks,
 };
