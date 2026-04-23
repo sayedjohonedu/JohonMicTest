@@ -1,9 +1,10 @@
 const { ipcMain, dialog, BrowserWindow, shell, clipboard, app, globalShortcut } = require('electron');
 const { autoUpdater } = require('electron-updater');
 const fs = require('fs');
+const path = require('path');
 const store = require('../../store/config');
 const { verifyLicense } = require('./licensing');
-const { applyOverlaySize, getOverlayWindow, getSettingsWindow, OV, closeLicensePopup, closeWordLimitPopup, closeTranslatorLockedPopup, closeAiTrialPopup, showAiTrialExpiredPopup, showLicenseCelebration, closeLicenseCelebration } = require('./window-manager');
+const { applyOverlaySize, getOverlayWindow, getSettingsWindow, OV, closeLicensePopup, closeWordLimitPopup, closeTranslatorLockedPopup, closeAiTrialPopup, showAiTrialExpiredPopup, showOfflineLockedPopup, closeOfflineLockedPopup, showLicenseCelebration, closeLicenseCelebration } = require('./window-manager');
 const { uIOhook } = require('uiohook-napi');
 const { setupFloatingBrowserIpc } = require('./floating-browser-manager');
 const { callLlmRaw, httpPost, httpGet } = require('./llm-client');
@@ -29,6 +30,18 @@ function setupIpcHandlers(toggleListening, registerHotkeys, getWsClient, resetSi
       const trial = checkAiTrialExpiry();
       if (trial.expired) {
         config.aiModeEnabled = false; // Force-disable
+      }
+    }
+
+    // ── Offline Trial enforcement: stamp first-enable date + block expired trials ──
+    if (config.offlineModeEnabled === true) {
+      const { checkOfflineTrialExpiry } = require('./licensing');
+      if (!store.get('offlineFirstEnabledDate')) {
+        store.set('offlineFirstEnabledDate', Date.now());
+      }
+      const offTrial = checkOfflineTrialExpiry();
+      if (offTrial.expired) {
+        config.offlineModeEnabled = false; // Force-disable
       }
     }
 
@@ -137,6 +150,9 @@ function setupIpcHandlers(toggleListening, registerHotkeys, getWsClient, resetSi
   });
   ipcMain.on('close-ai-trial-popup', () => {
     if (typeof closeAiTrialPopup === 'function') closeAiTrialPopup();
+  });
+  ipcMain.on('close-offline-locked-popup', () => {
+    if (typeof closeOfflineLockedPopup === 'function') closeOfflineLockedPopup();
   });
   ipcMain.on('show-license-celebration', () => {
     showLicenseCelebration();
@@ -393,7 +409,7 @@ function setupIpcHandlers(toggleListening, registerHotkeys, getWsClient, resetSi
     if (canceled || !filePath) return { canceled: true };
     try {
       const configToExport = { ...store.store };
-      const privateKeys = ['overlayPosition', 'overlayMiniPosition', 'settingsPosition', 'licenseKey', 'licenseStatus', 'licensePurchase', 'firstLaunchDate', 'statsSessions', 'statsFirstDate', 'statsWords'];
+      const privateKeys = ['overlayPosition', 'overlayMiniPosition', 'settingsPosition', 'licenseKey', 'licenseStatus', 'licensePurchase', 'licenseActivatedDate', 'firstLaunchDate', 'aiFirstEnabledDate', 'offlineFirstEnabledDate', 'statsSessions', 'statsFirstDate', 'statsWords'];
       privateKeys.forEach(k => delete configToExport[k]);
       fs.writeFileSync(filePath, JSON.stringify(configToExport, null, 2), 'utf8');
       return { ok: true };
@@ -430,7 +446,7 @@ function setupIpcHandlers(toggleListening, registerHotkeys, getWsClient, resetSi
 
   ipcMain.handle('import-settings-commit', (event, newConfig) => {
     try {
-      const privateKeys = ['licenseKey', 'licenseStatus', 'licensePurchase', 'statsSessions', 'statsFirstDate', 'overlayPosition', 'overlayMiniPosition', 'settingsPosition'];
+      const privateKeys = ['licenseKey', 'licenseStatus', 'licensePurchase', 'licenseActivatedDate', 'firstLaunchDate', 'aiFirstEnabledDate', 'offlineFirstEnabledDate', 'statsSessions', 'statsFirstDate', 'overlayPosition', 'overlayMiniPosition', 'settingsPosition'];
       for (const key in newConfig) {
         if (!privateKeys.includes(key)) store.set(key, newConfig[key]);
       }
@@ -495,6 +511,121 @@ function setupIpcHandlers(toggleListening, registerHotkeys, getWsClient, resetSi
   // AI Trial: show popup when trial is expired and user tries to enable
   ipcMain.on('ai-show-trial-popup', () => {
     showAiTrialExpiredPopup();
+  });
+
+  // Offline Mode Trial: check if free user's 15-day trial has expired
+  ipcMain.handle('offline-check-trial', () => {
+    const { checkOfflineTrialExpiry } = require('./licensing');
+    return checkOfflineTrialExpiry();
+  });
+
+  // Offline Mode Trial: show popup when trial is expired and user tries to enable
+  ipcMain.on('offline-show-locked-popup', () => {
+    showOfflineLockedPopup();
+  });
+
+  /* ── Offline Mode IPC ───────────────────────────────────────── */
+  const offlineModeManager = require('./offline-mode-manager');
+  const { offlineSttEngine } = require('./offline-stt-engine');
+  const { offlineLlmEngine } = require('./offline-llm-engine');
+  const offlineRecorder = require('./offline-recorder');
+
+  ipcMain.handle('offline-get-status', () => offlineModeManager.getStatus());
+
+  ipcMain.handle('offline-enable', (event, enabled) => {
+    if (enabled === true) {
+      const { checkOfflineTrialExpiry } = require('./licensing');
+      // Stamp first-enabled date if not already set
+      if (!store.get('offlineFirstEnabledDate')) {
+        store.set('offlineFirstEnabledDate', Date.now());
+      }
+      // Block if trial is expired
+      const trial = checkOfflineTrialExpiry();
+      if (trial.expired) {
+        store.set('offlineModeEnabled', false);
+        // Re-register hotkeys to remove offline key
+        registerHotkeys(toggleListening);
+        return { ok: false, trialExpired: true };
+      }
+    }
+    store.set('offlineModeEnabled', enabled === true);
+    // Re-register hotkeys so the offline hold-key gets added/removed
+    registerHotkeys(toggleListening);
+    return { ok: true };
+  });
+
+  ipcMain.handle('offline-llm-enable', (event, enabled) => {
+    store.set('offlineLlmEnabled', enabled === true);
+    return { ok: true };
+  });
+
+  ipcMain.handle('offline-download-model', async (event, opts) => {
+    try {
+      const result = await offlineModeManager.downloadModel(
+        opts.modelId, opts.url, opts.type, opts.filename
+      );
+      return { ok: true, path: result };
+    } catch (e) {
+      return { ok: false, error: e.message };
+    }
+  });
+
+  ipcMain.handle('offline-delete-model', (event, modelPath) => {
+    return { ok: offlineModeManager.deleteModel(modelPath) };
+  });
+
+  ipcMain.handle('offline-load-stt-model', async (event, modelPath) => {
+    try {
+      await offlineSttEngine.loadModel(modelPath);
+      store.set('offlineSttModelPath', modelPath);
+      return { ok: true };
+    } catch (e) {
+      return { ok: false, error: e.message };
+    }
+  });
+
+  ipcMain.handle('offline-load-llm-model', async (event, modelPath) => {
+    try {
+      await offlineLlmEngine.loadModel(modelPath);
+      store.set('offlineLlmModelPath', modelPath);
+      return { ok: true };
+    } catch (e) {
+      return { ok: false, error: e.message };
+    }
+  });
+
+  ipcMain.handle('offline-set-key', (event, keyCode) => {
+    store.set('offlineActivationKey', keyCode);
+    registerHotkeys(toggleListening);
+    return { ok: true };
+  });
+
+  ipcMain.handle('offline-set-system-prompt', (event, prompt) => {
+    store.set('offlineSystemPrompt', prompt);
+    return { ok: true };
+  });
+
+  ipcMain.handle('offline-get-system-prompt', () => {
+    return store.get('offlineSystemPrompt') || '';
+  });
+
+  ipcMain.handle('offline-open-models-folder', (event, type) => {
+    const dir = path.join(app.getPath('userData'), 'offline-models', type || 'stt');
+    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+    require('electron').shell.openPath(dir);
+    return { ok: true };
+  });
+
+  // Audio data from the offline pill renderer
+  ipcMain.on('offline-audio-data', (event, data) => {
+    offlineRecorder.onAudioDataReceived(data);
+  });
+
+  // Cancel recording from pill close button — stop recording without processing
+  ipcMain.on('offline-cancel-recording', () => {
+    offlineRecorder.cancelRecording();
+    offlineModeManager._hidePill();
+    offlineModeManager._isProcessing = false;
   });
 }
 

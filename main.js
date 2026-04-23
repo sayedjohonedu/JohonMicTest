@@ -14,9 +14,9 @@ const { showClipboardManager, toggleClipboardManager, getClipboardWindow, notify
 const { setupClipboardIpc } = require('./src/main/clipboard-ipc');
 
 // Import modules
-const { createOverlay, showSettings, showLicensePopup, showWordLimitPopup, showTranslatorLockedPopup, showAiTrialExpiredPopup, applyOverlaySize, getOverlayWindow, getSettingsWindow, showUpdateReminderPopup, getUpdateReminderPopupWindow } = require('./src/main/window-manager');
+const { createOverlay, showSettings, showLicensePopup, showWordLimitPopup, showTranslatorLockedPopup, showAiTrialExpiredPopup, applyOverlaySize, getOverlayWindow, getSettingsWindow, showUpdateReminderPopup, getUpdateReminderPopupWindow, createOfflinePill, getOfflinePillWindow } = require('./src/main/window-manager');
 const { onOverlayShow, onOverlayHide } = require('./src/main/floating-browser-manager');
-const { registerHotkeys, stopUiohook, setTranslatorCtx, setAiSendNow, setAiModeToggle } = require('./src/main/hotkey-manager');
+const { registerHotkeys, stopUiohook, setTranslatorCtx, setAiSendNow, setAiModeToggle, setOfflineModeCallbacks } = require('./src/main/hotkey-manager');
 const { checkAuthStatus, checkAndResetDailyWords, checkAiTrialExpiry } = require('./src/main/licensing');
 const { setupUpdater } = require('./src/main/updater');
 const { setupIpcHandlers, aiDictationManager } = require('./src/main/ipc-handlers');
@@ -176,7 +176,7 @@ function normaliseLangCode(code) {
 
 function toggleListening(forceLang = null, fromTranslator = false, forceStart = false, skipAiProcessing = false) {
   if (!wsClient || wsClient.readyState !== WebSocket.OPEN) {
-    dialog.showErrorBox('Service Not Ready', 'Speech service is not connected or Chrome bridge crashed. Please restart the app.');
+    dialog.showErrorBox('MicTab Needs Google Chrome', 'Install Google Chrome and restart the computer.\n\nIf you have already installed Chrome, then restart the computer.');
     isListening = false;
     if (sttMode === 'overlay') {
       const overlayWindow = getOverlayWindow();
@@ -697,6 +697,19 @@ app.whenReady().then(() => {
     getTranslatorWindow: () => translatorManager.getTranslatorWindow(),
   });
   // Re-run registerHotkeys now that translatorCtx is set
+  registerHotkeys(toggleListening);
+
+  // ── Offline Mode init ──────────────────────────────────────────────
+  const offlineModeManager = require('./src/main/offline-mode-manager');
+  const offlinePill = createOfflinePill();
+  offlineModeManager.setPillWindow(offlinePill);
+  offlineModeManager.setClipboardManager(clipboardManager);
+  offlineModeManager.init();
+  setOfflineModeCallbacks({
+    onKeyDown: () => offlineModeManager.onKeyDown(),
+    onKeyUp:   () => offlineModeManager.onKeyUp(),
+  });
+  // Re-register so offline hold-key is active
   registerHotkeys(toggleListening);
 
   setupHttpServer();

@@ -8,6 +8,7 @@ let licensePopupWindow = null;
 let wordLimitPopupWindow = null;
 let translatorLockedPopupWindow = null;
 let aiTrialPopupWindow = null;
+let offlineLockedPopupWindow = null;
 let updateReminderPopupWindow = null;
 let licenseCelebrationWindow = null;
 
@@ -312,6 +313,38 @@ function closeAiTrialPopup() {
   }
 }
 
+function showOfflineLockedPopup() {
+  if (offlineLockedPopupWindow && !offlineLockedPopupWindow.isDestroyed()) {
+    offlineLockedPopupWindow.show();
+    offlineLockedPopupWindow.focus();
+    return offlineLockedPopupWindow;
+  }
+  offlineLockedPopupWindow = new BrowserWindow({
+    width: 360,
+    height: 290,
+    transparent: true,
+    frame: false,
+    alwaysOnTop: true,
+    resizable: false,
+    skipTaskbar: true,
+    webPreferences: {
+      nodeIntegration: false,
+      contextIsolation: true,
+      preload: path.join(__dirname, '../../ui', 'overlay-preload.js')
+    }
+  });
+  offlineLockedPopupWindow.loadFile(path.join(__dirname, '../../ui/offline-locked-popup.html'));
+  offlineLockedPopupWindow.on('closed', () => offlineLockedPopupWindow = null);
+  offlineLockedPopupWindow.center();
+  return offlineLockedPopupWindow;
+}
+
+function closeOfflineLockedPopup() {
+  if (offlineLockedPopupWindow && !offlineLockedPopupWindow.isDestroyed()) {
+    offlineLockedPopupWindow.close();
+  }
+}
+
 function showUpdateReminderPopup() {
   if (updateReminderPopupWindow && !updateReminderPopupWindow.isDestroyed()) {
     updateReminderPopupWindow.show();
@@ -380,6 +413,54 @@ function closeLicenseCelebration() {
   }
 }
 
+let offlinePillWindow = null;
+
+function createOfflinePill() {
+  if (offlinePillWindow && !offlinePillWindow.isDestroyed()) return offlinePillWindow;
+
+  offlinePillWindow = new BrowserWindow({
+    width: 240,
+    height: 38,
+    transparent: true,
+    frame: false,
+    backgroundColor: '#00000000',
+    alwaysOnTop: true,
+    skipTaskbar: true,
+    resizable: false,
+    show: false,
+    hasShadow: false,
+    focusable: false,
+    type: process.platform === 'darwin' ? 'panel' : undefined,
+    webPreferences: {
+      nodeIntegration: false,
+      contextIsolation: true,
+      preload: path.join(__dirname, '../../ui', 'offline-pill-preload.js'),
+    },
+  });
+
+  if (process.platform === 'darwin') {
+    offlinePillWindow.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
+    offlinePillWindow.setAlwaysOnTop(true, 'screen-saver');
+  } else {
+    offlinePillWindow.setAlwaysOnTop(true, 'screen-saver');
+  }
+
+  // Save position on move (position persistence)
+  offlinePillWindow.on('moved', () => {
+    if (offlinePillWindow && !offlinePillWindow.isDestroyed()) {
+      const [x, y] = offlinePillWindow.getPosition();
+      store.set('offlinePillPosition', { x, y });
+    }
+  });
+
+  offlinePillWindow.loadFile(path.join(__dirname, '../../ui', 'offline-pill.html'));
+  offlinePillWindow.on('closed', () => offlinePillWindow = null);
+
+  return offlinePillWindow;
+}
+
+function getOfflinePillWindow() { return offlinePillWindow; }
+
 function getOverlayWindow() { return overlayWindow; }
 function getSettingsWindow() { return settingsWindow; }
 
@@ -394,6 +475,8 @@ module.exports = {
   closeTranslatorLockedPopup,
   showAiTrialExpiredPopup,
   closeAiTrialPopup,
+  showOfflineLockedPopup,
+  closeOfflineLockedPopup,
   showUpdateReminderPopup,
   closeUpdateReminderPopup,
   getUpdateReminderPopupWindow,
@@ -403,5 +486,8 @@ module.exports = {
   getOverlayWindow,
   getSettingsWindow,
   maybRevertToAccessory,
-  OV
+  OV,
+  createOfflinePill,
+  getOfflinePillWindow,
 };
+

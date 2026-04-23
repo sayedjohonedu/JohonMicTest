@@ -17,6 +17,9 @@ let _aiSendNow = null;
 // AI mode toggle callback (Alt+Shift+C)
 let _aiModeToggle = null;
 
+// Offline mode press-and-hold callbacks
+let _offlineModeCallbacks = null; // { onKeyDown, onKeyUp }
+
 function setTranslatorCtx(ctx) {
   _translatorCtx = ctx;
 }
@@ -27,6 +30,10 @@ function setAiSendNow(fn) {
 
 function setAiModeToggle(fn) {
   _aiModeToggle = fn;
+}
+
+function setOfflineModeCallbacks(cbs) {
+  _offlineModeCallbacks = cbs; // { onKeyDown, onKeyUp }
 }
 
 function uiohookKeyName(keycode) {
@@ -247,6 +254,29 @@ function registerHotkeys(toggleListening) {
     });
   }
 
+  // ── Offline Mode: configurable press-and-hold (default: Right Shift) ──
+  const offlineEnabled = store.get('offlineModeEnabled') === true;
+  if (offlineEnabled && _offlineModeCallbacks) {
+    const offlineDefaultKey = 'ShiftRight';
+    const offlineKeyCode = store.get('offlineActivationKey') || offlineDefaultKey;
+    const offlineUiohookName = CODE_TO_UIOHOOK[offlineKeyCode] || offlineKeyCode;
+    const offlineKeyCodeValue = UiohookKey[offlineUiohookName] || UiohookKey.ShiftRight;
+
+    let offlineHeld = false;
+    uIOhook.on('keydown', (e) => {
+      if (e.keycode === offlineKeyCodeValue && !offlineHeld) {
+        offlineHeld = true;
+        _offlineModeCallbacks.onKeyDown();
+      }
+    });
+    uIOhook.on('keyup', (e) => {
+      if (e.keycode === offlineKeyCodeValue && offlineHeld) {
+        offlineHeld = false;
+        _offlineModeCallbacks.onKeyUp();
+      }
+    });
+  }
+
   if (!uiohookRunning) {
     try {
       uIOhook.start();
@@ -272,4 +302,5 @@ module.exports = {
   setTranslatorCtx,
   setAiSendNow,
   setAiModeToggle,
+  setOfflineModeCallbacks,
 };

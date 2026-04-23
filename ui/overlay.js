@@ -583,7 +583,7 @@ function applyOverlayTheme(themeVal) {
   window.junoRgb = getComputedStyle(document.documentElement).getPropertyValue('--accent-rgb').trim() || '124, 111, 255';
 }
 window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => { window.junoAPI.getConfig().then(cfg => { if ((cfg.theme || 'system') === 'system') applyOverlayTheme('system'); }); });
-window.junoAPI.onConfigUpdate && window.junoAPI.onConfigUpdate((cfg) => { if (cfg.theme && typeof applyOverlayTheme === 'function') applyOverlayTheme(cfg.theme); if (cfg.visualizerType) visualizerType = cfg.visualizerType; });
+window.junoAPI.onConfigUpdate && window.junoAPI.onConfigUpdate((cfg) => { if (cfg.theme && typeof applyOverlayTheme === 'function') applyOverlayTheme(cfg.theme); if (cfg.visualizerType) visualizerType = cfg.visualizerType; if (cfg.soundVolume !== undefined && typeof applySoundVolume === 'function') applySoundVolume(cfg.soundVolume); });
 
 // ── AI Mode state tracking ──
 let isAiMode = false;
@@ -647,7 +647,8 @@ window.junoAPI.onSetLanguage((code) => setLanguage(code, false));
 const wcBadge = document.getElementById('wc-badge'), wcSep = document.getElementById('wc-sep');
 window.junoAPI.onSessionWordCount((n) => { if (n > 0) { wcBadge.textContent = `📝 ${n.toLocaleString()} word${n === 1 ? '' : 's'}`; wcBadge.style.display = wcSep.style.display = 'inline'; } });
 const clickSound = new Audio('../assets/computer-mouse-click.mp3'), closeSound = new Audio('../assets/out-2.aac');
-clickSound.volume = closeSound.volume = 0.8;
+function applySoundVolume(vol) { const v = Math.max(0, Math.min(1, (vol ?? 80) / 100)); clickSound.volume = closeSound.volume = v; }
+window.junoAPI.getConfig().then(cfg => { applySoundVolume(cfg.soundVolume); });
 window.junoAPI.onPlaySound((isStarting) => { if (isStarting) { clickSound.currentTime = 0; clickSound.play().catch(()=>{}); } else { closeSound.currentTime = 0; closeSound.play().catch(()=>{}); } });
 
 let visualizerType = 'wave', currentAudioData = { bins: new Array(15).fill(0), volume: 0 }, smoothedBins = new Array(15).fill(0), smoothedVol = 0, wavePhase = 0, miniPhase = 0, currentAmp = 2.5, currentMiniAmp = 2.0;
