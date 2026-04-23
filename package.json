@@ -1,6 +1,6 @@
 {
   "name": "mictab",
-  "version": "1.2.7",
+  "version": "1.2.8",
   "description": "MicTab - Voice Dictation App",
   "main": "main.js",
   "scripts": {
@@ -29,17 +29,12 @@
       "!ai_dictation_upgrade.md",
       "!juno_architecture_flow.svg",
       "!macos_focus_fix_summary.md",
-      "!**/node_modules/node-llama-cpp/llama/xpack/**/*",
-      "!**/node_modules/node-llama-cpp/llama/localBuilds/*/llama.cpp/**/*",
-      "!**/node_modules/node-llama-cpp/llama/localBuilds/*/CMakeFiles/**/*",
-      "!**/node_modules/node-llama-cpp/llama/localBuilds/*/Release/**/*",
-      "!**/node_modules/node-llama-cpp/llama/localBuilds/*/Makefile",
-      "!**/node_modules/node-llama-cpp/llama/localBuilds/*/CMakeCache.txt",
-      "!**/node_modules/node-llama-cpp/llama/localBuilds/*/cmake_install.cmake",
-      "!**/node_modules/node-llama-cpp/llama/localBuilds/*/compile_commands.json",
-      "!**/node_modules/node-llama-cpp/llama/localBuilds/*/license.cpp",
-      "!**/node_modules/node-llama-cpp/llama/localBuilds/mac-arm64-metal-release-b8500/**/*",
-      "!**/node_modules/node-llama-cpp/llama/localBuilds/mac-arm64-metal-release-b8891/**/*"
+      "!**/node_modules/sherpa-onnx-node/**/*",
+      "!**/node_modules/sherpa-onnx-darwin*/**/*",
+      "!**/node_modules/sherpa-onnx-linux*/**/*",
+      "!**/node_modules/sherpa-onnx-win*/**/*",
+      "!**/node_modules/node-llama-cpp/**/*",
+      "!**/node_modules/@node-llama-cpp/**/*"
     ],
     "mac": {
       "category": "public.app-category.productivity",
@@ -81,12 +76,14 @@
     "electron-store": "^8.1.0",
     "electron-updater": "^6.8.3",
     "google-translate-api-x": "^10.7.2",
-    "node-llama-cpp": "^3.18.1",
     "puppeteer-core": "^24.40.0",
     "robotjs": "^0.7.0",
-    "sherpa-onnx-node": "^1.12.39",
     "uiohook-napi": "^1.5.5",
     "ws": "^8.20.0"
+  },
+  "optionalDependencies": {
+    "node-llama-cpp": "^3.18.1",
+    "sherpa-onnx-node": "^1.12.39"
   },
   "devDependencies": {
     "@electron/rebuild": "^4.0.3",

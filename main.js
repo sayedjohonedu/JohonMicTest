@@ -23,6 +23,13 @@ const { setupIpcHandlers, aiDictationManager } = require('./src/main/ipc-handler
 const { createTray, updateTrayMenu } = require('./src/main/tray-manager');
 const translatorManager = require('./src/main/translator-manager');
 
+// ── Feature Flag: Offline Mode ──────────────────────────────────────────────
+// Set to true to re-enable offline STT (sherpa-onnx) and LLM (node-llama-cpp).
+// When false, the offline packages are excluded from the build to reduce size.
+// All offline code remains in the codebase — flip this to true and move the
+// packages back to "dependencies" in package.json to restore functionality.
+const OFFLINE_ENABLED = false;
+
 // Global state
 let wss = null;
 let wsClient = null;
@@ -700,19 +707,22 @@ app.whenReady().then(() => {
   registerHotkeys(toggleListening);
 
   // ── Offline Mode init ──────────────────────────────────────────────
-  const offlineModeManager = require('./src/main/offline-mode-manager');
-  const offlinePill = createOfflinePill();
-  offlineModeManager.setPillWindow(offlinePill);
-  offlineModeManager.setClipboardManager(clipboardManager);
-  offlineModeManager.init();
-  setOfflineModeCallbacks({
-    onKeyDown: () => offlineModeManager.onKeyDown(),
-    onKeyUp:   () => offlineModeManager.onKeyUp(),
-  });
+  if (OFFLINE_ENABLED) {
+    const offlineModeManager = require('./src/main/offline-mode-manager');
+    const offlinePill = createOfflinePill();
+    offlineModeManager.setPillWindow(offlinePill);
+    offlineModeManager.setClipboardManager(clipboardManager);
+    offlineModeManager.init();
+    setOfflineModeCallbacks({
+      onKeyDown: () => offlineModeManager.onKeyDown(),
+      onKeyUp:   () => offlineModeManager.onKeyUp(),
+    });
+  }
 
   // ── Whisper API (Cloud) init ──────────────────────────────────────
   const whisperApiManager = require('./src/main/whisper-api-manager');
-  whisperApiManager.setPillWindow(offlinePill);
+  const offlinePillForWhisper = OFFLINE_ENABLED ? getOfflinePillWindow() : createOfflinePill();
+  whisperApiManager.setPillWindow(offlinePillForWhisper);
   whisperApiManager.setClipboardManager(clipboardManager);
   whisperApiManager.init();
   setWhisperApiCallbacks({

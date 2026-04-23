@@ -539,108 +539,122 @@ function setupIpcHandlers(toggleListening, registerHotkeys, getWsClient, resetSi
   });
 
   /* ── Offline Mode IPC ───────────────────────────────────────── */
-  const offlineModeManager = require('./offline-mode-manager');
-  const { offlineSttEngine } = require('./offline-stt-engine');
-  const { offlineLlmEngine } = require('./offline-llm-engine');
-  const offlineRecorder = require('./offline-recorder');
+  // Guarded: offline native modules (sherpa-onnx-node, node-llama-cpp) are
+  // in optionalDependencies and excluded from "Lite" builds. If they are
+  // missing the try/catch prevents a startup crash; stub handlers are
+  // registered so the UI never hangs waiting for a response.
+  try {
+    const offlineModeManager = require('./offline-mode-manager');
+    const { offlineSttEngine } = require('./offline-stt-engine');
+    const { offlineLlmEngine } = require('./offline-llm-engine');
+    const offlineRecorder = require('./offline-recorder');
 
-  ipcMain.handle('offline-get-status', () => offlineModeManager.getStatus());
+    ipcMain.handle('offline-get-status', () => offlineModeManager.getStatus());
 
-  ipcMain.handle('offline-enable', (event, enabled) => {
-    if (enabled === true) {
-      const { checkOfflineTrialExpiry } = require('./licensing');
-      // Stamp first-enabled date if not already set
-      if (!store.get('offlineFirstEnabledDate')) {
-        store.set('offlineFirstEnabledDate', Date.now());
+    ipcMain.handle('offline-enable', (event, enabled) => {
+      if (enabled === true) {
+        const { checkOfflineTrialExpiry } = require('./licensing');
+        if (!store.get('offlineFirstEnabledDate')) {
+          store.set('offlineFirstEnabledDate', Date.now());
+        }
+        const trial = checkOfflineTrialExpiry();
+        if (trial.expired) {
+          store.set('offlineModeEnabled', false);
+          registerHotkeys(toggleListening);
+          return { ok: false, trialExpired: true };
+        }
       }
-      // Block if trial is expired
-      const trial = checkOfflineTrialExpiry();
-      if (trial.expired) {
-        store.set('offlineModeEnabled', false);
-        // Re-register hotkeys to remove offline key
-        registerHotkeys(toggleListening);
-        return { ok: false, trialExpired: true };
+      store.set('offlineModeEnabled', enabled === true);
+      registerHotkeys(toggleListening);
+      return { ok: true };
+    });
+
+    ipcMain.handle('offline-llm-enable', (event, enabled) => {
+      store.set('offlineLlmEnabled', enabled === true);
+      return { ok: true };
+    });
+
+    ipcMain.handle('offline-download-model', async (event, opts) => {
+      try {
+        const result = await offlineModeManager.downloadModel(
+          opts.modelId, opts.url, opts.type, opts.filename
+        );
+        return { ok: true, path: result };
+      } catch (e) {
+        return { ok: false, error: e.message };
       }
-    }
-    store.set('offlineModeEnabled', enabled === true);
-    // Re-register hotkeys so the offline hold-key gets added/removed
-    registerHotkeys(toggleListening);
-    return { ok: true };
-  });
+    });
 
-  ipcMain.handle('offline-llm-enable', (event, enabled) => {
-    store.set('offlineLlmEnabled', enabled === true);
-    return { ok: true };
-  });
+    ipcMain.handle('offline-delete-model', (event, modelPath) => {
+      return { ok: offlineModeManager.deleteModel(modelPath) };
+    });
 
-  ipcMain.handle('offline-download-model', async (event, opts) => {
-    try {
-      const result = await offlineModeManager.downloadModel(
-        opts.modelId, opts.url, opts.type, opts.filename
-      );
-      return { ok: true, path: result };
-    } catch (e) {
-      return { ok: false, error: e.message };
-    }
-  });
+    ipcMain.handle('offline-load-stt-model', async (event, modelPath) => {
+      try {
+        await offlineSttEngine.loadModel(modelPath);
+        store.set('offlineSttModelPath', modelPath);
+        return { ok: true };
+      } catch (e) {
+        return { ok: false, error: e.message };
+      }
+    });
 
-  ipcMain.handle('offline-delete-model', (event, modelPath) => {
-    return { ok: offlineModeManager.deleteModel(modelPath) };
-  });
+    ipcMain.handle('offline-load-llm-model', async (event, modelPath) => {
+      try {
+        await offlineLlmEngine.loadModel(modelPath);
+        store.set('offlineLlmModelPath', modelPath);
+        return { ok: true };
+      } catch (e) {
+        return { ok: false, error: e.message };
+      }
+    });
 
-  ipcMain.handle('offline-load-stt-model', async (event, modelPath) => {
-    try {
-      await offlineSttEngine.loadModel(modelPath);
-      store.set('offlineSttModelPath', modelPath);
+    ipcMain.handle('offline-set-key', (event, keyCode) => {
+      store.set('offlineActivationKey', keyCode);
+      registerHotkeys(toggleListening);
       return { ok: true };
-    } catch (e) {
-      return { ok: false, error: e.message };
-    }
-  });
+    });
 
-  ipcMain.handle('offline-load-llm-model', async (event, modelPath) => {
-    try {
-      await offlineLlmEngine.loadModel(modelPath);
-      store.set('offlineLlmModelPath', modelPath);
+    ipcMain.handle('offline-set-system-prompt', (event, prompt) => {
+      store.set('offlineSystemPrompt', prompt);
       return { ok: true };
-    } catch (e) {
-      return { ok: false, error: e.message };
-    }
-  });
+    });
 
-  ipcMain.handle('offline-set-key', (event, keyCode) => {
-    store.set('offlineActivationKey', keyCode);
-    registerHotkeys(toggleListening);
-    return { ok: true };
-  });
+    ipcMain.handle('offline-get-system-prompt', () => {
+      return store.get('offlineSystemPrompt') || '';
+    });
 
-  ipcMain.handle('offline-set-system-prompt', (event, prompt) => {
-    store.set('offlineSystemPrompt', prompt);
-    return { ok: true };
-  });
+    ipcMain.handle('offline-open-models-folder', (event, type) => {
+      const dir = path.join(app.getPath('userData'), 'offline-models', type || 'stt');
+      if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+      require('electron').shell.openPath(dir);
+      return { ok: true };
+    });
 
-  ipcMain.handle('offline-get-system-prompt', () => {
-    return store.get('offlineSystemPrompt') || '';
-  });
+    ipcMain.on('offline-audio-data', (event, data) => {
+      offlineRecorder.onAudioDataReceived(data);
+    });
 
-  ipcMain.handle('offline-open-models-folder', (event, type) => {
-    const dir = path.join(app.getPath('userData'), 'offline-models', type || 'stt');
-    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-    require('electron').shell.openPath(dir);
-    return { ok: true };
-  });
-
-  // Audio data from the offline pill renderer
-  ipcMain.on('offline-audio-data', (event, data) => {
-    offlineRecorder.onAudioDataReceived(data);
-  });
-
-  // Cancel recording from pill close button — stop recording without processing
-  ipcMain.on('offline-cancel-recording', () => {
-    offlineRecorder.cancelRecording();
-    offlineModeManager._hidePill();
-    offlineModeManager._isProcessing = false;
-  });
+    ipcMain.on('offline-cancel-recording', () => {
+      offlineRecorder.cancelRecording();
+      offlineModeManager._hidePill();
+      offlineModeManager._isProcessing = false;
+    });
+  } catch (offlineErr) {
+    console.log('[Offline] Native modules not available — offline mode disabled:', offlineErr.message);
+    // Register stub handlers so UI calls don't hang
+    ipcMain.handle('offline-get-status', () => ({ enabled: false, sttLoaded: false, llmLoaded: false, unavailable: true }));
+    ipcMain.handle('offline-enable', () => ({ ok: false, error: 'Offline modules not installed' }));
+    ipcMain.handle('offline-llm-enable', () => ({ ok: false }));
+    ipcMain.handle('offline-download-model', () => ({ ok: false, error: 'Offline modules not installed' }));
+    ipcMain.handle('offline-delete-model', () => ({ ok: false }));
+    ipcMain.handle('offline-load-stt-model', () => ({ ok: false, error: 'Offline modules not installed' }));
+    ipcMain.handle('offline-load-llm-model', () => ({ ok: false, error: 'Offline modules not installed' }));
+    ipcMain.handle('offline-set-key', () => ({ ok: true }));
+    ipcMain.handle('offline-set-system-prompt', () => ({ ok: true }));
+    ipcMain.handle('offline-get-system-prompt', () => '');
+    ipcMain.handle('offline-open-models-folder', () => ({ ok: true }));
+  }
 
   /* ── Whisper API (Cloud) IPC ────────────────────────────────────── */
   const whisperApiEngine = require('./whisper-api-engine');
