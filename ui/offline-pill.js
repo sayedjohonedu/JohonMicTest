@@ -42,6 +42,8 @@ let scriptProcessor = null;
 let recordedChunks = [];
 let sampleRate = 16000;
 let waveAnimFrame = null;
+let _isStarting = false;   // true while getUserMedia is in progress
+let _pendingStop = false;  // true if stopRecording was called during startup
 
 // Particles for the particles visualizer (same as overlay.js)
 const particles = Array.from({ length: 40 }).map(() => ({
@@ -50,7 +52,30 @@ const particles = Array.from({ length: 40 }).map(() => ({
   offset: Math.random() * Math.PI * 2
 }));
 
+/**
+ * Release all media resources (mic stream, audio context, processor).
+ * Centralized cleanup to ensure mic indicator always clears.
+ */
+function releaseAllMedia() {
+  if (scriptProcessor) {
+    scriptProcessor.disconnect();
+    scriptProcessor = null;
+  }
+  if (mediaStream) {
+    mediaStream.getTracks().forEach(t => t.stop());
+    mediaStream = null;
+  }
+  if (audioContext) {
+    audioContext.close().catch(() => {});
+    audioContext = null;
+    analyser = null;
+  }
+}
+
 async function startRecording() {
+  _pendingStop = false;
+  _isStarting = true;
+
   try {
     mediaStream = await navigator.mediaDevices.getUserMedia({
       audio: {
@@ -60,6 +85,20 @@ async function startRecording() {
         sampleRate: 16000,
       }
     });
+
+    // ── Race condition guard ──
+    // If stopRecording() was called while getUserMedia was resolving
+    // (user did a quick tap), immediately release the mic and send empty data.
+    if (_pendingStop) {
+      console.warn('[OfflinePill] Stop requested during mic init — releasing immediately');
+      mediaStream.getTracks().forEach(t => t.stop());
+      mediaStream = null;
+      _isStarting = false;
+      _pendingStop = false;
+      // Send empty data so the main process can resolve its pending promise
+      window.offlineAPI.sendAudioData({ samples: [], sampleRate: 16000 });
+      return;
+    }
 
     audioContext = new AudioContext({ sampleRate: 16000 });
     sampleRate = audioContext.sampleRate;
@@ -111,36 +150,36 @@ async function startRecording() {
     source.connect(scriptProcessor);
     scriptProcessor.connect(audioContext.destination);
 
+    _isStarting = false;
     document.body.className = 'recording';
     isSpeaking = true;
     startVisualizer();
     console.log('[OfflinePill] Recording started');
   } catch (e) {
+    _isStarting = false;
+    _pendingStop = false;
     console.error('[OfflinePill] Mic access failed:', e);
     document.body.className = 'error';
     textEl.textContent = 'Mic access denied';
+    // Send empty data so main process doesn't hang waiting
+    window.offlineAPI.sendAudioData({ samples: [], sampleRate: 16000 });
   }
 }
 
 function stopRecording() {
   isSpeaking = false;
 
+  // ── Handle race condition: stop called while getUserMedia is still resolving ──
+  if (_isStarting) {
+    console.warn('[OfflinePill] Stop called during mic init — setting pending stop');
+    _pendingStop = true;
+    return; // startRecording() will handle cleanup when getUserMedia resolves
+  }
+
   // Stop waveform animation
   if (waveAnimFrame) {
     cancelAnimationFrame(waveAnimFrame);
     waveAnimFrame = null;
-  }
-
-  // Stop script processor
-  if (scriptProcessor) {
-    scriptProcessor.disconnect();
-    scriptProcessor = null;
-  }
-
-  // Stop media stream tracks FIRST to release the mic indicator
-  if (mediaStream) {
-    mediaStream.getTracks().forEach(t => t.stop());
-    mediaStream = null;
   }
 
   // Merge all recorded chunks into one Float32Array
@@ -153,12 +192,8 @@ function stopRecording() {
   }
   recordedChunks = [];
 
-  // Close audio context BEFORE sending data to ensure mic is fully released
-  if (audioContext) {
-    audioContext.close().catch(() => {});
-    audioContext = null;
-    analyser = null;
-  }
+  // Release all media resources (mic, audio context, processor)
+  releaseAllMedia();
 
   // Send audio data back to main process
   // Convert Float32Array to regular array for IPC serialization
@@ -339,13 +374,10 @@ if (dotClose) {
   dotClose.addEventListener('mousedown', (e) => {
     e.preventDefault();
     e.stopPropagation();
-    // Cancel recording and hide
-    if (mediaStream) {
-      mediaStream.getTracks().forEach(t => t.stop());
-      mediaStream = null;
-    }
-    if (scriptProcessor) { scriptProcessor.disconnect(); scriptProcessor = null; }
-    if (audioContext) { audioContext.close().catch(() => {}); audioContext = null; analyser = null; }
+    // Cancel recording and hide — release all resources
+    _isStarting = false;
+    _pendingStop = false;
+    releaseAllMedia();
     recordedChunks = [];
     isSpeaking = false;
     window.offlineAPI.cancelRecording();
