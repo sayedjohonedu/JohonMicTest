@@ -1,6 +1,6 @@
 {
   "name": "mictab",
-  "version": "1.2.6",
+  "version": "1.2.7",
   "description": "MicTab - Voice Dictation App",
   "main": "main.js",
   "scripts": {
@@ -23,7 +23,15 @@
       "!**/*.md",
       "!**/JUNO_GLOBAL_VOICE_PRD.md",
       "!.chrome-bridge-data/**/*",
-      "!test_ui.js"
+      "!test_ui.js",
+      "!commit_details*.txt",
+      "!public-repo-tmp/**/*",
+      "!ai_dictation_upgrade.md",
+      "!juno_architecture_flow.svg",
+      "!macos_focus_fix_summary.md",
+      "!**/node_modules/node-llama-cpp/llama/xpack/**/*",
+      "!**/node_modules/node-llama-cpp/llama/localBuilds/mac-arm64-metal-release-b8500/**/*",
+      "!**/node_modules/node-llama-cpp/llama/localBuilds/mac-arm64-metal-release-b8891/**/*"
     ],
     "mac": {
       "category": "public.app-category.productivity",
@@ -60,7 +68,6 @@
   "license": "ISC",
   "type": "commonjs",
   "dependencies": {
-    "@huggingface/transformers": "^4.1.0",
     "adm-zip": "^0.5.17",
     "better-sqlite3": "^12.8.0",
     "electron-store": "^8.1.0",

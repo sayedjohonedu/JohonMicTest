@@ -4,7 +4,7 @@ const fs = require('fs');
 const path = require('path');
 const store = require('../../store/config');
 const { verifyLicense } = require('./licensing');
-const { applyOverlaySize, getOverlayWindow, getSettingsWindow, OV, closeLicensePopup, closeWordLimitPopup, closeTranslatorLockedPopup, closeAiTrialPopup, showAiTrialExpiredPopup, showOfflineLockedPopup, closeOfflineLockedPopup, showLicenseCelebration, closeLicenseCelebration } = require('./window-manager');
+const { applyOverlaySize, getOverlayWindow, getSettingsWindow, OV, closeLicensePopup, closeWordLimitPopup, closeTranslatorLockedPopup, closeAiTrialPopup, showAiTrialExpiredPopup, showOfflineLockedPopup, closeOfflineLockedPopup, showWhisperApiLockedPopup, closeWhisperApiLockedPopup, showLicenseCelebration, closeLicenseCelebration } = require('./window-manager');
 const { uIOhook } = require('uiohook-napi');
 const { setupFloatingBrowserIpc } = require('./floating-browser-manager');
 const { callLlmRaw, httpPost, httpGet } = require('./llm-client');
@@ -153,6 +153,9 @@ function setupIpcHandlers(toggleListening, registerHotkeys, getWsClient, resetSi
   });
   ipcMain.on('close-offline-locked-popup', () => {
     if (typeof closeOfflineLockedPopup === 'function') closeOfflineLockedPopup();
+  });
+  ipcMain.on('close-whisper-api-locked-popup', () => {
+    if (typeof closeWhisperApiLockedPopup === 'function') closeWhisperApiLockedPopup();
   });
   ipcMain.on('show-license-celebration', () => {
     showLicenseCelebration();
@@ -409,7 +412,7 @@ function setupIpcHandlers(toggleListening, registerHotkeys, getWsClient, resetSi
     if (canceled || !filePath) return { canceled: true };
     try {
       const configToExport = { ...store.store };
-      const privateKeys = ['overlayPosition', 'overlayMiniPosition', 'settingsPosition', 'licenseKey', 'licenseStatus', 'licensePurchase', 'licenseActivatedDate', 'firstLaunchDate', 'aiFirstEnabledDate', 'offlineFirstEnabledDate', 'statsSessions', 'statsFirstDate', 'statsWords'];
+      const privateKeys = ['overlayPosition', 'overlayMiniPosition', 'settingsPosition', 'licenseKey', 'licenseStatus', 'licensePurchase', 'licenseActivatedDate', 'firstLaunchDate', 'aiFirstEnabledDate', 'offlineFirstEnabledDate', 'whisperApiFirstEnabledDate', 'statsSessions', 'statsFirstDate', 'statsWords'];
       privateKeys.forEach(k => delete configToExport[k]);
       fs.writeFileSync(filePath, JSON.stringify(configToExport, null, 2), 'utf8');
       return { ok: true };
@@ -446,7 +449,7 @@ function setupIpcHandlers(toggleListening, registerHotkeys, getWsClient, resetSi
 
   ipcMain.handle('import-settings-commit', (event, newConfig) => {
     try {
-      const privateKeys = ['licenseKey', 'licenseStatus', 'licensePurchase', 'licenseActivatedDate', 'firstLaunchDate', 'aiFirstEnabledDate', 'offlineFirstEnabledDate', 'statsSessions', 'statsFirstDate', 'overlayPosition', 'overlayMiniPosition', 'settingsPosition'];
+      const privateKeys = ['licenseKey', 'licenseStatus', 'licensePurchase', 'licenseActivatedDate', 'firstLaunchDate', 'aiFirstEnabledDate', 'offlineFirstEnabledDate', 'whisperApiFirstEnabledDate', 'statsSessions', 'statsFirstDate', 'overlayPosition', 'overlayMiniPosition', 'settingsPosition'];
       for (const key in newConfig) {
         if (!privateKeys.includes(key)) store.set(key, newConfig[key]);
       }
@@ -522,6 +525,17 @@ function setupIpcHandlers(toggleListening, registerHotkeys, getWsClient, resetSi
   // Offline Mode Trial: show popup when trial is expired and user tries to enable
   ipcMain.on('offline-show-locked-popup', () => {
     showOfflineLockedPopup();
+  });
+
+  // Whisper API Trial: check if free user's 15-day Whisper API trial has expired
+  ipcMain.handle('whisper-api-check-trial', () => {
+    const { checkWhisperApiTrialExpiry } = require('./licensing');
+    return checkWhisperApiTrialExpiry();
+  });
+
+  // Whisper API Trial: show popup when trial is expired and user tries to enable
+  ipcMain.on('whisper-api-show-locked-popup', () => {
+    showWhisperApiLockedPopup();
   });
 
   /* ── Offline Mode IPC ───────────────────────────────────────── */
@@ -626,6 +640,115 @@ function setupIpcHandlers(toggleListening, registerHotkeys, getWsClient, resetSi
     offlineRecorder.cancelRecording();
     offlineModeManager._hidePill();
     offlineModeManager._isProcessing = false;
+  });
+
+  /* ── Whisper API (Cloud) IPC ────────────────────────────────────── */
+  const whisperApiEngine = require('./whisper-api-engine');
+  const whisperApiManager = require('./whisper-api-manager');
+
+  ipcMain.handle('whisper-api-enable', (event, enabled) => {
+    if (enabled === true) {
+      const { checkWhisperApiTrialExpiry } = require('./licensing');
+      // Stamp first-enabled date if not already set
+      if (!store.get('whisperApiFirstEnabledDate')) {
+        store.set('whisperApiFirstEnabledDate', Date.now());
+      }
+      // Block if trial is expired
+      const trial = checkWhisperApiTrialExpiry();
+      if (trial.expired) {
+        store.set('whisperApiEnabled', false);
+        registerHotkeys(toggleListening);
+        return { ok: false, trialExpired: true };
+      }
+    }
+    store.set('whisperApiEnabled', enabled === true);
+    // Re-register hotkeys so the whisper API hold-key gets added/removed
+    registerHotkeys(toggleListening);
+    return { ok: true };
+  });
+
+  ipcMain.handle('whisper-api-get-status', () => {
+    return whisperApiManager.getStatus();
+  });
+
+  ipcMain.handle('whisper-api-set-config', (event, config) => {
+    if (config.profiles !== undefined) store.set('whisperApiProfiles', config.profiles);
+    if (config.activeProfileId !== undefined) store.set('whisperApiActiveProfileId', config.activeProfileId);
+    if (config.fallbackEnabled !== undefined) store.set('whisperApiFallbackEnabled', config.fallbackEnabled);
+    if (config.language !== undefined) store.set('whisperApiLanguage', config.language);
+    return { ok: true };
+  });
+
+  ipcMain.handle('whisper-api-get-config', () => {
+    return {
+      enabled: store.get('whisperApiEnabled') === true,
+      profiles: store.get('whisperApiProfiles') || [],
+      activeProfileId: store.get('whisperApiActiveProfileId') || '',
+      fallbackEnabled: store.get('whisperApiFallbackEnabled') !== false,
+      language: store.get('whisperApiLanguage') || '',
+      activationKey: store.get('whisperApiActivationKey') || 'AltRight',
+    };
+  });
+
+  ipcMain.handle('whisper-api-test-key', async (event, profile) => {
+    // profile = { provider, apiKey, baseUrl }
+    const provider = profile?.provider || 'openai';
+    const apiKey = profile?.apiKey || '';
+    return await whisperApiEngine.testApiKey(apiKey, provider);
+  });
+
+  ipcMain.handle('whisper-api-get-languages', () => {
+    return whisperApiEngine.WHISPER_LANGUAGES;
+  });
+
+  ipcMain.handle('whisper-api-get-providers', () => {
+    return whisperApiEngine.PROVIDERS;
+  });
+
+  ipcMain.handle('whisper-api-set-key', (event, keyCode) => {
+    store.set('whisperApiActivationKey', keyCode);
+    registerHotkeys(toggleListening);
+    return { ok: true };
+  });
+
+  /* ── Whisper API — AI Post-Processing IPC ──────────────────────── */
+
+  ipcMain.handle('whisper-api-ai-enable', (event, enabled) => {
+    store.set('whisperApiAiEnabled', enabled === true);
+    return { ok: true };
+  });
+
+  ipcMain.handle('whisper-api-ai-get-config', () => {
+    return {
+      enabled:         store.get('whisperApiAiEnabled') === true,
+      profiles:        store.get('whisperApiAiProfiles') || [],
+      activeProfileId: store.get('whisperApiAiActiveProfileId') || '',
+      systemPrompt:    store.get('whisperApiAiSystemPrompt') || '',
+      temperature:     store.get('whisperApiAiTemperature') ?? 0.3,
+      fallbackEnabled: store.get('whisperApiAiFallbackEnabled') !== false,
+    };
+  });
+
+  ipcMain.handle('whisper-api-ai-set-config', (event, cfg) => {
+    if (cfg.profiles !== undefined) store.set('whisperApiAiProfiles', cfg.profiles);
+    if (cfg.activeProfileId !== undefined) store.set('whisperApiAiActiveProfileId', cfg.activeProfileId);
+    if (cfg.systemPrompt !== undefined) store.set('whisperApiAiSystemPrompt', cfg.systemPrompt);
+    if (cfg.temperature !== undefined) store.set('whisperApiAiTemperature', cfg.temperature);
+    if (cfg.fallbackEnabled !== undefined) store.set('whisperApiAiFallbackEnabled', cfg.fallbackEnabled);
+    return { ok: true };
+  });
+
+  ipcMain.handle('whisper-api-ai-test', async (event, profile) => {
+    try {
+      return await callLlmRaw({
+        text: 'Say "connected" and nothing else.',
+        profile,
+        systemPrompt: 'Respond with a single word.',
+        temperature: 0.1,
+      });
+    } catch (e) {
+      return { error: e.message || 'Connection failed' };
+    }
   });
 }
 

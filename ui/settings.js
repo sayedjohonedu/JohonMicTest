@@ -155,6 +155,7 @@ const PANELS = {
   replace: { title: 'Text Replacement', desc: 'Auto-replace your spoken words with custom text' },
   ai: { title: 'AI Dictation', desc: 'Clean up speech with AI before typing' },
   offline: { title: 'Offline Mode', desc: 'Local Whisper STT & LLM — works without internet' },
+  whisper: { title: 'Whisper Engine', desc: 'Cloud transcription via OpenAI or Groq' },
   stats: { title: 'My Stats', desc: 'Usage statistics and time saved by voice dictation' },
   license: { title: 'License', desc: 'Manage your subscription and trial' },
   about: { title: 'About', desc: 'MicTab information' },
@@ -168,6 +169,7 @@ window.switchPanel = function(id, el) {
   document.getElementById('panel-desc').textContent = PANELS[id].desc;
   if (id === 'stats') loadStats();
   if (id === 'offline') loadOfflinePanel();
+  if (id === 'whisper') loadWhisperPanel();
 };
 
 function formatTimeSaved(words) {
@@ -1023,23 +1025,24 @@ async function loadOfflinePanel() {
   // Render recommended LLM models
   renderModelList('offline-llm-models-list', status.recommendedLlmModels, 'llm');
 
-  // Overall status
+  // Overall status — pure local-only display
   const dot = document.getElementById('offline-status-dot');
   const label = document.getElementById('offline-status-label');
   const detail = document.getElementById('offline-status-detail');
-
-  if (!status.enabled) {
-    dot.style.background = '#6b7280';
-    label.textContent = 'Disabled';
-    detail.textContent = 'Enable offline mode to use local dictation with Right Shift.';
-  } else if (!status.sttReady) {
-    dot.style.background = '#fb923c';
-    label.textContent = 'No STT Model';
-    detail.textContent = 'Download and select a Whisper model above to start transcribing.';
-  } else {
-    dot.style.background = '#4ade80';
-    label.textContent = 'Ready';
-    detail.textContent = `STT: ${status.sttModel}` + (status.llmReady ? ` | LLM: ${status.llmModel}` : ' | LLM: off') + '\nHold Right Shift to record, release to process.';
+  if (dot && label && detail) {
+    if (!status.enabled) {
+      dot.style.background = '#6b7280';
+      label.textContent = 'Disabled';
+      detail.textContent = 'Enable offline mode to use local dictation with Right Shift.';
+    } else if (!status.sttReady) {
+      dot.style.background = '#fb923c';
+      label.textContent = 'No STT Model';
+      detail.textContent = 'Download and select a Whisper model above to start transcribing.';
+    } else {
+      dot.style.background = '#4ade80';
+      label.textContent = 'Ready';
+      detail.textContent = `STT: ${status.sttModel}` + (status.llmReady ? ` | LLM: ${status.llmModel}` : ' | LLM: off') + '\nHold Right Shift to record, release to process.';
+    }
   }
 
   // Load system prompt
@@ -1049,6 +1052,589 @@ async function loadOfflinePanel() {
     if (textarea) textarea.value = prompt || '';
   }
 }
+
+/* ═══════════════════════════════════════════════════════════════════
+   ██  WHISPER API (CLOUD) — PROFILE-BASED PANEL LOGIC
+   ═══════════════════════════════════════════════════════════════════ */
+
+let _whisperProfiles = [];
+let _whisperActiveProfileId = '';
+
+function escWHtml(str = '') {
+  return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+async function loadWhisperPanel() {
+  if (!window.electronAPI.whisperApiGetConfig) return;
+
+  const cfg = await window.electronAPI.whisperApiGetConfig();
+
+  // Master toggle
+  const chk = document.getElementById('chk-whisper-enabled');
+  if (chk) {
+    chk.checked = cfg.enabled;
+    chk.onchange = async () => {
+      if (chk.checked) {
+        // ── Whisper API Trial Gate ──
+        try {
+          const trial = await window.electronAPI.whisperApiCheckTrial();
+          if (trial.expired) {
+            // Trial over — revert toggle and show locked popup
+            chk.checked = false;
+            window.electronAPI.whisperApiShowLockedPopup();
+            return;
+          }
+        } catch (e) {
+          console.error('Whisper API trial check failed:', e);
+        }
+      }
+      const result = await window.electronAPI.whisperApiEnable(chk.checked);
+      if (result && result.trialExpired) {
+        // Backend rejected — trial expired
+        chk.checked = false;
+        window.electronAPI.whisperApiShowLockedPopup();
+        return;
+      }
+      updateWhisperStatus();
+    };
+  }
+
+  // Load profiles
+  _whisperProfiles = cfg.profiles || [];
+  _whisperActiveProfileId = cfg.activeProfileId || (_whisperProfiles[0]?.id || '');
+  renderWhisperProfiles();
+
+  // Populate model dropdown default (for the "Add New Profile" form)
+  await populateWhisperModels('openai', '');
+
+  // Fallback toggle
+  const fbChk = document.getElementById('chk-whisper-fallback');
+  if (fbChk) {
+    fbChk.checked = cfg.fallbackEnabled !== false;
+    fbChk.onchange = () => {
+      window.electronAPI.whisperApiSetConfig({ fallbackEnabled: fbChk.checked });
+    };
+  }
+
+  // Populate language dropdown
+  try {
+    const langs = await window.electronAPI.whisperApiGetLanguages();
+    const langSel = document.getElementById('sel-whisper-lang');
+    if (langSel && langs) {
+      langSel.innerHTML = '';
+      langs.forEach(l => {
+        const opt = document.createElement('option');
+        opt.value = l.code;
+        opt.textContent = l.code ? `${l.name} (${l.code})` : `🌐 ${l.name}`;
+        langSel.appendChild(opt);
+      });
+      langSel.value = cfg.language || '';
+    }
+  } catch {}
+
+  // Save language changes immediately
+  const langSel2 = document.getElementById('sel-whisper-lang');
+  if (langSel2) langSel2.onchange = () => {
+    window.electronAPI.whisperApiSetConfig({ language: langSel2.value });
+  };
+
+  // Activation key button
+  const keyBtn = document.getElementById('btn-whisper-key');
+  if (keyBtn) {
+    keyBtn.textContent = formatKeyName(cfg.activationKey || 'AltRight');
+    keyBtn.onclick = () => startWhisperKeyCapture();
+  }
+
+  // ── Load AI Polish settings ──
+  await loadWhisperAiSection();
+
+  // Update status display
+  updateWhisperStatus();
+}
+
+function renderWhisperProfiles() {
+  const container = document.getElementById('whisper-profile-list');
+  if (!container) return;
+  container.innerHTML = '';
+
+  if (!_whisperProfiles.length) {
+    container.innerHTML = '<div class="ai-profile-empty">No profiles yet. Add one below.</div>';
+    return;
+  }
+
+  _whisperProfiles.forEach(p => {
+    const div = document.createElement('div');
+    div.className = 'ai-profile-chip' + (p.id === _whisperActiveProfileId ? ' active' : '');
+    const provLabel = p.provider === 'groq' ? '⚡ Groq' : '🟢 OpenAI';
+    div.innerHTML = `
+      <div class="ai-profile-name">${escWHtml(p.name)}</div>
+      <div class="ai-profile-badge">${provLabel} · ${escWHtml(p.model || '')}</div>
+      <button class="ai-profile-del" title="Delete">✕</button>
+    `;
+    div.addEventListener('click', (e) => {
+      if (e.target.classList.contains('ai-profile-del')) {
+        _whisperProfiles = _whisperProfiles.filter(x => x.id !== p.id);
+        if (_whisperActiveProfileId === p.id) {
+          _whisperActiveProfileId = _whisperProfiles[0]?.id || '';
+        }
+        saveWhisperProfiles();
+        renderWhisperProfiles();
+        updateWhisperStatus();
+      } else {
+        _whisperActiveProfileId = p.id;
+        saveWhisperProfiles();
+        renderWhisperProfiles();
+        showWhisperStatus('✓ Default: ' + p.name);
+        updateWhisperStatus();
+      }
+    });
+    container.appendChild(div);
+  });
+}
+
+function saveWhisperProfiles() {
+  window.electronAPI.whisperApiSetConfig({
+    profiles: _whisperProfiles,
+    activeProfileId: _whisperActiveProfileId,
+  });
+}
+
+function showWhisperStatus(msg, color) {
+  const s = document.getElementById('whisper-key-status');
+  if (s) {
+    s.textContent = msg;
+    s.style.color = color || 'var(--muted)';
+    setTimeout(() => { if (s) s.textContent = ''; }, 3000);
+  }
+}
+
+async function populateWhisperModels(provider, selectedModel) {
+  try {
+    const providers = await window.electronAPI.whisperApiGetProviders();
+    const providerData = providers[provider] || providers.openai;
+    const modelSel = document.getElementById('sel-whisper-model');
+    if (!modelSel || !providerData) return;
+
+    modelSel.innerHTML = '';
+    providerData.models.forEach(m => {
+      const opt = document.createElement('option');
+      opt.value = m.id;
+      opt.textContent = m.name;
+      modelSel.appendChild(opt);
+    });
+
+    const validIds = providerData.models.map(m => m.id);
+    if (selectedModel && validIds.includes(selectedModel)) {
+      modelSel.value = selectedModel;
+    } else {
+      modelSel.value = providerData.defaultModel;
+    }
+  } catch {}
+}
+
+window.onWhisperProviderChange = async function(provider) {
+  await populateWhisperModels(provider, '');
+};
+
+async function updateWhisperStatus() {
+  const dot = document.getElementById('whisper-status-dot');
+  const label = document.getElementById('whisper-status-label');
+  const detail = document.getElementById('whisper-status-detail');
+  if (!dot) return;
+
+  try {
+    const cfg = await window.electronAPI.whisperApiGetConfig();
+    const profiles = cfg.profiles || [];
+    const activeProfile = profiles.find(p => p.id === cfg.activeProfileId) || profiles[0];
+
+    if (!cfg.enabled) {
+      dot.style.background = '#6b7280';
+      label.textContent = 'Disabled';
+      detail.textContent = 'Enable Whisper Engine to use cloud transcription.';
+    } else if (!profiles.length) {
+      dot.style.background = '#fb923c';
+      label.textContent = 'No Profiles';
+      detail.textContent = 'Add a Whisper Engine profile above to get started.';
+    } else if (activeProfile) {
+      const provName = activeProfile.provider === 'groq' ? 'Groq' : 'OpenAI';
+      dot.style.background = '#4ade80';
+      label.textContent = 'Ready';
+      detail.textContent = `Active: ${activeProfile.name} (${provName} / ${activeProfile.model})\nHold ${formatKeyName(cfg.activationKey || 'AltRight')} to record, release to transcribe.`;
+    }
+  } catch {
+    dot.style.background = '#ef4444';
+    label.textContent = 'Error';
+    detail.textContent = 'Could not load Whisper API configuration.';
+  }
+}
+
+function formatKeyName(code) {
+  const MAP = {
+    'AltRight': 'Right Alt', 'AltLeft': 'Left Alt', 'Alt': 'Alt',
+    'ShiftRight': 'Right Shift', 'ShiftLeft': 'Left Shift', 'Shift': 'Shift',
+    'ControlRight': 'Right Ctrl', 'ControlLeft': 'Left Ctrl', 'Ctrl': 'Ctrl',
+    'MetaRight': 'Right ⌘', 'MetaLeft': 'Left ⌘', 'Meta': '⌘',
+    'Space': 'Space', 'F1':'F1', 'F2':'F2', 'F3':'F3', 'F4':'F4',
+    'F5':'F5', 'F6':'F6', 'F7':'F7', 'F8':'F8', 'F9':'F9',
+    'F10':'F10', 'F11':'F11', 'F12':'F12',
+  };
+  return MAP[code] || code;
+}
+
+let whisperKeyCaptureActive = false;
+function startWhisperKeyCapture() {
+  whisperKeyCaptureActive = true;
+  document.getElementById('whisper-key-capture').style.display = 'block';
+  document.addEventListener('keydown', onWhisperKeyCaptured, { once: true });
+}
+
+function onWhisperKeyCaptured(e) {
+  e.preventDefault();
+  const keyCode = e.code;
+  whisperKeyCaptureActive = false;
+  document.getElementById('whisper-key-capture').style.display = 'none';
+  document.getElementById('btn-whisper-key').textContent = formatKeyName(keyCode);
+  window.electronAPI.whisperApiSetKey(keyCode);
+  updateWhisperStatus();
+}
+
+window.cancelWhisperKeyCapture = function() {
+  whisperKeyCaptureActive = false;
+  document.getElementById('whisper-key-capture').style.display = 'none';
+  document.removeEventListener('keydown', onWhisperKeyCaptured);
+};
+
+window.addWhisperProfile = function() {
+  const nameInput = document.getElementById('whisper-profile-name');
+  const name = nameInput?.value.trim();
+  if (!name) { showWhisperStatus('⚠ Enter a profile name', '#fb923c'); return; }
+
+  const apiKey = document.getElementById('whisper-api-key')?.value.trim();
+  if (!apiKey) { showWhisperStatus('⚠ Enter an API key', '#fb923c'); return; }
+
+  const profile = {
+    id: Date.now().toString(),
+    name,
+    provider: document.getElementById('sel-whisper-provider')?.value || 'openai',
+    model: document.getElementById('sel-whisper-model')?.value || 'whisper-1',
+    apiKey,
+    baseUrl: '',
+  };
+
+  _whisperProfiles.push(profile);
+  if (!_whisperActiveProfileId) _whisperActiveProfileId = profile.id;
+
+  saveWhisperProfiles();
+
+  // Clear form
+  if (nameInput) nameInput.value = '';
+  const keyInput = document.getElementById('whisper-api-key');
+  if (keyInput) keyInput.value = '';
+
+  renderWhisperProfiles();
+  updateWhisperStatus();
+  showWhisperStatus('✓ Profile saved!', '#4ade80');
+};
+
+window.testWhisperProfile = async function() {
+  const statusEl = document.getElementById('whisper-key-status');
+  const btn = document.getElementById('btn-whisper-test-key');
+  if (!statusEl) return;
+
+  const provider = document.getElementById('sel-whisper-provider')?.value || 'openai';
+  const apiKey = document.getElementById('whisper-api-key')?.value.trim() || '';
+
+  if (!apiKey) {
+    showWhisperStatus('⚠ Enter an API key first', '#fb923c');
+    return;
+  }
+
+  if (btn) btn.disabled = true;
+  statusEl.textContent = 'Testing connection…';
+  statusEl.style.color = 'var(--muted)';
+
+  try {
+    const result = await window.electronAPI.whisperApiTestKey({ provider, apiKey });
+    if (result.ok) {
+      showWhisperStatus('✓ Connected!', '#4ade80');
+    } else {
+      showWhisperStatus('✕ ' + (result.error || 'Connection failed'), '#f87171');
+    }
+  } catch (e) {
+    showWhisperStatus('✕ ' + (e.message || 'Test failed'), '#f87171');
+  } finally {
+    if (btn) btn.disabled = false;
+  }
+};
+
+/* ═══════════════════════════════════════════════════════════════════
+   ██  WHISPER API — AI POST-PROCESSING (POLISH) FUNCTIONS
+   ═══════════════════════════════════════════════════════════════════ */
+
+/* ── Whisper API — AI Polish (Profile-based, mirrors AI Dictation) ─ */
+
+let _whisperAiProfiles = [];
+let _whisperAiActiveProfileId = '';
+
+function escWhisperHtml(str = '') {
+  return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+async function loadWhisperAiSection() {
+  if (!window.electronAPI.whisperApiAiGetConfig) return;
+
+  const cfg = await window.electronAPI.whisperApiAiGetConfig();
+
+  // Enable toggle
+  const chk = document.getElementById('chk-whisper-ai-enabled');
+  const section = document.getElementById('whisper-ai-section');
+  if (chk) {
+    chk.checked = cfg.enabled;
+    if (section) section.style.display = cfg.enabled ? 'block' : 'none';
+    chk.onchange = async () => {
+      await window.electronAPI.whisperApiAiEnable(chk.checked);
+      if (section) section.style.display = chk.checked ? 'block' : 'none';
+    };
+  }
+
+  // Load profiles
+  _whisperAiProfiles = cfg.profiles || [];
+  _whisperAiActiveProfileId = cfg.activeProfileId || (_whisperAiProfiles[0]?.id || '');
+  renderWhisperAiProfiles();
+
+  // Fallback toggle
+  const fbChk = document.getElementById('chk-whisper-ai-fallback');
+  if (fbChk) {
+    fbChk.checked = cfg.fallbackEnabled !== false;
+    fbChk.onchange = () => {
+      window.electronAPI.whisperApiAiSetConfig({ fallbackEnabled: fbChk.checked });
+    };
+  }
+
+  // Populate the "Add New Profile" form default state
+  populateWhisperAiModels('openai', '');
+
+  // System prompt
+  const promptArea = document.getElementById('whisper-ai-system-prompt');
+  if (promptArea) promptArea.value = cfg.systemPrompt || '';
+
+  // Temperature
+  const tempSlider = document.getElementById('whisper-ai-temperature');
+  const tempLabel = document.getElementById('label-whisper-ai-temp');
+  if (tempSlider) {
+    tempSlider.value = cfg.temperature ?? 0.3;
+    if (tempLabel) tempLabel.textContent = parseFloat(tempSlider.value).toFixed(1);
+  }
+}
+
+function renderWhisperAiProfiles() {
+  const container = document.getElementById('whisper-ai-profile-list');
+  if (!container) return;
+  container.innerHTML = '';
+
+  if (!_whisperAiProfiles.length) {
+    container.innerHTML = '<div class="ai-profile-empty">No profiles yet. Add one below.</div>';
+    return;
+  }
+
+  _whisperAiProfiles.forEach(p => {
+    const div = document.createElement('div');
+    div.className = 'ai-profile-chip' + (p.id === _whisperAiActiveProfileId ? ' active' : '');
+    div.innerHTML = `
+      <div class="ai-profile-name">${escWhisperHtml(p.name)}</div>
+      <div class="ai-profile-badge">${escWhisperHtml(p.provider)} · ${escWhisperHtml(p.model || '')}</div>
+      <button class="ai-profile-del" title="Delete">✕</button>
+    `;
+    div.addEventListener('click', (e) => {
+      if (e.target.classList.contains('ai-profile-del')) {
+        // Delete profile
+        _whisperAiProfiles = _whisperAiProfiles.filter(x => x.id !== p.id);
+        if (_whisperAiActiveProfileId === p.id) {
+          _whisperAiActiveProfileId = _whisperAiProfiles[0]?.id || '';
+        }
+        saveWhisperAiProfiles();
+        renderWhisperAiProfiles();
+      } else {
+        // Set as active
+        _whisperAiActiveProfileId = p.id;
+        saveWhisperAiProfiles();
+        renderWhisperAiProfiles();
+        showWhisperAiStatus('✓ Default: ' + p.name);
+      }
+    });
+    container.appendChild(div);
+  });
+}
+
+function saveWhisperAiProfiles() {
+  window.electronAPI.whisperApiAiSetConfig({
+    profiles: _whisperAiProfiles,
+    activeProfileId: _whisperAiActiveProfileId,
+  });
+}
+
+function showWhisperAiStatus(msg, color) {
+  const s = document.getElementById('whisper-ai-test-status');
+  if (s) {
+    s.textContent = msg;
+    s.style.color = color || 'var(--muted)';
+    setTimeout(() => { if (s) s.textContent = ''; }, 3000);
+  }
+}
+
+function populateWhisperAiModels(provider, currentValue) {
+  const sel = document.getElementById('whisper-ai-model');
+  if (!sel) return;
+  sel.innerHTML = '';
+
+  const models = AI_PROVIDER_MODELS[provider] || [];
+  models.forEach(m => {
+    const opt = document.createElement('option');
+    opt.value = m;
+    opt.textContent = m;
+    sel.appendChild(opt);
+  });
+
+  if (currentValue && [...sel.options].some(o => o.value === currentValue)) {
+    sel.value = currentValue;
+  } else if (models.length > 0) {
+    sel.value = models[0];
+  }
+}
+
+window.onWhisperAiProviderChange = function(provider) {
+  const isCustom = provider === 'custom';
+  const baseUrlRow = document.getElementById('row-whisper-ai-baseurl');
+  const ollamaBtn = document.getElementById('btn-whisper-ai-ollama-refresh');
+  const ollamaStatus = document.getElementById('whisper-ai-ollama-status');
+
+  if (baseUrlRow) baseUrlRow.style.display = isCustom ? 'flex' : 'none';
+  if (ollamaBtn) ollamaBtn.style.display = isCustom ? 'inline-block' : 'none';
+
+  if (isCustom) {
+    refreshWhisperAiOllamaModels();
+  } else if (ollamaStatus) {
+    ollamaStatus.style.display = 'none';
+  }
+
+  populateWhisperAiModels(provider, '');
+};
+
+window.addWhisperAiProfile = function() {
+  const nameInput = document.getElementById('whisper-ai-profile-name');
+  const name = nameInput?.value.trim();
+  if (!name) { showWhisperAiStatus('⚠ Enter a profile name', '#fb923c'); return; }
+  const apiKey = document.getElementById('whisper-ai-apikey')?.value.trim();
+  const provider = document.getElementById('whisper-ai-provider')?.value || 'openai';
+  if (!apiKey && provider !== 'custom') { showWhisperAiStatus('⚠ Enter an API key', '#fb923c'); return; }
+
+  const profile = {
+    id: Date.now().toString(),
+    name,
+    provider,
+    model: document.getElementById('whisper-ai-model')?.value || '',
+    apiKey: apiKey || '',
+    baseUrl: document.getElementById('whisper-ai-baseurl')?.value.trim() || '',
+  };
+
+  _whisperAiProfiles.push(profile);
+  if (!_whisperAiActiveProfileId) _whisperAiActiveProfileId = profile.id;
+
+  saveWhisperAiProfiles();
+
+  // Clear form
+  if (nameInput) nameInput.value = '';
+  const keyInput = document.getElementById('whisper-ai-apikey');
+  if (keyInput) keyInput.value = '';
+  const baseUrlInput = document.getElementById('whisper-ai-baseurl');
+  if (baseUrlInput) baseUrlInput.value = '';
+
+  renderWhisperAiProfiles();
+  showWhisperAiStatus('✓ Profile saved!', '#4ade80');
+};
+
+window.testWhisperAiConnection = async function() {
+  const statusEl = document.getElementById('whisper-ai-test-status');
+  const btn = document.getElementById('btn-whisper-ai-test');
+  if (!statusEl) return;
+
+  const provider = document.getElementById('whisper-ai-provider')?.value || 'openai';
+  const model = document.getElementById('whisper-ai-model')?.value || '';
+  const apiKey = document.getElementById('whisper-ai-apikey')?.value.trim() || '';
+  const baseUrl = document.getElementById('whisper-ai-baseurl')?.value.trim() || '';
+
+  if (!apiKey && provider !== 'custom') {
+    showWhisperAiStatus('⚠ Enter an API key first', '#fb923c');
+    return;
+  }
+
+  if (btn) btn.disabled = true;
+  statusEl.textContent = 'Testing connection…';
+  statusEl.style.color = 'var(--muted)';
+
+  try {
+    const profile = { provider, model, modelName: model, apiKey, baseUrl };
+    const result = await window.electronAPI.whisperApiAiTest(profile);
+
+    if (result.text) {
+      showWhisperAiStatus('✓ Connected!', '#4ade80');
+    } else if (result.error) {
+      showWhisperAiStatus('✕ ' + result.error, '#f87171');
+    } else {
+      showWhisperAiStatus('✕ No response', '#f87171');
+    }
+  } catch (e) {
+    showWhisperAiStatus('✕ ' + (e.message || 'Test failed'), '#f87171');
+  } finally {
+    if (btn) btn.disabled = false;
+  }
+};
+
+window.saveWhisperAiSettings = async function() {
+  const systemPrompt = document.getElementById('whisper-ai-system-prompt')?.value || '';
+  const temperature = parseFloat(document.getElementById('whisper-ai-temperature')?.value || '0.3');
+  const statusEl = document.getElementById('whisper-ai-settings-status');
+
+  await window.electronAPI.whisperApiAiSetConfig({ systemPrompt, temperature });
+
+  if (statusEl) {
+    statusEl.textContent = '✓ Settings saved!';
+    statusEl.style.color = '#4ade80';
+    setTimeout(() => { if (statusEl) statusEl.textContent = ''; }, 3000);
+  }
+};
+
+window.refreshWhisperAiOllamaModels = async function() {
+  const statusDiv = document.getElementById('whisper-ai-ollama-status');
+  if (!statusDiv) return;
+
+  statusDiv.style.display = 'block';
+  statusDiv.innerHTML = '<span style="color:var(--muted)">🔍 Checking Ollama...</span>';
+
+  try {
+    const result = await window.electronAPI.aiGetOllamaModels();
+    if (result.running) {
+      const modelList = result.models.map(m => m.name).join(', ') || 'No models installed';
+      statusDiv.innerHTML = `<span style="color:#4ade80">✓ Ollama running</span> — Models: <strong>${modelList}</strong>`;
+
+      const sel = document.getElementById('whisper-ai-model');
+      if (sel) {
+        sel.innerHTML = '';
+        result.models.forEach(m => {
+          const opt = document.createElement('option');
+          opt.value = m.name;
+          opt.textContent = m.name;
+          sel.appendChild(opt);
+        });
+        if (result.models.length > 0) sel.value = result.models[0].name;
+      }
+    } else {
+      statusDiv.innerHTML = '<span style="color:#fb923c">⚠ Ollama not running</span> — Start Ollama first, then click ↺';
+    }
+  } catch (e) {
+    statusDiv.innerHTML = `<span style="color:#f87171">✕ Error: ${e.message}</span>`;
+  }
+};
 
 window.saveOfflineSystemPrompt = async function() {
   const textarea = document.getElementById('offline-system-prompt');

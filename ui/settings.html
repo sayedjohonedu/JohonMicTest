@@ -36,6 +36,9 @@
       <div class="nav-item" data-panel="offline" onclick="switchPanel('offline', this)">
         <span class="nav-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12h6"/><path d="M22 12h-6"/><path d="M12 2v6"/><path d="M12 22v-6"/><circle cx="12" cy="12" r="4"/></svg></span> Offline Mode
       </div>
+      <div class="nav-item" data-panel="whisper" onclick="switchPanel('whisper', this)">
+        <span class="nav-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z"/></svg></span> Whisper Engine
+      </div>
       <div class="nav-item" data-panel="stats" onclick="switchPanel('stats', this)">
         <span class="nav-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"></line><line x1="12" y1="20" x2="12" y2="4"></line><line x1="6" y1="20" x2="6" y2="14"></line></svg></span> My Stats
       </div>
@@ -715,6 +718,7 @@
           </div>
         </div>
 
+
         <!-- Activation Key -->
         <div class="section-label" style="margin-top:18px;">Activation Key</div>
         <div class="settings-group">
@@ -827,6 +831,301 @@
         </div>
 
       </div><!-- /panel-offline -->
+
+      <!-- ── WHISPER API PANEL ── -->
+      <div class="panel" id="panel-whisper">
+
+        <!-- Master Enable Toggle -->
+        <div class="section-label">Whisper Engine Dictation</div>
+        <div class="settings-group">
+          <div class="settings-row">
+            <div class="row-icon" style="background:rgba(251,146,60,0.1);"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fb923c" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z"/></svg></div>
+            <div class="row-info">
+              <label>Enable Whisper Engine</label>
+              <small>Cloud-based transcription via OpenAI or Groq. Requires internet and an API key.</small>
+            </div>
+            <label class="toggle"><input type="checkbox" id="chk-whisper-enabled"><div class="toggle-track"></div></label>
+          </div>
+        </div>
+
+        <!-- Saved Whisper Profiles -->
+        <div class="section-label" style="margin-top:18px;">Saved Whisper Profiles</div>
+        <div class="settings-group">
+          <div class="settings-row" style="flex-direction:column; align-items:stretch; gap:10px;">
+            <div style="display:flex; align-items:center; gap:8px;">
+              <div class="row-icon" style="background:rgba(96,165,250,0.1);"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20V10M18 20V4M6 20v-4"/></svg></div>
+              <div class="row-info">
+                <label>Your Whisper Engine Profiles</label>
+                <small>Click a profile to set as default. Click ✕ to delete. Active profile is highlighted.</small>
+              </div>
+            </div>
+            <div id="whisper-profile-list" style="display:flex; flex-wrap:wrap; gap:6px; min-height:32px; padding:4px 0;"></div>
+          </div>
+        </div>
+
+        <!-- Add New Profile -->
+        <div class="section-label" style="margin-top:18px;">Add New Profile</div>
+        <div class="settings-group">
+          <!-- Profile Name -->
+          <div class="settings-row">
+            <div class="row-icon" style="background:rgba(251,146,60,0.1);"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fb923c" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></div>
+            <div class="row-info">
+              <label>Profile Name</label>
+              <small>A friendly name for this configuration (e.g. "OpenAI Whisper", "Groq Fast").</small>
+            </div>
+            <input type="text" id="whisper-profile-name" class="replace-input" placeholder="My Whisper Profile" style="width:180px; font-size:12px;">
+          </div>
+
+          <!-- Provider -->
+          <div class="settings-row" style="border-top:1px solid var(--border);">
+            <div class="row-icon" style="background:rgba(96,165,250,0.1);"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20V10M18 20V4M6 20v-4"/></svg></div>
+            <div class="row-info">
+              <label>Provider</label>
+              <small>All providers use the Whisper-compatible API format.</small>
+            </div>
+            <select id="sel-whisper-provider" class="duration-select" style="min-width:150px;" onchange="onWhisperProviderChange(this.value)">
+              <option value="openai">🟢 OpenAI</option>
+              <option value="groq">⚡ Groq</option>
+            </select>
+          </div>
+
+          <!-- Model -->
+          <div class="settings-row" style="border-top:1px solid var(--border);">
+            <div class="row-icon" style="background:rgba(192,132,252,0.1);"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#c084fc" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><circle cx="12" cy="12" r="4"/></svg></div>
+            <div class="row-info">
+              <label>Transcription Model</label>
+              <small>Models available depend on your chosen provider.</small>
+            </div>
+            <select id="sel-whisper-model" class="duration-select" style="min-width:180px;">
+              <option value="whisper-1">whisper-1</option>
+            </select>
+          </div>
+
+          <!-- API Key -->
+          <div class="settings-row" style="border-top:1px solid var(--border);">
+            <div class="row-icon" style="background:rgba(251,146,60,0.1);"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fb923c" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15.5 7.5 2.3 2.3a1 1 0 0 0 1.4 0l2.1-2.1a1 1 0 0 0 0-1.4L19 4"/><path d="m21 2-9.6 9.6"/><circle cx="7.5" cy="15.5" r="5.5"/></svg></div>
+            <div class="row-info">
+              <label>API Key</label>
+              <small>Stored securely on your device. Only sent to your selected provider.</small>
+            </div>
+            <input type="password" id="whisper-api-key" class="replace-input" placeholder="sk-..." style="width:210px; font-family:monospace; font-size:12px;">
+          </div>
+
+          <!-- Actions -->
+          <div class="settings-row" style="border-top:1px solid var(--border); margin-top:4px; padding-top:12px; justify-content:flex-start; gap:12px; flex-wrap:wrap;">
+            <button class="btn-action" onclick="addWhisperProfile()" style="padding:6px 16px; font-size:12px; display:flex; align-items:center; gap:6px; background:rgba(74,222,128,0.08); border-color:rgba(74,222,128,0.3); color:#4ade80;">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+              Save Profile
+            </button>
+            <button class="btn-action" id="btn-whisper-test-key" onclick="testWhisperProfile()" style="padding:6px 16px; font-size:12px; display:flex; align-items:center; gap:6px;">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+              Test Connection
+            </button>
+            <span id="whisper-key-status" style="font-size:12px; color:var(--muted);"></span>
+          </div>
+        </div>
+
+        <!-- Fallback toggle -->
+        <div class="section-label" style="margin-top:18px;">Fallback</div>
+        <div class="settings-group">
+          <div class="settings-row">
+            <div class="row-icon" style="background:rgba(74,222,128,0.1);"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#4ade80" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10z"/><path d="m9 12 2 2 4-4"/></svg></div>
+            <div class="row-info">
+              <label>Auto-Fallback</label>
+              <small>If the active profile fails, automatically try other saved profiles.</small>
+            </div>
+            <label class="toggle"><input type="checkbox" id="chk-whisper-fallback"><div class="toggle-track"></div></label>
+          </div>
+        </div>
+
+        <!-- Language -->
+        <div class="section-label" style="margin-top:18px;">Language</div>
+        <div class="settings-group">
+          <div class="settings-row">
+            <div class="row-icon" style="background:rgba(74,222,128,0.1);"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#4ade80" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/><path d="M2 12h20"/></svg></div>
+            <div class="row-info">
+              <label>Transcription Language</label>
+              <small>Hint for improved accuracy. Auto-detect works well for most cases.</small>
+            </div>
+            <select id="sel-whisper-lang" class="duration-select" style="min-width:160px;">
+              <option value="">🌐 Auto-detect</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Activation Key -->
+        <div class="section-label" style="margin-top:18px;">Activation Key</div>
+        <div class="settings-group">
+          <div class="settings-row">
+            <div class="row-icon" style="background:rgba(167,139,250,0.1);"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#a78bfa" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M6 8h.01"/><path d="M10 8h.01"/><path d="M14 8h.01"/><path d="M18 8h.01"/><path d="M8 12h.01"/><path d="M12 12h.01"/><path d="M16 12h.01"/><path d="M7 16h10"/></svg></div>
+            <div class="row-info">
+              <label>Hold Key to Record</label>
+              <small>Press and hold to start recording. Release to transcribe via cloud and paste.</small>
+            </div>
+            <button id="btn-whisper-key" class="btn-action" style="min-width:120px; font-size:12px; font-weight:600; letter-spacing:0.3px;">Right Alt</button>
+          </div>
+          <div id="whisper-key-capture" style="display:none; padding:12px; text-align:center; background:rgba(167,139,250,0.06); border-radius:8px; margin-top:8px;">
+            <div style="font-size:12px; color:var(--accent);">Press any key to assign…</div>
+            <button onclick="cancelWhisperKeyCapture()" style="margin-top:8px; font-size:11px; color:var(--text-dim); background:none; border:1px solid var(--border); border-radius:4px; padding:3px 10px; cursor:pointer; font-family:var(--font);">Cancel</button>
+          </div>
+        </div>
+
+        <!-- ── AI Polish Section ── -->
+        <div class="section-label" style="margin-top:18px;">AI Post-Processing</div>
+        <div class="settings-group">
+          <div class="settings-row">
+            <div class="row-icon" style="background:rgba(168,85,247,0.1);"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#a855f7" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/></svg></div>
+            <div class="row-info">
+              <label>Enable AI Polish</label>
+              <small>After transcription, send the text through an LLM to fix grammar, punctuation, and remove filler words.</small>
+            </div>
+            <label class="toggle"><input type="checkbox" id="chk-whisper-ai-enabled"><div class="toggle-track"></div></label>
+          </div>
+        </div>
+
+        <div id="whisper-ai-section" style="display:none;">
+          <!-- Saved AI Profiles -->
+          <div class="section-label" style="margin-top:4px">Saved AI Profiles</div>
+          <div class="settings-group">
+            <div class="settings-row" style="padding-bottom:8px;">
+              <div class="row-icon" style="background:rgba(168,85,247,0.1);"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#a855f7" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></div>
+              <div class="row-info">
+                <label>Active Profiles</label>
+                <small>Click a profile to set it as default · hover to delete</small>
+              </div>
+            </div>
+            <div id="whisper-ai-profile-list" class="ai-profile-list">
+              <!-- Rendered dynamically by JS -->
+            </div>
+            <!-- Fallback Toggle -->
+            <div class="settings-row" style="border-top:1px solid var(--border); margin-top:4px; padding-top:12px;">
+              <div class="row-icon" style="background:rgba(74,222,128,0.08);"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#4ade80" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10z"/><path d="m9 12 2 2 4-4"/></svg></div>
+              <div class="row-info">
+                <label>Auto-Fallback</label>
+                <small>If the active profile fails, automatically try other profiles.</small>
+              </div>
+              <label class="toggle"><input type="checkbox" id="chk-whisper-ai-fallback" checked><div class="toggle-track"></div></label>
+            </div>
+          </div>
+
+          <!-- Add New Profile -->
+          <div class="section-label" style="margin-top:4px">Add New Profile</div>
+          <div class="settings-group">
+            <div class="settings-row">
+              <div class="row-icon" style="background:rgba(168,85,247,0.08);"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg></div>
+              <div class="row-info">
+                <label>Profile Name</label>
+                <small>A friendly name for this configuration</small>
+              </div>
+              <input type="text" id="whisper-ai-profile-name" class="replace-input" placeholder="e.g. My Gemini Key" style="width:210px; font-size:12px;">
+            </div>
+            <!-- Provider -->
+            <div class="settings-row" style="border-top:1px solid var(--border); margin-top:4px; padding-top:12px;">
+              <div class="row-icon" style="background:rgba(168,85,247,0.08);"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><circle cx="12" cy="12" r="4"/></svg></div>
+              <div class="row-info">
+                <label>Provider</label>
+                <small>Choose your AI backend</small>
+              </div>
+              <select class="duration-select" id="whisper-ai-provider" onchange="onWhisperAiProviderChange(this.value)">
+                <option value="openai">🟢 OpenAI</option>
+                <option value="anthropic">🟣 Anthropic</option>
+                <option value="gemini">🔵 Gemini</option>
+                <option value="groq">⚡ Groq</option>
+                <option value="openrouter">🌐 OpenRouter</option>
+                <option value="custom">🖥 Ollama / Custom</option>
+              </select>
+            </div>
+            <!-- Model -->
+            <div class="settings-row" style="border-top:1px solid var(--border); margin-top:4px; padding-top:12px;">
+              <div class="row-icon" style="background:rgba(168,85,247,0.08);"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M7 7h10"/><path d="M7 12h10"/><path d="M7 17h10"/></svg></div>
+              <div class="row-info">
+                <label>Model</label>
+                <small>The AI model to use for cleanup</small>
+              </div>
+              <div style="display:flex; gap:6px; align-items:center;">
+                <select class="duration-select" id="whisper-ai-model" style="min-width:180px; font-family:monospace; font-size:12px;">
+                  <!-- Populated by JS -->
+                </select>
+                <button class="btn-action" id="btn-whisper-ai-ollama-refresh" onclick="refreshWhisperAiOllamaModels()" style="display:none; padding:5px 8px; font-size:11px;" title="Refresh Ollama models">↺</button>
+              </div>
+            </div>
+            <!-- API Key -->
+            <div class="settings-row" id="row-whisper-ai-apikey" style="border-top:1px solid var(--border); margin-top:4px; padding-top:12px;">
+              <div class="row-icon" style="background:rgba(168,85,247,0.08);"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15.5 7.5 2.3 2.3a1 1 0 0 0 1.4 0l2.1-2.1a1 1 0 0 0 0-1.4L19 4"/><path d="m21 2-9.6 9.6"/><circle cx="7.5" cy="15.5" r="5.5"/></svg></div>
+              <div class="row-info">
+                <label>API Key</label>
+                <small>Your provider's API key (stored locally, never sent anywhere except the provider)</small>
+              </div>
+              <input type="password" id="whisper-ai-apikey" class="replace-input" placeholder="sk-..." style="width:220px; font-family:monospace; font-size:12px;">
+            </div>
+            <!-- Base URL (Ollama/Custom only) -->
+            <div class="settings-row" id="row-whisper-ai-baseurl" style="border-top:1px solid var(--border); margin-top:4px; padding-top:12px; display:none;">
+              <div class="row-icon" style="background:rgba(168,85,247,0.08);"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M2 12h20"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg></div>
+              <div class="row-info">
+                <label>Base URL</label>
+                <small>Custom endpoint (e.g. <b>http://localhost:11434/v1</b> for Ollama)</small>
+              </div>
+              <input type="text" id="whisper-ai-baseurl" class="replace-input" placeholder="http://localhost:11434/v1" style="width:250px; font-family:monospace; font-size:12px;">
+            </div>
+            <!-- Ollama status -->
+            <div id="whisper-ai-ollama-status" style="padding:4px 16px 10px; font-size:11px; color:var(--muted); display:none;"></div>
+            <!-- Action buttons -->
+            <div class="settings-row" style="border-top:1px solid var(--border); margin-top:4px; padding-top:12px; justify-content:flex-start; gap:12px; flex-wrap:wrap;">
+              <button class="btn-action" id="btn-whisper-ai-save" onclick="addWhisperAiProfile()" style="padding:6px 16px; font-size:12px; display:flex; align-items:center; gap:6px; background:rgba(168,85,247,0.08); border-color:rgba(168,85,247,0.3); color:#a855f7;">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>
+                Save Profile
+              </button>
+              <button class="btn-action" id="btn-whisper-ai-test" onclick="testWhisperAiConnection()" style="padding:6px 16px; font-size:12px; display:flex; align-items:center; gap:6px;">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+                Test Connection
+              </button>
+              <span id="whisper-ai-test-status" style="font-size:12px; color:var(--muted);"></span>
+            </div>
+          </div>
+
+          <!-- System Prompt -->
+          <div class="section-label" style="margin-top:12px;">Cleanup Instructions</div>
+          <div class="settings-group">
+            <div class="settings-row" style="flex-direction:column; align-items:stretch; gap:8px; padding:16px;">
+              <div style="display:flex; align-items:center; gap:8px;">
+                <label style="font-weight:500; font-size:13px;">System Prompt</label>
+                <small style="color:var(--muted);">(leave empty for built-in default)</small>
+              </div>
+              <textarea id="whisper-ai-system-prompt" class="replace-input" rows="5" placeholder="Clean up this dictated speech transcript..." style="width:100%; font-size:12px; line-height:1.5; resize:vertical; min-height:80px;"></textarea>
+            </div>
+            <div class="settings-row" style="border-top:1px solid var(--border); margin-top:4px; padding-top:12px;">
+              <div class="row-icon" style="background:rgba(168,85,247,0.08);"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 4h-7"/><path d="M10 4H3"/><path d="M21 12h-9"/><path d="M8 12H3"/><path d="M21 20h-5"/><path d="M12 20H3"/><path d="M14 2v4"/><path d="M12 10v4"/><path d="M16 18v4"/></svg></div>
+              <div class="row-info">
+                <label style="display:flex; justify-content:space-between; align-items:center;">Temperature <span id="label-whisper-ai-temp" style="font-size:11px; color:var(--accent); font-weight:bold;">0.3</span></label>
+                <small>Lower = more precise, higher = more creative (0.1–1.0)</small>
+              </div>
+              <div style="width:150px; display:flex; align-items:center;">
+                <input type="range" id="whisper-ai-temperature" min="0.1" max="1.0" step="0.1" value="0.3" style="width:100%; cursor:pointer; accent-color:var(--accent);" oninput="document.getElementById('label-whisper-ai-temp').textContent = parseFloat(this.value).toFixed(1);">
+              </div>
+            </div>
+            <!-- Save Prompt Button -->
+            <div class="settings-row" style="border-top:1px solid var(--border); margin-top:4px; padding-top:12px; justify-content:flex-start; gap:12px;">
+              <button class="btn-action" onclick="saveWhisperAiSettings()" style="padding:6px 16px; font-size:12px; display:flex; align-items:center; gap:6px; background:rgba(168,85,247,0.08); border-color:rgba(168,85,247,0.3); color:#a855f7;">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+                Save Settings
+              </button>
+              <span id="whisper-ai-settings-status" style="font-size:12px; color:var(--muted);"></span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Status Display -->
+        <div style="margin-top:20px; padding:14px; background:rgba(251,146,60,0.04); border:1px solid rgba(251,146,60,0.12); border-radius:10px;">
+          <div style="display:flex; align-items:center; gap:8px; margin-bottom:4px;">
+            <div id="whisper-status-dot" style="width:8px; height:8px; border-radius:50%; background:#6b7280;"></div>
+            <span id="whisper-status-label" style="font-size:12px; font-weight:600; color:var(--text);">Not Configured</span>
+          </div>
+          <div style="font-size:11px; color:var(--text-dim); line-height:1.5;" id="whisper-status-detail">
+            Enable Whisper Engine and add your API key to get started.
+          </div>
+        </div>
+
+      </div><!-- /panel-whisper -->
     
       <!-- Stats Panel -->
       <div id="panel-stats" class="panel">

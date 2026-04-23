@@ -20,6 +20,9 @@ let _aiModeToggle = null;
 // Offline mode press-and-hold callbacks
 let _offlineModeCallbacks = null; // { onKeyDown, onKeyUp }
 
+// Whisper API mode press-and-hold callbacks
+let _whisperApiCallbacks = null; // { onKeyDown, onKeyUp }
+
 function setTranslatorCtx(ctx) {
   _translatorCtx = ctx;
 }
@@ -34,6 +37,10 @@ function setAiModeToggle(fn) {
 
 function setOfflineModeCallbacks(cbs) {
   _offlineModeCallbacks = cbs; // { onKeyDown, onKeyUp }
+}
+
+function setWhisperApiCallbacks(cbs) {
+  _whisperApiCallbacks = cbs; // { onKeyDown, onKeyUp }
 }
 
 function uiohookKeyName(keycode) {
@@ -277,6 +284,29 @@ function registerHotkeys(toggleListening) {
     });
   }
 
+  // ── Whisper API: configurable press-and-hold (default: Right Alt) ──
+  const whisperApiEnabled = store.get('whisperApiEnabled') === true;
+  if (whisperApiEnabled && _whisperApiCallbacks) {
+    const whisperDefaultKey = 'AltRight';
+    const whisperKeyCode = store.get('whisperApiActivationKey') || whisperDefaultKey;
+    const whisperUiohookName = CODE_TO_UIOHOOK[whisperKeyCode] || whisperKeyCode;
+    const whisperKeyCodeValue = UiohookKey[whisperUiohookName] || UiohookKey.AltRight;
+
+    let whisperHeld = false;
+    uIOhook.on('keydown', (e) => {
+      if (e.keycode === whisperKeyCodeValue && !whisperHeld) {
+        whisperHeld = true;
+        _whisperApiCallbacks.onKeyDown();
+      }
+    });
+    uIOhook.on('keyup', (e) => {
+      if (e.keycode === whisperKeyCodeValue && whisperHeld) {
+        whisperHeld = false;
+        _whisperApiCallbacks.onKeyUp();
+      }
+    });
+  }
+
   if (!uiohookRunning) {
     try {
       uIOhook.start();
@@ -303,4 +333,5 @@ module.exports = {
   setAiSendNow,
   setAiModeToggle,
   setOfflineModeCallbacks,
+  setWhisperApiCallbacks,
 };

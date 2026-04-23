@@ -306,6 +306,56 @@ const schema = {
     type: 'number',
     default: 0
   },
+  // ── Whisper API (Cloud) ────────────────────────────────────────────
+  whisperApiEnabled: {
+    type: 'boolean',
+    default: false        // Master toggle — independent from offline mode
+  },
+  whisperApiProfiles: {
+    type: 'array',
+    default: []           // Named profiles: [{ id, name, provider, model, apiKey, baseUrl }, ...]
+  },
+  whisperApiActiveProfileId: {
+    type: 'string',
+    default: ''           // ID of the currently active profile
+  },
+  whisperApiFallbackEnabled: {
+    type: 'boolean',
+    default: true         // If active profile fails, try other profiles
+  },
+  whisperApiLanguage: {
+    type: 'string',
+    default: ''           // ISO 639-1 code, '' = auto-detect
+  },
+  whisperApiActivationKey: {
+    type: 'string',
+    default: 'AltRight'   // Default activation key (Right Alt)
+  },
+  // ── Whisper API — AI Post-Processing ──────────────────────────────
+  whisperApiAiEnabled: {
+    type: 'boolean',
+    default: false        // Enable AI polish after cloud transcription
+  },
+  whisperApiAiProfiles: {
+    type: 'array',
+    default: []           // Named profiles: [{ id, name, provider, model, apiKey, baseUrl }, ...]
+  },
+  whisperApiAiActiveProfileId: {
+    type: 'string',
+    default: ''           // ID of the currently active profile
+  },
+  whisperApiAiSystemPrompt: {
+    type: 'string',
+    default: ''           // Empty = use built-in default
+  },
+  whisperApiAiTemperature: {
+    type: 'number',
+    default: 0.3
+  },
+  whisperApiAiFallbackEnabled: {
+    type: 'boolean',
+    default: true         // If active profile fails, try other profiles
+  },
   // ── Update Reminder ──────────────────────────────────────────────
   updateReminderDismissedAt: {
     type: 'number',

@@ -9,6 +9,7 @@ let wordLimitPopupWindow = null;
 let translatorLockedPopupWindow = null;
 let aiTrialPopupWindow = null;
 let offlineLockedPopupWindow = null;
+let whisperApiLockedPopupWindow = null;
 let updateReminderPopupWindow = null;
 let licenseCelebrationWindow = null;
 
@@ -345,6 +346,38 @@ function closeOfflineLockedPopup() {
   }
 }
 
+function showWhisperApiLockedPopup() {
+  if (whisperApiLockedPopupWindow && !whisperApiLockedPopupWindow.isDestroyed()) {
+    whisperApiLockedPopupWindow.show();
+    whisperApiLockedPopupWindow.focus();
+    return whisperApiLockedPopupWindow;
+  }
+  whisperApiLockedPopupWindow = new BrowserWindow({
+    width: 360,
+    height: 290,
+    transparent: true,
+    frame: false,
+    alwaysOnTop: true,
+    resizable: false,
+    skipTaskbar: true,
+    webPreferences: {
+      nodeIntegration: false,
+      contextIsolation: true,
+      preload: path.join(__dirname, '../../ui', 'overlay-preload.js')
+    }
+  });
+  whisperApiLockedPopupWindow.loadFile(path.join(__dirname, '../../ui/whisper-api-locked-popup.html'));
+  whisperApiLockedPopupWindow.on('closed', () => whisperApiLockedPopupWindow = null);
+  whisperApiLockedPopupWindow.center();
+  return whisperApiLockedPopupWindow;
+}
+
+function closeWhisperApiLockedPopup() {
+  if (whisperApiLockedPopupWindow && !whisperApiLockedPopupWindow.isDestroyed()) {
+    whisperApiLockedPopupWindow.close();
+  }
+}
+
 function showUpdateReminderPopup() {
   if (updateReminderPopupWindow && !updateReminderPopupWindow.isDestroyed()) {
     updateReminderPopupWindow.show();
@@ -477,6 +510,8 @@ module.exports = {
   closeAiTrialPopup,
   showOfflineLockedPopup,
   closeOfflineLockedPopup,
+  showWhisperApiLockedPopup,
+  closeWhisperApiLockedPopup,
   showUpdateReminderPopup,
   closeUpdateReminderPopup,
   getUpdateReminderPopupWindow,

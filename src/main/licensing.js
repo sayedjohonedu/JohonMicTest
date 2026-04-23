@@ -137,6 +137,28 @@ function checkOfflineTrialExpiry() {
   return { expired: false, daysLeft: Math.ceil(15 - daysUsed) };
 }
 
+/**
+ * Checks whether the free Whisper API trial (15 days) has expired for non-licensed users.
+ * If expired, auto-disables Whisper API mode.
+ * Returns { expired: true, daysUsed } if the trial is over, or { expired: false, daysLeft } if still valid.
+ */
+function checkWhisperApiTrialExpiry() {
+  const status = store.get('licenseStatus');
+  // Licensed users — no trial restriction
+  if (status === 'active') return { expired: false, daysLeft: Infinity };
+
+  const firstEnabled = store.get('whisperApiFirstEnabledDate') || 0;
+  if (!firstEnabled) return { expired: false, daysLeft: 15 }; // Never enabled yet
+
+  const daysUsed = (Date.now() - firstEnabled) / (1000 * 60 * 60 * 24);
+  if (daysUsed > 15) {
+    // Trial is over — force-disable Whisper API mode
+    store.set('whisperApiEnabled', false);
+    return { expired: true, daysUsed: Math.floor(daysUsed) };
+  }
+  return { expired: false, daysLeft: Math.ceil(15 - daysUsed) };
+}
+
 module.exports = {
   checkAuthStatus,
   verifyLicense,
@@ -144,4 +166,5 @@ module.exports = {
   getTodayMidnight,
   checkAiTrialExpiry,
   checkOfflineTrialExpiry,
+  checkWhisperApiTrialExpiry,
 };

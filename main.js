@@ -16,7 +16,7 @@ const { setupClipboardIpc } = require('./src/main/clipboard-ipc');
 // Import modules
 const { createOverlay, showSettings, showLicensePopup, showWordLimitPopup, showTranslatorLockedPopup, showAiTrialExpiredPopup, applyOverlaySize, getOverlayWindow, getSettingsWindow, showUpdateReminderPopup, getUpdateReminderPopupWindow, createOfflinePill, getOfflinePillWindow } = require('./src/main/window-manager');
 const { onOverlayShow, onOverlayHide } = require('./src/main/floating-browser-manager');
-const { registerHotkeys, stopUiohook, setTranslatorCtx, setAiSendNow, setAiModeToggle, setOfflineModeCallbacks } = require('./src/main/hotkey-manager');
+const { registerHotkeys, stopUiohook, setTranslatorCtx, setAiSendNow, setAiModeToggle, setOfflineModeCallbacks, setWhisperApiCallbacks } = require('./src/main/hotkey-manager');
 const { checkAuthStatus, checkAndResetDailyWords, checkAiTrialExpiry } = require('./src/main/licensing');
 const { setupUpdater } = require('./src/main/updater');
 const { setupIpcHandlers, aiDictationManager } = require('./src/main/ipc-handlers');
@@ -709,7 +709,18 @@ app.whenReady().then(() => {
     onKeyDown: () => offlineModeManager.onKeyDown(),
     onKeyUp:   () => offlineModeManager.onKeyUp(),
   });
-  // Re-register so offline hold-key is active
+
+  // ── Whisper API (Cloud) init ──────────────────────────────────────
+  const whisperApiManager = require('./src/main/whisper-api-manager');
+  whisperApiManager.setPillWindow(offlinePill);
+  whisperApiManager.setClipboardManager(clipboardManager);
+  whisperApiManager.init();
+  setWhisperApiCallbacks({
+    onKeyDown: () => whisperApiManager.onKeyDown(),
+    onKeyUp:   () => whisperApiManager.onKeyUp(),
+  });
+
+  // Re-register so offline + whisper API hold-keys are active
   registerHotkeys(toggleListening);
 
   setupHttpServer();

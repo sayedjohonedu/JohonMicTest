@@ -58,6 +58,22 @@ contextBridge.exposeInMainWorld('electronAPI', {
   offlineGetSystemPrompt:    ()           => ipcRenderer.invoke('offline-get-system-prompt'),
   offlineOpenModelsFolder:   (type)       => ipcRenderer.invoke('offline-open-models-folder', type),
   onOfflineDownloadProgress: (cb)         => onChannel('offline-download-progress', (_, data) => cb(data)),
+  // ── Whisper API (Cloud) ──
+  whisperApiCheckTrial:        ()           => ipcRenderer.invoke('whisper-api-check-trial'),
+  whisperApiShowLockedPopup:   ()           => ipcRenderer.send('whisper-api-show-locked-popup'),
+  whisperApiEnable:          (on)         => ipcRenderer.invoke('whisper-api-enable', on),
+  whisperApiGetStatus:       ()           => ipcRenderer.invoke('whisper-api-get-status'),
+  whisperApiTestKey:         (profile)    => ipcRenderer.invoke('whisper-api-test-key', profile),
+  whisperApiSetConfig:       (cfg)        => ipcRenderer.invoke('whisper-api-set-config', cfg),
+  whisperApiGetConfig:       ()           => ipcRenderer.invoke('whisper-api-get-config'),
+  whisperApiGetLanguages:    ()           => ipcRenderer.invoke('whisper-api-get-languages'),
+  whisperApiGetProviders:    ()           => ipcRenderer.invoke('whisper-api-get-providers'),
+  whisperApiSetKey:          (keyCode)    => ipcRenderer.invoke('whisper-api-set-key', keyCode),
+  // ── Whisper API — AI Post-Processing ──
+  whisperApiAiEnable:        (on)         => ipcRenderer.invoke('whisper-api-ai-enable', on),
+  whisperApiAiGetConfig:     ()           => ipcRenderer.invoke('whisper-api-ai-get-config'),
+  whisperApiAiSetConfig:     (cfg)        => ipcRenderer.invoke('whisper-api-ai-set-config', cfg),
+  whisperApiAiTest:          (profile)    => ipcRenderer.invoke('whisper-api-ai-test', profile),
   // ── Live sync (hotkey toggles while settings is open) ──
   onConfigUpdate:            (cb)         => onChannel('config-updated', (_, cfg) => cb(cfg)),
   onAiModeToggled:           (cb)         => onChannel('ai-mode-toggled', (_, on) => cb(on)),
