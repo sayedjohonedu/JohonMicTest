@@ -43,6 +43,7 @@ contextBridge.exposeInMainWorld('junoAPI', {
   startDrag:         ()     => ipcRenderer.send('window-drag'),
   stopDrag:          ()     => ipcRenderer.send('window-drag-stop'),
   toggleFloatingBrowser: () => ipcRenderer.send('toggle-floating-browser'),
+  openLensCapture:       () => ipcRenderer.send('open-lens-capture'),
   openTranslator:               () => ipcRenderer.send('open-translator'),
   openClipboardManager:         () => ipcRenderer.send('open-clipboard-manager'),
   closeLicensePopup:            () => ipcRenderer.send('close-license-popup'),
@@ -51,6 +52,8 @@ contextBridge.exposeInMainWorld('junoAPI', {
   closeAiTrialPopup:            () => ipcRenderer.send('close-ai-trial-popup'),
   closeOfflineLockedPopup:      () => ipcRenderer.send('close-offline-locked-popup'),
   closeWhisperApiLockedPopup:   () => ipcRenderer.send('close-whisper-api-locked-popup'),
+  closeScreenRecorderLockedPopup: () => ipcRenderer.send('close-screen-recorder-locked-popup'),
+  closeLensLockedPopup:           () => ipcRenderer.send('close-lens-locked-popup'),
   getLicenseInfo:               () => ipcRenderer.invoke('get-license-info'),
   // ── AI Dictation events ──
   onAiBufferUpdate:             (cb) => onChannel('ai-buffer-update',     (_, data) => cb(data)),

@@ -29,4 +29,8 @@ contextBridge.exposeInMainWorld('offlineAPI', {
 
   // Position persistence
   savePosition:      (pos) => ipcRenderer.send('offline-pill-save-position', pos),
+
+  // Whisper AI Polish mode state — shows/hides the ✦ badge
+  onWhisperAiMode:   (cb) => onChannel('whisper-ai-mode-pill', (_, on) => cb(on)),
 });
+

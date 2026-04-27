@@ -19,6 +19,7 @@ const offlineRecorder = require('./offline-recorder');
 const whisperApiEngine = require('./whisper-api-engine');
 const { callLlmRaw } = require('./llm-client');
 const clipboardHistoryStore = require('./clipboard-history-store');
+const { applyTextReplacements } = require('./text-replacements');
 
 // ── Two focused default prompts (used when user has NOT set a custom prompt) ──
 // CLEAN: ultra-short, no instruction-following → prevents hallucination
@@ -228,7 +229,10 @@ class WhisperApiManager {
         }
       }
 
-      // 4. Paste result
+      // 4. Apply text replacements (shared with regular overlay pipeline)
+      finalText = applyTextReplacements(finalText);
+
+      // 5. Paste result
       if (finalText) {
         this._updatePill('done', finalText.substring(0, 60) + (finalText.length > 60 ? '…' : ''));
         
@@ -369,7 +373,8 @@ class WhisperApiManager {
   /** Show the pill overlay with a given state */
   _showPill(state) {
     if (!this._pillWindow || this._pillWindow.isDestroyed()) return;
-    this._pillWindow.webContents.send('offline-pill-state', { state });
+    const aiMode = store.get('whisperApiAiEnabled') === true;
+    this._pillWindow.webContents.send('offline-pill-state', { state, aiMode });
     this._pillWindow.showInactive();
 
     // Restore saved position, or default to centered near top of screen
@@ -389,7 +394,8 @@ class WhisperApiManager {
   /** Update the pill overlay state */
   _updatePill(state, detail) {
     if (!this._pillWindow || this._pillWindow.isDestroyed()) return;
-    this._pillWindow.webContents.send('offline-pill-state', { state, detail });
+    const aiMode = store.get('whisperApiAiEnabled') === true;
+    this._pillWindow.webContents.send('offline-pill-state', { state, detail, aiMode });
   }
 
   /** Hide the pill overlay */

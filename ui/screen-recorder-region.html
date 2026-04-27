@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>MicTab Screen Recorder — Select Region</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 100%; height: 100%; overflow: hidden; cursor: crosshair; user-select: none; -webkit-user-select: none; -webkit-app-region: no-drag; background: transparent; }
+  #canvas { position: fixed; inset: 0; width: 100%; height: 100%; z-index: 10; }
+
+  /* Instruction bar */
+  #tip {
+    position: fixed; top: 28px; left: 50%; transform: translateX(-50%);
+    z-index: 30; pointer-events: none;
+    display: flex; align-items: center; gap: 14px;
+    padding: 12px 28px; border-radius: 14px;
+    background: rgba(10,10,16,0.88); backdrop-filter: blur(14px);
+    border: 1px solid rgba(255,255,255,0.08);
+    color: #e2e2e8; font: 600 13px/1.5 'Inter', -apple-system, sans-serif;
+    text-align: center; letter-spacing: 0.3px;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+    transition: opacity 0.2s ease;
+  }
+  #tip .rec-dot {
+    width: 9px; height: 9px; border-radius: 50%; background: #ef4444;
+    animation: pulse-dot 1.2s ease-in-out infinite;
+    flex-shrink: 0;
+  }
+  @keyframes pulse-dot {
+    0%,100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.5; transform: scale(0.7); }
+  }
+  #tip kbd {
+    display: inline-block; padding: 2px 8px; margin: 0 2px; border-radius: 5px;
+    background: rgba(255,255,255,0.1); font-size: 11px; border: 1px solid rgba(255,255,255,0.12);
+  }
+
+  /* Full-screen button */
+  #btn-fullscreen {
+    position: fixed; bottom: 36px; left: 50%; transform: translateX(-50%);
+    z-index: 30; cursor: pointer;
+    display: flex; align-items: center; gap: 8px;
+    padding: 11px 28px; border-radius: 40px;
+    background: rgba(239,68,68,0.15); border: 1.5px solid rgba(239,68,68,0.45);
+    color: #f87171; font: 600 13px/1 'Inter', -apple-system, sans-serif;
+    letter-spacing: 0.3px;
+    backdrop-filter: blur(12px);
+    box-shadow: 0 4px 20px rgba(239,68,68,0.2);
+    transition: all 0.18s ease;
+    pointer-events: auto;
+    -webkit-app-region: no-drag;
+  }
+  #btn-fullscreen:hover {
+    background: rgba(239,68,68,0.25); border-color: rgba(239,68,68,0.7);
+    box-shadow: 0 6px 28px rgba(239,68,68,0.35); transform: translateX(-50%) translateY(-1px);
+  }
+  #btn-fullscreen svg { flex-shrink: 0; }
+
+  /* Size indicator */
+  #size-label {
+    position: fixed; z-index: 20; pointer-events: none;
+    padding: 4px 10px; border-radius: 6px;
+    background: rgba(10,10,16,0.8); backdrop-filter: blur(6px);
+    color: #f87171; font: 600 11px/1 'SF Mono', 'Menlo', monospace;
+    display: none;
+    border: 1px solid rgba(239,68,68,0.25);
+  }
+</style>
+</head>
+<body>
+  <canvas id="canvas"></canvas>
+  <div id="tip">
+    <div class="rec-dot"></div>
+    Screen Record — Drag to select region &nbsp;·&nbsp; <kbd>Esc</kbd> cancel
+  </div>
+  <button id="btn-fullscreen" onclick="useFullScreen()">
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <rect x="3" y="3" width="18" height="18" rx="2"/>
+      <path d="M3 9h18M9 21V9"/>
+    </svg>
+    Record Full Screen
+  </button>
+  <div id="size-label"></div>
+
+<script>
+'use strict';
+
+const canvas    = document.getElementById('canvas');
+const ctx       = canvas.getContext('2d');
+const tip       = document.getElementById('tip');
+const sizeLabel = document.getElementById('size-label');
+
+let isDragging = false;
+let startX = 0, startY = 0, currentX = 0, currentY = 0;
+
+function resizeCanvas() {
+  canvas.width  = window.innerWidth;
+  canvas.height = window.innerHeight;
+  if (!isDragging) drawInitialDim();
+}
+resizeCanvas();
+window.addEventListener('resize', resizeCanvas);
+
+function drawInitialDim() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  ctx.fillStyle = 'rgba(0,0,0,0.45)';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+}
+
+canvas.addEventListener('mousedown', (e) => {
+  if (e.button !== 0) return;
+  isDragging = true;
+  startX = e.clientX; startY = e.clientY;
+  currentX = e.clientX; currentY = e.clientY;
+  tip.style.opacity = '0';
+});
+
+canvas.addEventListener('mousemove', (e) => {
+  if (!isDragging) return;
+  currentX = e.clientX; currentY = e.clientY;
+  drawSelection();
+});
+
+canvas.addEventListener('mouseup', (e) => {
+  if (!isDragging) return;
+  isDragging = false;
+  sizeLabel.style.display = 'none';
+
+  const x = Math.min(startX, currentX);
+  const y = Math.min(startY, currentY);
+  const w = Math.abs(currentX - startX);
+  const h = Math.abs(currentY - startY);
+
+  if (w < 10 || h < 10) {
+    tip.style.opacity = '1';
+    drawInitialDim();
+    return;
+  }
+  window.srecRegion.selectRegion({ x, y, width: w, height: h });
+});
+
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') window.srecRegion.cancel();
+});
+
+function useFullScreen() {
+  window.srecRegion.useFullScreen();
+}
+
+function drawSelection() {
+  const x = Math.min(startX, currentX);
+  const y = Math.min(startY, currentY);
+  const w = Math.abs(currentX - startX);
+  const h = Math.abs(currentY - startY);
+
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  // Dark overlay with cutout
+  ctx.fillStyle = 'rgba(0,0,0,0.5)';
+  ctx.beginPath();
+  ctx.rect(0, 0, canvas.width, canvas.height);
+  ctx.rect(x, y, w, h);
+  ctx.fill('evenodd');
+
+  // Red selection border
+  ctx.strokeStyle = '#ef4444';
+  ctx.lineWidth = 2;
+  ctx.setLineDash([6, 3]);
+  ctx.strokeRect(x, y, w, h);
+  ctx.setLineDash([]);
+
+  // Inner glow
+  ctx.shadowColor = 'rgba(239,68,68,0.5)';
+  ctx.shadowBlur = 10;
+  ctx.strokeStyle = 'rgba(239,68,68,0.3)';
+  ctx.lineWidth = 1;
+  ctx.strokeRect(x + 1, y + 1, w - 2, h - 2);
+  ctx.shadowBlur = 0;
+
+  // Corner handles
+  const hs = 8;
+  ctx.fillStyle = '#ef4444';
+  ctx.shadowColor = 'rgba(239,68,68,0.7)';
+  ctx.shadowBlur = 8;
+  [[x, y], [x + w, y], [x, y + h], [x + w, y + h]].forEach(([cx, cy]) => {
+    ctx.beginPath();
+    ctx.arc(cx, cy, hs / 2, 0, Math.PI * 2);
+    ctx.fill();
+  });
+  ctx.shadowBlur = 0;
+
+  // Size label
+  sizeLabel.textContent = `${Math.round(w)} × ${Math.round(h)}`;
+  sizeLabel.style.display = 'block';
+  sizeLabel.style.left = (x + w / 2 - 34) + 'px';
+  sizeLabel.style.top  = (y + h + 14) + 'px';
+}
+</script>
+</body>
+</html>

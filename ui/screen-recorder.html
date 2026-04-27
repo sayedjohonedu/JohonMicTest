@@ -1,0 +1,638 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>MicTab Recorder</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@500;600;700&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body {
+    width: 100%; height: 100%;
+    background: transparent;
+    overflow: hidden;
+    font-family: 'Inter', -apple-system, sans-serif;
+    user-select: none; -webkit-user-select: none;
+  }
+
+  /* ── Compact pill ── */
+  #bar {
+    position: fixed; inset: 0;
+    display: flex; align-items: center; gap: 3px;
+    padding: 0 7px;
+    background: rgba(10, 10, 18, 0.92);
+    backdrop-filter: blur(28px) saturate(180%);
+    border-radius: 100px;
+    border: 1px solid rgba(255,255,255,0.08);
+    box-shadow:
+      0 4px 20px rgba(0,0,0,0.55),
+      0 0 0 1px rgba(255,255,255,0.03) inset;
+    -webkit-app-region: drag;
+  }
+  #bar > * { -webkit-app-region: no-drag; }
+
+  /* ── Analog Clock ── */
+  #clock-wrap {
+    display: flex; align-items: center; gap: 2px;
+    padding: 0 1px; flex-shrink: 0;
+    -webkit-app-region: drag; cursor: grab;
+  }
+  #rec-clock {
+    width: 22px; height: 22px; flex-shrink: 0;
+  }
+  #hr-badge {
+    font: 700 7px/1 'JetBrains Mono', monospace;
+    color: #fbbf24; letter-spacing: -0.3px;
+  }
+
+  .sep { width: 1px; height: 12px; background: rgba(255,255,255,0.07); flex-shrink: 0; }
+
+  /* ── Buttons ── */
+  .btn {
+    display: flex; align-items: center; justify-content: center; gap: 2px;
+    height: 20px; padding: 0 6px; border-radius: 5px;
+    background: rgba(255,255,255,0.07); border: 1px solid rgba(255,255,255,0.09);
+    color: #c4c7d0; font: 500 8px/1 'Inter', sans-serif;
+    cursor: pointer; outline: none; white-space: nowrap;
+    transition: all 0.14s ease;
+  }
+  .btn:hover { background: rgba(255,255,255,0.13); color: #f0f0f5; border-color: rgba(255,255,255,0.16); }
+  .btn:active { transform: scale(0.94); }
+  .btn.icon { padding: 0; width: 20px; }
+  .btn.stop { background: rgba(239,68,68,0.15); border-color: rgba(239,68,68,0.35); color: #f87171; }
+  .btn.stop:hover { background: rgba(239,68,68,0.28); border-color: rgba(239,68,68,0.55); color: #fca5a5; }
+  .btn.restart { background: rgba(245,158,11,0.12); border-color: rgba(245,158,11,0.30); color: #fbbf24; }
+  .btn.restart:hover { background: rgba(245,158,11,0.22); border-color: rgba(245,158,11,0.50); color: #fde68a; }
+  .btn.cam-active { background: rgba(99,102,241,0.2); border-color: rgba(99,102,241,0.45); color: #a5b4fc; }
+  .btn.cam-active:hover { background: rgba(99,102,241,0.32); }
+  .btn.mic-on { background: rgba(34,197,94,0.15); border-color: rgba(34,197,94,0.35); color: #86efac; }
+  .btn.mic-on:hover { background: rgba(34,197,94,0.25); }
+  .btn.mic-muted { background: rgba(239,68,68,0.1); border-color: rgba(239,68,68,0.2); color: #fca5a5; }
+
+  /* Status pill above bar */
+  #status {
+    position: fixed; top: -28px; left: 50%; transform: translateX(-50%);
+    background: rgba(10,10,18,0.88); backdrop-filter: blur(10px);
+    border: 1px solid rgba(255,255,255,0.08); border-radius: 6px;
+    padding: 4px 10px; color: #94a3b8; font: 500 10px/1 'Inter', sans-serif;
+    opacity: 0; transition: opacity 0.2s; pointer-events: none; white-space: nowrap;
+  }
+  #status.show { opacity: 1; }
+</style>
+</head>
+<body>
+
+<div id="status"></div>
+
+<div id="bar">
+  <div id="clock-wrap">
+    <canvas id="rec-clock" width="52" height="52"></canvas>
+    <span id="hr-badge"></span>
+  </div>
+  <div class="sep"></div>
+  <button class="btn icon" id="btn-pause" title="Pause (Space)">
+    <svg id="pause-svg" width="9" height="9" viewBox="0 0 24 24" fill="currentColor" stroke="none">
+      <rect x="6" y="4" width="4" height="16" rx="1"/><rect x="14" y="4" width="4" height="16" rx="1"/>
+    </svg>
+  </button>
+  <button class="btn stop" id="btn-stop">
+    <svg width="7" height="7" viewBox="0 0 24 24" fill="currentColor" stroke="none"><rect x="4" y="4" width="16" height="16" rx="2"/></svg>
+    Save
+  </button>
+  <button class="btn restart icon" id="btn-restart" title="Restart (R)">
+    <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+      <path d="M1 4v6h6"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/>
+    </svg>
+  </button>
+  <button class="btn icon" id="btn-cancel" title="Cancel (Esc)">
+    <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+      <path d="M18 6 6 18M6 6l12 12"/>
+    </svg>
+  </button>
+  <div class="sep"></div>
+  <!-- Mic mute toggle -->
+  <button class="btn icon" id="btn-mic" title="Mute/Unmute mic" style="display:none;">
+    <svg id="mic-svg" width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+    </svg>
+  </button>
+  <!-- Camera toggle -->
+  <button class="btn icon" id="btn-cam" title="Camera overlay">
+    <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <path d="M23 7l-7 5 7 5V7z"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/>
+    </svg>
+  </button>
+</div>
+
+<script>
+'use strict';
+
+let seconds = 0, timerInterval = null, isPaused = false, cameraOn = false;
+let mediaRecorder = null, recordedChunks = [], screenStream = null;
+let micStream = null, micTrack = null, micEnabled = false;
+
+const pauseSvg   = document.getElementById('pause-svg');
+const btnPause   = document.getElementById('btn-pause');
+const btnStop    = document.getElementById('btn-stop');
+const btnRestart = document.getElementById('btn-restart');
+const btnCancel  = document.getElementById('btn-cancel');
+const btnCam     = document.getElementById('btn-cam');
+const btnMic     = document.getElementById('btn-mic');
+const micSvgEl   = document.getElementById('mic-svg');
+const statusEl   = document.getElementById('status');
+const hrBadge    = document.getElementById('hr-badge');
+
+const MIC_ON_SVG = `<path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/>`;
+const MIC_OFF_SVG = `<line x1="1" y1="1" x2="23" y2="23"/><path d="M9 9v3a3 3 0 0 0 5.12 2.12M15 9.34V4a3 3 0 0 0-5.94-.6"/><path d="M17 16.95A7 7 0 0 1 5 12v-2m14 0v2c0 .76-.13 1.49-.35 2.17"/>`;
+
+/* ── Analog Clock ────────────────────────────────────────────
+   Premium miniature clock face — minute hand sweeps once per
+   60 seconds, subtle elapsed arc, blinking center dot,
+   hour badge appears when hours > 0.                        */
+const clockCanvas = document.getElementById('rec-clock');
+const clockCtx    = clockCanvas.getContext('2d');
+const CS = 52;             // canvas internal resolution (2× CSS for retina)
+const CC = CS / 2;         // center
+const CR = 22;             // clock radius
+let blinkOn = true;
+
+function drawClock() {
+  const ctx = clockCtx;
+  ctx.clearRect(0, 0, CS, CS);
+
+  // ── Face gradient ─────────────────────────────────────
+  const faceFill = ctx.createRadialGradient(CC, CC, 0, CC, CC, CR);
+  faceFill.addColorStop(0, 'rgba(35,35,50,0.95)');
+  faceFill.addColorStop(1, 'rgba(18,18,28,0.98)');
+  ctx.beginPath();
+  ctx.arc(CC, CC, CR, 0, Math.PI * 2);
+  ctx.fillStyle = faceFill;
+  ctx.fill();
+
+  // ── Face border ───────────────────────────────────────
+  ctx.beginPath();
+  ctx.arc(CC, CC, CR, 0, Math.PI * 2);
+  ctx.strokeStyle = 'rgba(255,255,255,0.10)';
+  ctx.lineWidth = 1;
+  ctx.stroke();
+
+  // ── 12 Tick marks ─────────────────────────────────────
+  for (let i = 0; i < 12; i++) {
+    const ang = (i * Math.PI / 6) - Math.PI / 2;
+    const major = i % 3 === 0;
+    const r1 = major ? CR - 5 : CR - 3;
+    const r2 = CR - 1;
+    ctx.beginPath();
+    ctx.moveTo(CC + Math.cos(ang) * r1, CC + Math.sin(ang) * r1);
+    ctx.lineTo(CC + Math.cos(ang) * r2, CC + Math.sin(ang) * r2);
+    ctx.strokeStyle = major ? 'rgba(255,255,255,0.28)' : 'rgba(255,255,255,0.10)';
+    ctx.lineWidth = major ? 1.5 : 0.7;
+    ctx.lineCap = 'round';
+    ctx.stroke();
+  }
+
+  // ── Elapsed arc (subtle sweep trail) ──────────────────
+  const secInHour = seconds % 3600;
+  const sweep = (secInHour / 3600) * Math.PI * 2;
+  if (secInHour > 0) {
+    ctx.beginPath();
+    ctx.arc(CC, CC, CR - 7, -Math.PI / 2, -Math.PI / 2 + sweep);
+    ctx.strokeStyle = isPaused ? 'rgba(245,158,11,0.18)' : 'rgba(239,68,68,0.18)';
+    ctx.lineWidth = 3;
+    ctx.lineCap = 'round';
+    ctx.stroke();
+  }
+
+  // ── Hour hand ─────────────────────────────────────────
+  const handAng = -Math.PI / 2 + sweep;
+  const handLen = CR - 7;
+  ctx.beginPath();
+  ctx.moveTo(CC, CC);
+  ctx.lineTo(CC + Math.cos(handAng) * handLen, CC + Math.sin(handAng) * handLen);
+  ctx.strokeStyle = isPaused ? '#f59e0b' : '#f87171';
+  ctx.lineWidth = 1.8;
+  ctx.lineCap = 'round';
+  ctx.stroke();
+
+  // ── Center dot (blinks while recording) ───────────────
+  const dotVisible = isPaused || blinkOn;
+  if (dotVisible) {
+    ctx.beginPath();
+    ctx.arc(CC, CC, 2, 0, Math.PI * 2);
+    ctx.fillStyle = isPaused ? '#f59e0b' : '#ef4444';
+    ctx.fill();
+  }
+
+  // ── Hour badge ────────────────────────────────────────
+  const hrs = Math.floor(seconds / 3600);
+  hrBadge.textContent = hrs > 0 ? hrs + 'h' : '';
+}
+
+function startTimer() {
+  drawClock();
+  timerInterval = setInterval(() => {
+    if (!isPaused) { seconds++; drawClock(); }
+  }, 1000);
+  // Blink interval for center dot
+  setInterval(() => { blinkOn = !blinkOn; if (!isPaused) drawClock(); }, 500);
+}
+let statusTimer = null;
+function showStatus(msg, ms = 2000) {
+  statusEl.textContent = msg;
+  statusEl.classList.add('show');
+  clearTimeout(statusTimer);
+  statusTimer = setTimeout(() => statusEl.classList.remove('show'), ms);
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   ANIMATED CURSOR SYSTEM
+   ═══════════════════════════════════════════════════════════════
+   All video is routed through a <canvas> so we can draw the
+   icons8 cursor with:
+     1. Lerp (exponential ease) for smooth trailing movement
+     2. Velocity-based banking tilt (lean into fast movements)
+     3. Spring physics return-to-upright when motion slows
+   ─────────────────────────────────────────────────────────── */
+
+// ── Cursor SVG → preloaded Image ───────────────────────────
+const CURSOR_SVG_B64 = `data:image/svg+xml;base64,${btoa(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="56px" height="56px" baseProfile="basic"><linearGradient id="a" x1="2.592" x2="16.864" y1="6.124" y2="20.395" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#fff" stop-opacity=".9"/><stop offset="1" stop-color="#fff" stop-opacity=".6"/></linearGradient><path fill="url(#a)" d="M18.584,12.854L8.091,2.361C7.319,1.59,6,2.136,6,3.227v15.044c0,.996,1.103,1.596,1.939,1.054l3.1-2.008 1.911,3.72c.447.87,1.515,1.213,2.385.766h0c.87-.447,1.213-1.514.766-2.384l-1.878-3.651 3.735-.797C18.932,14.763,19.288,13.559,18.584,12.854z"/><path fill="none" stroke="#1a1a2e" stroke-width="1.2" stroke-linejoin="round" d="M18.584,12.854L8.091,2.361C7.319,1.59,6,2.136,6,3.227v15.044c0,.996,1.103,1.596,1.939,1.054l3.1-2.008 1.911,3.72c.447.87,1.515,1.213,2.385.766h0c.87-.447,1.213-1.514.766-2.384l-1.878-3.651 3.735-.797C18.932,14.763,19.288,13.559,18.584,12.854z"/></svg>`)}`;
+
+const cursorImg = new Image();
+cursorImg.src = CURSOR_SVG_B64;
+
+// Cursor render size on-screen (in captured pixels) — 1.6× the default
+const CURSOR_SIZE = 83;
+
+// Hotspot offset: the SVG arrow tip is at ~(6.5, 1.8) in the 24×24
+// viewBox, which at 83px = ~(22, 6) pixels from the image top-left.
+// Shifting by this amount aligns the custom tip exactly on top of
+// the native cursor tip, so the larger custom cursor covers it.
+const CURSOR_OFFSET_X = -24;
+const CURSOR_OFFSET_Y = -8;
+
+// ── Raw position from main process (global screen px) ──────
+let rawX = 0, rawY = 0;
+
+// ── Smoothed / display position (Lerp) ─────────────────────
+let smoothX = 0, smoothY = 0;
+const LERP = 0.07; // lower = slower/floatier trailing movement
+
+// ── Velocity tracking for banking tilt ─────────────────────
+let prevSmoothX = 0, prevSmoothY = 0;
+let velX = 0, velY = 0;
+
+// ── Spring rotation state ───────────────────────────────────
+let currentAngle = 0;   // current tilt (radians)
+let targetAngle  = 0;   // angle we're springing toward
+const TILT_SENSITIVITY = 0.0035; // slightly stronger tilt since movement is slower
+const MAX_TILT_DEG     = 18;     // clamp max lean angle
+const SPRING_STIFFNESS = 0.10;   // spring pull strength
+const SPRING_DAMPING   = 0.75;   // how quickly oscillation dies
+
+let springVel = 0; // spring angular velocity
+
+// ── Recording canvas infrastructure ────────────────────────
+let sourceVideo  = null;  // hidden <video> for the raw desktop capture
+let renderCanvas = null;  // canvas we draw everything onto
+let renderCtx    = null;
+let animFrameId  = null;
+
+// Region crop info (undefined if fullscreen)
+let cropRegion  = null;
+let scaleFactor = 1;
+
+/* Called once per animation frame — draw source + cursor */
+function renderFrame() {
+  if (!sourceVideo || sourceVideo.paused || !renderCanvas) {
+    animFrameId = requestAnimationFrame(renderFrame);
+    return;
+  }
+
+  const W = renderCanvas.width;
+  const H = renderCanvas.height;
+
+  // ── 1. Draw the background video frame ─────────────────
+  if (cropRegion) {
+    renderCtx.drawImage(
+      sourceVideo,
+      cropRegion.x, cropRegion.y, cropRegion.width, cropRegion.height,
+      0, 0, W, H
+    );
+  } else {
+    renderCtx.drawImage(sourceVideo, 0, 0, W, H);
+  }
+
+  // ── 2. Lerp smooth position ─────────────────────────────
+  smoothX += (rawX - smoothX) * LERP;
+  smoothY += (rawY - smoothY) * LERP;
+
+  // ── 3. Compute velocity ─────────────────────────────────
+  velX = smoothX - prevSmoothX;
+  velY = smoothY - prevSmoothY;
+  prevSmoothX = smoothX;
+  prevSmoothY = smoothY;
+
+  // ── 4. Spring physics for tilt angle ───────────────────
+  // Target angle: lean in direction of horizontal velocity, limited to MAX_TILT
+  const maxTiltRad = (MAX_TILT_DEG * Math.PI) / 180;
+  targetAngle = Math.max(-maxTiltRad, Math.min(maxTiltRad, velX * TILT_SENSITIVITY * 60));
+
+  // Spring integration (Hooke's law with damping)
+  const springForce = (targetAngle - currentAngle) * SPRING_STIFFNESS;
+  springVel = springVel * SPRING_DAMPING + springForce;
+  currentAngle += springVel;
+
+  // ── 5. Map global screen coords → canvas coords ─────────
+  let canvasX, canvasY;
+  if (cropRegion) {
+    // Regional: subtract region origin, account for scale factor
+    canvasX = (smoothX * scaleFactor - cropRegion.x) * (W / cropRegion.width);
+    canvasY = (smoothY * scaleFactor - cropRegion.y) * (H / cropRegion.height);
+  } else {
+    // Fullscreen: logical px → physical canvas px
+    canvasX = smoothX * scaleFactor;
+    canvasY = smoothY * scaleFactor;
+  }
+
+  // ── 6. Draw cursor with tilt ────────────────────────────
+  if (cursorImg.complete && cursorImg.naturalWidth > 0) {
+    renderCtx.save();
+    // Rotate around the actual hotspot (the arrow tip)
+    renderCtx.translate(canvasX, canvasY);
+    renderCtx.rotate(currentAngle);
+    // Draw offset so the SVG tip aligns with (0,0) — covers native cursor
+    renderCtx.drawImage(cursorImg, CURSOR_OFFSET_X, CURSOR_OFFSET_Y, CURSOR_SIZE, CURSOR_SIZE);
+    renderCtx.restore();
+  }
+
+  animFrameId = requestAnimationFrame(renderFrame);
+}
+
+/* ── Listen for mouse positions from main process ── */
+window.screenRecorder.onMousePos((x, y) => {
+  rawX = x;
+  rawY = y;
+});
+
+/* ── Build the full recording pipeline ── */
+window.screenRecorder.onStartInfo(async (info) => {
+  const {
+    sourceId, region, screenWidth, screenHeight,
+    scaleFactor: sf, isFullScreen, quality, micOn, micDeviceId, sysAudioOn
+  } = info;
+
+  scaleFactor = sf || 1;
+  cropRegion  = isFullScreen ? null : region;
+
+  try {
+    // Capture full native resolution.
+    // NOTE: the native OS cursor is composited into the stream by the OS
+    // (macOS ScreenCaptureKit / Windows WGC) before Electron receives it.
+    // There is no Electron/Chromium API to exclude it. The animated cursor
+    // overlay drawn on our canvas is the professional enhancement layer.
+
+    // System audio MUST use chromeMediaSource:'desktop' with matching sourceId.
+    // Passing a bare `audio: true` requests a regular microphone alongside a
+    // desktop video source, which crashes the renderer on macOS.
+    const videoConstraint = {
+      mandatory: {
+        chromeMediaSource: 'desktop',
+        chromeMediaSourceId: sourceId,
+        minWidth:  screenWidth,
+        maxWidth:  screenWidth,
+        minHeight: screenHeight,
+        maxHeight: screenHeight,
+      },
+    };
+
+    const audioConstraint = sysAudioOn ? {
+      mandatory: {
+        chromeMediaSource: 'desktop',
+        chromeMediaSourceId: sourceId,
+      },
+    } : false;
+
+    let sysAudioActuallyOn = sysAudioOn;
+    try {
+      screenStream = await navigator.mediaDevices.getUserMedia({
+        audio: audioConstraint,
+        video: videoConstraint,
+      });
+    } catch (sysAudioErr) {
+      // System audio capture can fail on some macOS versions or if the user
+      // denies the audio permission.  Fall back to video-only so the
+      // recording still works.
+      console.warn('[Recorder] System audio capture failed, falling back to video-only:', sysAudioErr.message);
+      sysAudioActuallyOn = false;
+      screenStream = await navigator.mediaDevices.getUserMedia({
+        audio: false,
+        video: videoConstraint,
+      });
+      showStatus('System audio unavailable — recording video only', 3000);
+    }
+
+    // ── Hidden source video ─────────────────────────────
+    sourceVideo = document.createElement('video');
+    sourceVideo.srcObject = new MediaStream([screenStream.getVideoTracks()[0]]);
+    sourceVideo.muted = true;
+    sourceVideo.style.cssText = 'position:fixed;opacity:0;pointer-events:none;';
+    document.body.appendChild(sourceVideo);
+    await sourceVideo.play();
+
+    // ── Render canvas (the actual recording surface) ────
+    renderCanvas = document.createElement('canvas');
+    const outW = isFullScreen ? screenWidth  : region.width;
+    const outH = isFullScreen ? screenHeight : region.height;
+    renderCanvas.width  = outW;
+    renderCanvas.height = outH;
+    renderCtx = renderCanvas.getContext('2d', { alpha: false });
+
+    // Seed the smoothed cursor at current raw position so it
+    // doesn't "fly in" from (0,0) at the start
+    smoothX = rawX; smoothY = rawY;
+    prevSmoothX = rawX; prevSmoothY = rawY;
+
+    // Kick off the render loop
+    animFrameId = requestAnimationFrame(renderFrame);
+
+    // ── Capture the canvas as the recording source ──────
+    const canvasStream = renderCanvas.captureStream(60);
+    const combinedTracks = [...canvasStream.getVideoTracks()];
+
+    // System audio
+    const sysAudioTracks = screenStream.getAudioTracks();
+    if (sysAudioTracks.length > 0) combinedTracks.push(...sysAudioTracks);
+
+    // Mic audio
+    if (micOn) {
+      try {
+        const micConstraints = { audio: micDeviceId ? { deviceId: { exact: micDeviceId } } : true };
+        micStream = await navigator.mediaDevices.getUserMedia(micConstraints);
+        micTrack = micStream.getAudioTracks()[0];
+        if (micTrack) {
+          combinedTracks.push(micTrack);
+          micEnabled = true;
+          btnMic.style.display = 'flex';
+          btnMic.classList.add('mic-on');
+          micSvgEl.innerHTML = MIC_ON_SVG;
+          showStatus('Mic on');
+        }
+      } catch (micErr) {
+        console.warn('[Recorder] Mic unavailable:', micErr);
+        showStatus('Mic unavailable', 3000);
+      }
+    }
+
+    const combinedStream = new MediaStream(combinedTracks);
+
+    const mimeType = MediaRecorder.isTypeSupported('video/webm;codecs=vp9,opus')
+      ? 'video/webm;codecs=vp9,opus'
+      : MediaRecorder.isTypeSupported('video/webm;codecs=vp9')
+        ? 'video/webm;codecs=vp9'
+        : 'video/webm';
+
+    const bitrates = { high: 40_000_000, mid: 12_000_000, low: 4_000_000 };
+    const bps = bitrates[quality] || bitrates.high;
+    console.log(`[Recorder] ${isFullScreen ? 'Full' : 'Region'} ${outW}x${outH}, Cursor overlay ON, Bitrate: ${bps/1e6}Mbps`);
+
+    mediaRecorder = new MediaRecorder(combinedStream, { mimeType, videoBitsPerSecond: bps });
+
+    mediaRecorder.ondataavailable = (e) => {
+      if (e.data && e.data.size > 0) recordedChunks.push(e.data);
+    };
+
+    mediaRecorder.onstop = async () => {
+      // Stop render loop & clean up
+      if (animFrameId) { cancelAnimationFrame(animFrameId); animFrameId = null; }
+      if (sourceVideo) { sourceVideo.pause(); sourceVideo.remove(); sourceVideo = null; }
+      renderCanvas = null; renderCtx = null;
+
+      screenStream.getTracks().forEach(t => t.stop());
+      if (micStream) micStream.getTracks().forEach(t => t.stop());
+
+      const blob = new Blob(recordedChunks, { type: mimeType });
+      console.log('[Recorder] Blob size:', blob.size, 'bytes');
+      showStatus('Saving…', 10000);
+      const arrayBuf = await blob.arrayBuffer();
+      const uint8 = new Uint8Array(arrayBuf);
+      await window.screenRecorder.saveBlobReady(uint8);
+      recordedChunks = [];
+    };
+
+    mediaRecorder.start(500);
+    showStatus('● Recording started');
+  } catch (err) {
+    console.error('[Recorder] Start failed:', err);
+    showStatus('Failed: ' + err.message, 4000);
+  }
+});
+
+window.screenRecorder.onCommand((cmd) => {
+  if (cmd === 'start') startTimer();
+  else if (cmd === 'stop' && mediaRecorder && mediaRecorder.state !== 'inactive') {
+    clearInterval(timerInterval); mediaRecorder.stop();
+  } else if (cmd === 'saved') showStatus('✓ Saved to Downloads', 3000);
+  else if (cmd === 'camera-closed') { cameraOn = false; btnCam.classList.remove('cam-active'); }
+});
+
+/* ── Pause ── */
+btnPause.addEventListener('click', () => {
+  if (!mediaRecorder) return;
+  isPaused = !isPaused;
+  drawClock();
+  if (isPaused) {
+    mediaRecorder.pause();
+    pauseSvg.innerHTML = '<polygon points="5,3 19,12 5,21"/>';
+    btnPause.title = 'Resume (Space)';
+    showStatus('⏸ Paused');
+  } else {
+    mediaRecorder.resume();
+    pauseSvg.innerHTML = '<rect x="6" y="4" width="4" height="16" rx="1"/><rect x="14" y="4" width="4" height="16" rx="1"/>';
+    btnPause.title = 'Pause (Space)';
+    showStatus('● Resumed');
+  }
+});
+
+/* ── Stop ── */
+let isStopping = false;
+btnStop.addEventListener('click', () => {
+  if (!mediaRecorder || mediaRecorder.state === 'inactive' || isStopping) return;
+  isStopping = true;
+  clearInterval(timerInterval);
+  btnStop.disabled = true;
+  btnPause.disabled = true;
+  btnCancel.disabled = true;
+  btnMic.disabled = true;
+  btnCam.disabled = true;
+  btnStop.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg> Saving…`;
+  btnStop.style.opacity = '0.6';
+  btnStop.style.pointerEvents = 'none';
+  mediaRecorder.stop();
+});
+
+/* ── Restart ── */
+btnRestart.addEventListener('click', () => {
+  clearInterval(timerInterval);
+  recordedChunks = [];
+  seconds = 0;
+  drawClock();
+  if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+    mediaRecorder.onstop = () => {
+      if (animFrameId) { cancelAnimationFrame(animFrameId); animFrameId = null; }
+      if (sourceVideo) { sourceVideo.pause(); sourceVideo.remove(); sourceVideo = null; }
+      if (screenStream) screenStream.getTracks().forEach(t => t.stop());
+      if (micStream) micStream.getTracks().forEach(t => t.stop());
+      screenStream = null; micStream = null; micTrack = null;
+    };
+    mediaRecorder.stop();
+  }
+  showStatus('↻ Restarting…');
+  window.screenRecorder.restartRecording();
+});
+
+/* ── Cancel ── */
+btnCancel.addEventListener('click', () => {
+  clearInterval(timerInterval);
+  if (animFrameId) { cancelAnimationFrame(animFrameId); animFrameId = null; }
+  if (sourceVideo) { sourceVideo.pause(); sourceVideo.remove(); sourceVideo = null; }
+  if (screenStream) screenStream.getTracks().forEach(t => t.stop());
+  if (micStream) micStream.getTracks().forEach(t => t.stop());
+  window.screenRecorder.cancelRecording();
+});
+
+/* ── Mic mute/unmute ── */
+btnMic.addEventListener('click', () => {
+  if (!micTrack) return;
+  micEnabled = !micEnabled;
+  micTrack.enabled = micEnabled;
+  if (micEnabled) {
+    btnMic.classList.remove('mic-muted');
+    btnMic.classList.add('mic-on');
+    micSvgEl.innerHTML = MIC_ON_SVG;
+    showStatus('Mic unmuted');
+  } else {
+    btnMic.classList.remove('mic-on');
+    btnMic.classList.add('mic-muted');
+    micSvgEl.innerHTML = MIC_OFF_SVG;
+    showStatus('Mic muted');
+  }
+});
+
+/* ── Camera ── */
+btnCam.addEventListener('click', () => {
+  cameraOn = !cameraOn;
+  if (cameraOn) { btnCam.classList.add('cam-active'); window.screenRecorder.openCamera(); }
+  else { btnCam.classList.remove('cam-active'); window.screenRecorder.closeCamera(); }
+});
+
+/* ── Keyboard ── */
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') btnCancel.click();
+  if (e.code === 'Space') { e.preventDefault(); btnPause.click(); }
+  if (e.key === 'm' || e.key === 'M') btnMic.click();
+  if (e.key === 'r' || e.key === 'R') btnRestart.click();
+});
+</script>
+</body>
+</html>

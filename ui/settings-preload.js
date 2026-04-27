@@ -18,6 +18,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   downloadUpdate:  ()       => ipcRenderer.send('download-update'),
   installUpdate:   ()       => ipcRenderer.send('install-update'),
   getVersion:      ()       => ipcRenderer.invoke('get-version'),
+  getSttEngineInfo: ()       => ipcRenderer.invoke('get-stt-engine-info'),
+  getAvailableBrowsers: ()   => ipcRenderer.invoke('get-available-browsers'),
   onUpdateStatus:  (cb)     => onChannel('update-status',   (_, info) => cb(info)),
   verifyLicense:             (key)        => ipcRenderer.invoke('verify-license',              key),
   onLicenseExpired:          (cb)         => onChannel('license-expired', () => cb()),
@@ -62,4 +64,5 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // ── Live sync (hotkey toggles while settings is open) ──
   onConfigUpdate:            (cb)         => onChannel('config-updated', (_, cfg) => cb(cfg)),
   onAiModeToggled:           (cb)         => onChannel('ai-mode-toggled', (_, on) => cb(on)),
+  onWhisperAiModeToggled:    (cb)         => onChannel('whisper-ai-mode-toggled', (_, on) => cb(on)),
 });

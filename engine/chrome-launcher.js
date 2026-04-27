@@ -1,11 +1,14 @@
 const puppeteer = require('puppeteer-core');
 const path = require('path');
 const { app } = require('electron');
-const { findChrome } = require('./chrome-finder');
+const { findBrowser, findAllBrowsers } = require('./browser-finder');
 
 let browser = null;
 let page = null;
 let isClosing = false;
+
+/** @type {import('./browser-finder').BrowserInfo|null} */
+let activeBrowserInfo = null;
 
 // Safe logging to avoid EIO errors on broken pipes
 function safeLog(...args) {
@@ -28,10 +31,22 @@ async function launchChromeBridge(url, forceVisible = false) {
     } catch (e) {}
   }
 
-  const chromePath = findChrome();
-  if (!chromePath) {
-    throw new Error('Chrome not found. Please install Google Chrome.');
+  // Read user's preferred browser from config (if any)
+  let preferredBrowser = 'auto';
+  try {
+    const Store = require('electron-store');
+    const store = new Store();
+    preferredBrowser = store.get('preferredBrowser', 'auto');
+  } catch {}
+
+  const browserInfo = findBrowser(preferredBrowser);
+  if (!browserInfo) {
+    activeBrowserInfo = null;
+    throw new Error('No compatible browser found. Please install Google Chrome, Microsoft Edge, or Brave.');
   }
+
+  activeBrowserInfo = browserInfo;
+  safeLog(`[MicTab] Using ${browserInfo.name} (${browserInfo.engineLabel}) at: ${browserInfo.executablePath}`);
 
   const useHeadless = !forceVisible && !process.env.MICTAB_FORCE_VISIBLE;
   const chromeArgs = [
@@ -59,7 +74,7 @@ async function launchChromeBridge(url, forceVisible = false) {
 
   try {
     browser = await puppeteer.launch({
-      executablePath: chromePath,
+      executablePath: browserInfo.executablePath,
       headless: useHeadless ? 'new' : false,
       args: chromeArgs,
       userDataDir: path.join(app.getPath('userData'), 'chrome-bridge-data')
@@ -128,4 +143,12 @@ async function stopRecognition() {
   }
 }
 
-module.exports = { launchChromeBridge, closeChromeBridge, startRecognition, stopRecognition };
+/**
+ * Returns info about the currently active browser engine.
+ * @returns {import('./browser-finder').BrowserInfo|null}
+ */
+function getActiveBrowserInfo() {
+  return activeBrowserInfo;
+}
+
+module.exports = { launchChromeBridge, closeChromeBridge, startRecognition, stopRecognition, getActiveBrowserInfo };

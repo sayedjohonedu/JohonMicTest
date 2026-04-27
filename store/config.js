@@ -42,6 +42,10 @@ const schema = {
     type: 'boolean',
     default: false
   },
+  textReplaceInline: {
+    type: 'boolean',
+    default: true           // true = replace anywhere in sentence, false = exact full-phrase match only
+  },
   textReplacements: {
     type: 'array',
     default: []

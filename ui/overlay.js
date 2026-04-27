@@ -507,7 +507,7 @@ function applyMiniMode(mini, notify = true) {
 
 document.body.addEventListener('mousedown', (e) => {
   if (window.junoAPI && window.junoAPI.resetSilence) window.junoAPI.resetSilence();
-  const target = e.target.closest('.punct-btn, .kb-key, .emoji-btn, .kbd-btn, #mini-btn, #expand-btn, #settings-btn, #browser-btn, #mini-browser-btn, #translator-btn, #clipboard-btn, #mini-clipboard-btn, #dot-close');
+  const target = e.target.closest('.punct-btn, .kb-key, .emoji-btn, .kbd-btn, #mini-btn, #expand-btn, #settings-btn, #browser-btn, #mini-browser-btn, #translator-btn, #clipboard-btn, #mini-clipboard-btn, #screen-rec-btn, #mini-screen-rec-btn, #dot-close');
   if (target) {
     e.preventDefault(); flash(target);
     if (target.id === 'dot-close') window.junoAPI.stopListening();
@@ -515,6 +515,7 @@ document.body.addEventListener('mousedown', (e) => {
     else if (target.id === 'browser-btn' || target.id === 'mini-browser-btn') { e.stopPropagation(); window.junoAPI.toggleFloatingBrowser(); }
     else if (target.id === 'translator-btn') { e.stopPropagation(); window.junoAPI.openTranslator(); }
     else if (target.id === 'clipboard-btn' || target.id === 'mini-clipboard-btn') { e.stopPropagation(); window.junoAPI.openClipboardManager(); }
+    else if (target.id === 'screen-rec-btn' || target.id === 'mini-screen-rec-btn') { e.stopPropagation(); window.junoAPI.openLensCapture(); }
     else if (target.id === 'mini-btn') { e.stopPropagation(); applyMiniMode(true); }
     else if (target.id === 'expand-btn') { e.stopPropagation(); applyMiniMode(false); }
     else if (target.classList.contains('punct-btn')) {
@@ -887,12 +888,14 @@ if (window.junoAPI.onAiModeToggled) {
   window.junoAPI.onAiModeToggled((on) => {
     isAiMode = on;
     showAiSendButtons(on);
-    // Show a brief toast on the overlay
+    // Show a brief toast using clean SVG icons (no emojis)
     const statusLabel = document.getElementById('status-label');
     if (statusLabel) {
+      const aiIconSvg = `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline;vertical-align:-1px;margin-right:3px;"><path d="M9.5 2A2.5 2.5 0 0 1 12 4.5v15a2.5 2.5 0 0 1-4.96.44 2.5 2.5 0 0 1-2.96-3.08 3 3 0 0 1-.34-5.58 2.5 2.5 0 0 1 1.32-4.24 2.5 2.5 0 0 1 1.44-4.04Z"/><path d="M14.5 2A2.5 2.5 0 0 0 12 4.5v15a2.5 2.5 0 0 0 4.96.44 2.5 2.5 0 0 0 2.96-3.08 3 3 0 0 0 .34-5.58 2.5 2.5 0 0 0-1.32-4.24 2.5 2.5 0 0 0-1.44-4.04Z"/></svg>`;
+      const editIconSvg = `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline;vertical-align:-1px;margin-right:3px;"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>`;
       statusLabel.innerHTML = on
-        ? '<span style="color:#a855f7">🤖 AI Mode ON</span>'
-        : '<span style="color:#4ade80">📝 Normal Mode</span>';
+        ? `<span style="color:#a855f7;display:inline-flex;align-items:center;">${aiIconSvg}AI Mode ON</span>`
+        : `<span style="color:#4ade80;display:inline-flex;align-items:center;">${editIconSvg}Normal Mode</span>`;
       // Revert to default label after 2s
       setTimeout(() => {
         if (statusLabel) {

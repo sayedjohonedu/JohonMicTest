@@ -17,8 +17,14 @@ let _aiSendNow = null;
 // AI mode toggle callback (Alt+Shift+C)
 let _aiModeToggle = null;
 
+// Whisper AI Polish mode toggle callback (Right Alt + Right Shift + /)
+let _whisperAiModeToggle = null;
+
 // Whisper API mode press-and-hold callbacks
 let _whisperApiCallbacks = null; // { onKeyDown, onKeyUp }
+
+// Lens capture callback (Alt+Shift+S)
+let _lensCaptureCallback = null;
 
 function setTranslatorCtx(ctx) {
   _translatorCtx = ctx;
@@ -34,6 +40,14 @@ function setAiModeToggle(fn) {
 
 function setWhisperApiCallbacks(cbs) {
   _whisperApiCallbacks = cbs; // { onKeyDown, onKeyUp }
+}
+
+function setWhisperAiModeToggle(fn) {
+  _whisperAiModeToggle = fn;
+}
+
+function setLensCaptureCallback(fn) {
+  _lensCaptureCallback = fn;
 }
 
 function uiohookKeyName(keycode) {
@@ -103,6 +117,16 @@ function registerHotkeys(toggleListening) {
     try {
       globalShortcut.register('Shift+Alt+C', () => _aiModeToggle());
     } catch (e) { console.log('AI toggle shortcut failed:', e.message); }
+  }
+
+  // ── Lens capture shortcut (Alt+Shift+S) ──
+  if (_lensCaptureCallback) {
+    try {
+      globalShortcut.register('Alt+Shift+S', () => {
+        console.log('[Lens] Alt+Shift+S pressed — starting capture');
+        _lensCaptureCallback();
+      });
+    } catch (e) { console.log('Lens capture shortcut failed:', e.message); }
   }
 
   // 1b) Language-specific Combo Hotkeys
@@ -255,6 +279,29 @@ function registerHotkeys(toggleListening) {
   }
 
 
+  // ── Whisper AI Polish mode toggle shortcut: Right Alt + Right Shift + Slash ──
+  // Uses uiohook for key combo tracking since it needs to detect Right-side modifier keys.
+  // The slash/question key (/) shares one key — hold Right Alt + Right Shift, then press it.
+  let rightAltHeldForAi = false;
+  let rightShiftHeldForAi = false;
+  const SLASH_KEYCODE_MAC = 53;   // macOS: the '/' (also '?') key
+  const SLASH_KEYCODE_WIN = 191;  // Windows: Slash/Question Mark key
+  const SLASH_KEYCODE = process.platform === 'darwin' ? SLASH_KEYCODE_MAC : SLASH_KEYCODE_WIN;
+
+  if (_whisperAiModeToggle) {
+    uIOhook.on('keydown', (e) => {
+      if (e.keycode === UiohookKey.AltRight)   rightAltHeldForAi   = true;
+      if (e.keycode === UiohookKey.ShiftRight) rightShiftHeldForAi = true;
+      if (e.keycode === SLASH_KEYCODE && rightAltHeldForAi && rightShiftHeldForAi) {
+        _whisperAiModeToggle();
+      }
+    });
+    uIOhook.on('keyup', (e) => {
+      if (e.keycode === UiohookKey.AltRight)   rightAltHeldForAi   = false;
+      if (e.keycode === UiohookKey.ShiftRight) rightShiftHeldForAi = false;
+    });
+  }
+
   // ── Whisper API: configurable press-and-hold (default: Right ⌘ / Right Ctrl) ──
   const whisperApiEnabled = store.get('whisperApiEnabled') === true;
   if (whisperApiEnabled && _whisperApiCallbacks) {
@@ -306,4 +353,6 @@ module.exports = {
   setAiModeToggle,
   setOfflineModeCallbacks: () => {}, // no-op stub for backward compat
   setWhisperApiCallbacks,
+  setWhisperAiModeToggle,
+  setLensCaptureCallback,
 };

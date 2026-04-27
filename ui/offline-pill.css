@@ -119,30 +119,69 @@ body.error #pill        { border-color: rgba(251, 146, 60, 0.25); }
 body.processing #status-icon,
 body.transcribing #status-icon,
 body.polishing #status-icon {
-  animation: spin-icon 1.2s linear infinite;
+  animation: spin-icon 1.8s linear infinite;
 }
 
 #status-icon {
-  font-size: 13px;
   width: 18px;
   height: 18px;
-  display: flex;
+  display: none;   /* Hidden by default */
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
   position: relative;
   z-index: 1;
-  display: none;  /* Hidden by default — only show for processing states */
 }
 
-body.processing #status-icon,
-body.transcribing #status-icon,
-body.polishing #status-icon,
-body.error #status-icon {
-  display: flex;
+/* Ensure the inner SVG scales correctly */
+#status-icon svg {
+  width: 14px;
+  height: 14px;
+  display: block;
 }
+
+/* State-specific icon colors (SVGs use stroke="currentColor") */
+body.processing   #status-icon { display: flex; color: #a78bfa; }
+body.transcribing #status-icon { display: flex; color: #818cf8; }
+body.polishing    #status-icon { display: flex; color: #c084fc; }
+body.done         #status-icon { display: flex; color: #4ade80; }
+body.error        #status-icon { display: flex; color: #fb923c; }
 
 @keyframes spin-icon {
   from { transform: rotate(0deg); }
   to   { transform: rotate(360deg); }
+}
+
+/* ── AI Polish badge (✦) — shown when whisper AI mode is active ── */
+#ai-badge {
+  display: none;
+  font-size: 11px;
+  color: #a855f7;
+  text-shadow: 0 0 8px rgba(168, 85, 247, 0.85);
+  flex-shrink: 0;
+  margin-right: -2px;
+  line-height: 1;
+  transition: opacity 0.2s;
+}
+
+/* Gentle rotate-pulse animation to draw the eye */
+@keyframes ai-spin {
+  0%   { transform: rotate(0deg) scale(1); }
+  50%  { transform: rotate(180deg) scale(1.2); }
+  100% { transform: rotate(360deg) scale(1); }
+}
+
+body.ai-mode.recording #ai-badge {
+  display: inline-flex;
+  animation: ai-spin 3s linear infinite;
+}
+
+/* Tint the pill border purple when AI mode is on and recording */
+body.ai-mode.recording #pill {
+  border-color: rgba(168, 85, 247, 0.3);
+}
+
+/* Status text gets purple tint in AI mode during recording */
+body.ai-mode.recording #status-text {
+  color: #a855f7;
 }

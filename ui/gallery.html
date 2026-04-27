@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>MicTab Gallery</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="gallery.css">
+</head>
+<body>
+
+<!-- ═══ TITLE BAR ═══ -->
+<div id="titlebar">
+  <button class="tb-btn close" id="btn-close" title="Close">
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M18 6 6 18M6 6l12 12"/></svg>
+  </button>
+  <span class="tb-title">MicTab Gallery</span>
+  <button class="tb-btn" id="btn-minimize" title="Minimize">
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14"/></svg>
+  </button>
+  <button class="tb-btn" id="btn-maximize" title="Maximize">
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/></svg>
+  </button>
+</div>
+
+<div id="app">
+  <!-- ═══ TOOLBAR ═══ -->
+  <div id="toolbar">
+    <div class="toolbar-group">
+      <button class="tool-btn active" id="filter-all" data-filter="all">
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+        All
+      </button>
+      <button class="tool-btn" id="filter-video" data-filter="video">
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+        Videos
+      </button>
+      <button class="tool-btn" id="filter-image" data-filter="image">
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-5-5L5 21"/></svg>
+        Images
+      </button>
+    </div>
+    <div class="toolbar-sep"></div>
+    <div class="toolbar-group">
+      <select class="tool-select" id="sort-select">
+        <option value="date-desc">Newest First</option>
+        <option value="date-asc">Oldest First</option>
+        <option value="name-asc">Name A→Z</option>
+        <option value="name-desc">Name Z→A</option>
+        <option value="size-desc">Largest First</option>
+        <option value="size-asc">Smallest First</option>
+      </select>
+    </div>
+    <div class="toolbar-spacer"></div>
+    <input class="search-input" id="search-input" type="text" placeholder="Search files…">
+    <div class="toolbar-sep"></div>
+    <button class="tool-btn" id="btn-refresh" title="Refresh">
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 4v6h6"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>
+    </button>
+    <button class="tool-btn" id="btn-open-folder" title="Open folder">
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+    </button>
+  </div>
+
+  <!-- ═══ GRID VIEW ═══ -->
+  <div id="grid-view"></div>
+
+  <!-- ═══ BULK ACTIONS BAR ═══ -->
+  <div id="bulk-bar" class="bulk-bar hidden">
+    <span id="bulk-count">0 selected</span>
+    <div style="flex:1;"></div>
+    <button class="tool-btn" id="bulk-select-all" title="Select All">
+      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="m9 12 2 2 4-4"/></svg>
+      Select All
+    </button>
+    <button class="tool-btn" id="bulk-deselect" title="Deselect All">
+      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"/></svg>
+      Deselect
+    </button>
+    <button class="tool-btn bulk-delete-btn" id="bulk-delete" title="Delete Selected">
+      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+      Delete
+    </button>
+  </div>
+
+  <!-- Rubber band selection rectangle -->
+  <div id="rubber-band"></div>
+
+  <!-- ═══ PLAYER VIEW ═══ -->
+  <div id="player-view">
+    <div class="player-toolbar">
+      <button class="tool-btn" id="btn-back-gallery">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m15 18-6-6 6-6"/></svg>
+        Gallery
+      </button>
+      <div class="toolbar-spacer"></div>
+      <button class="tool-btn" id="btn-player-edit" title="Open in Editor" style="color:#b4a8ff; border-color:rgba(124,111,255,0.25); background:rgba(124,111,255,0.08);">
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+        Edit
+      </button>
+      <button class="tool-btn" id="btn-player-reveal" title="Reveal in Finder">
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+        Reveal
+      </button>
+      <button class="tool-btn" id="btn-player-delete" title="Delete">
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+        Delete
+      </button>
+    </div>
+
+    <div class="player-content">
+      <video id="player-video" preload="metadata"></video>
+      <img id="player-image">
+    </div>
+
+    <div class="player-controls" id="player-controls">
+      <div class="progress-bar" id="progress-bar">
+        <div class="progress-fill" id="progress-fill"></div>
+      </div>
+      <div class="controls-row">
+        <button class="ctrl-btn play" id="btn-play">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" stroke="none"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+        </button>
+        <span class="time-display" id="time-display">0:00 / 0:00</span>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#6b7280" stroke-width="2" style="margin-left:8px;"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>
+        <input type="range" class="volume-slider" id="volume-slider" min="0" max="1" step="0.05" value="1">
+        <div class="player-info">
+          <span class="player-filename" id="player-filename" contenteditable="false"></span>
+          <span class="player-file-meta" id="player-file-meta"></span>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══ EXPORT PANEL ═══ -->
+    <div id="export-panel" style="display:none; align-items:center; gap:6px; padding:8px 16px; background:rgba(15,15,22,0.95); border-top:1px solid rgba(255,255,255,0.04); flex-shrink:0;">
+      <span style="font:600 10px/1 'Inter',sans-serif; color:rgba(124,111,255,0.7); text-transform:uppercase; letter-spacing:1px; margin-right:6px;">Export As</span>
+      <button class="tool-btn export-btn" data-format="mp4" title="MP4 (H.264 + AAC)">
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+        MP4
+      </button>
+      <button class="tool-btn export-btn" data-format="mp4-youtube" title="MP4 optimized for YouTube">
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+        YouTube
+      </button>
+      <button class="tool-btn export-btn" data-format="mp4-twitter" title="MP4 optimized for social media">
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4l11.733 16h4.267l-11.733 -16z"/><path d="M4 20l6.768 -6.768m2.46 -2.46l6.772 -6.772"/></svg>
+        Social
+      </button>
+      <button class="tool-btn export-btn" data-format="gif" title="Animated GIF">
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M8 12h.01M16 12h.01M12 12h.01"/></svg>
+        GIF
+      </button>
+      <button class="tool-btn export-btn" data-format="mov" title="MOV (Apple ProRes)">
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="2" width="20" height="20" rx="2.18"/><path d="m7 2 10 20M17 2 7 22"/></svg>
+        MOV
+      </button>
+    </div>
+
+  </div>
+</div>
+
+<script src="gallery.js"></script>
+</body>
+</html>

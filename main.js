@@ -1,4 +1,4 @@
-const { app, globalShortcut, dialog } = require('electron');
+const { app, globalShortcut, dialog, ipcMain } = require('electron');
 const path = require('path');
 const http = require('http');
 const fs = require('fs');
@@ -6,7 +6,7 @@ const WebSocket = require('ws');
 const robot = require('robotjs');
 
 const store = require('./store/config');
-const { launchChromeBridge, closeChromeBridge } = require('./engine/chrome-launcher');
+const { launchChromeBridge, closeChromeBridge, getActiveBrowserInfo } = require('./engine/chrome-launcher');
 const clipboardManager = require('./src/main/clipboard-manager');
 const clipboardMonitor = require('./src/main/clipboard-monitor');
 const clipboardHistoryStore = require('./src/main/clipboard-history-store');
@@ -16,12 +16,16 @@ const { setupClipboardIpc } = require('./src/main/clipboard-ipc');
 // Import modules
 const { createOverlay, showSettings, showLicensePopup, showWordLimitPopup, showTranslatorLockedPopup, showAiTrialExpiredPopup, applyOverlaySize, getOverlayWindow, getSettingsWindow, showUpdateReminderPopup, getUpdateReminderPopupWindow, createOfflinePill } = require('./src/main/window-manager');
 const { onOverlayShow, onOverlayHide } = require('./src/main/floating-browser-manager');
-const { registerHotkeys, stopUiohook, setTranslatorCtx, setAiSendNow, setAiModeToggle, setWhisperApiCallbacks } = require('./src/main/hotkey-manager');
+const { registerHotkeys, stopUiohook, setTranslatorCtx, setAiSendNow, setAiModeToggle, setWhisperApiCallbacks, setWhisperAiModeToggle, setLensCaptureCallback } = require('./src/main/hotkey-manager');
 const { checkAuthStatus, checkAndResetDailyWords, checkAiTrialExpiry } = require('./src/main/licensing');
 const { setupUpdater } = require('./src/main/updater');
 const { setupIpcHandlers, aiDictationManager } = require('./src/main/ipc-handlers');
-const { createTray, updateTrayMenu } = require('./src/main/tray-manager');
+const { createTray, updateTrayMenu, setCaptureAction, setTranslatorAction } = require('./src/main/tray-manager');
 const translatorManager = require('./src/main/translator-manager');
+const { showCaptureOverlay, setupLensIpc, isCaptureOverlayOpen, closeCaptureOverlay } = require('./src/main/lens-manager');
+const { setupScreenRecorderIpc } = require('./src/main/screen-recorder-manager');
+const { setupGalleryIpc, openGallery } = require('./src/main/gallery-manager');
+const { setupEditorIpc } = require('./src/main/video-editor-manager');
 
 
 
@@ -149,6 +153,28 @@ function toggleAiMode() {
   console.log(`[AI Mode] Toggled ${newState ? 'ON' : 'OFF'} via hotkey`);
 }
 
+/**
+ * Toggle Whisper AI Polish on/off via hotkey (Right Alt + Right Shift + /).
+ * Notifies all windows so UI stays in sync.
+ */
+function toggleWhisperAiMode() {
+  const current = store.get('whisperApiAiEnabled') === true;
+  const newState = !current;
+
+  store.set('whisperApiAiEnabled', newState);
+
+  // Notify all windows (settings, overlay, pill, etc.) so UI stays in sync
+  const { BrowserWindow } = require('electron');
+  BrowserWindow.getAllWindows().forEach(win => {
+    if (!win.isDestroyed()) {
+      win.webContents.send('whisper-ai-mode-toggled', newState);
+      win.webContents.send('whisper-ai-mode-pill', newState);
+    }
+  });
+
+  console.log(`[Whisper AI] Toggled ${newState ? 'ON' : 'OFF'} via hotkey (Right Alt+Right Shift+/)`);
+}
+
 // Windows fix: Re-enable GPU for smoother dragging, but add stability flags
 if (process.platform === 'win32') {
   app.commandLine.appendSwitch('disable-features', 'CalculateNativeWinOcclusion');
@@ -186,7 +212,7 @@ function normaliseLangCode(code) {
 
 function toggleListening(forceLang = null, fromTranslator = false, forceStart = false, skipAiProcessing = false) {
   if (!wsClient || wsClient.readyState !== WebSocket.OPEN) {
-    dialog.showErrorBox('MicTab Needs Google Chrome', 'Install Google Chrome and restart the computer.\n\nIf you have already installed Chrome, then restart the computer.');
+    dialog.showErrorBox('MicTab Needs a Browser', 'Install Google Chrome, Microsoft Edge, or Brave and restart the computer.\n\nIf you have already installed one of these browsers, restart the computer.');
     isListening = false;
     if (sttMode === 'overlay') {
       const overlayWindow = getOverlayWindow();
@@ -493,24 +519,8 @@ function robustKeyTap(key, modifier) {
 }
 
 // ── Text Replacement ────────────────────────────────────────────────────────
-// Only fires when the ENTIRE spoken transcript (trimmed, case-insensitive)
-// exactly matches a trigger phrase.  Partial matches — the trigger appearing
-// somewhere inside a longer sentence — are intentionally ignored.
-function applyTextReplacements(text) {
-  if (!store.get('textReplaceEnabled')) return text;
-  const rules = store.get('textReplacements') || [];
-  if (!rules.length) return text;
-
-  const trimmed = text.trim();
-  for (const rule of rules) {
-    const say = (rule.say || '').trim();
-    if (!say) continue;
-    if (trimmed.toLowerCase() === say.toLowerCase()) {
-      return rule.replace || '';
-    }
-  }
-  return text;
-}
+// Shared module — used by both overlay pipeline and Whisper API pipeline.
+const { applyTextReplacements } = require('./src/main/text-replacements');
 
 function setupWebSocketServer(server) {
   wss = new WebSocket.Server({ server });
@@ -697,6 +707,8 @@ app.whenReady().then(() => {
   setAiSendNow(processAiBufferAndContinue);
   // Wire AI mode toggle (Alt+Shift+C) into hotkey-manager
   setAiModeToggle(toggleAiMode);
+  // Wire Whisper AI Polish mode toggle (Right Alt+Right Shift+/) into hotkey-manager
+  setWhisperAiModeToggle(toggleWhisperAiMode);
   registerHotkeys(toggleListening);
 
   // ── Wire translator shortcuts into hotkey-manager so they survive unregisterAll()
@@ -708,6 +720,46 @@ app.whenReady().then(() => {
   });
   // Re-run registerHotkeys now that translatorCtx is set
   registerHotkeys(toggleListening);
+
+  // ── MicTab Lens (Alt+Shift+S) ─────────────────────────────────────
+  setupLensIpc();
+  const lensAction = () => {
+    // Check lens trial/license before allowing capture
+    const { checkLensTrialExpiry } = require('./src/main/licensing');
+    const lensTrial = checkLensTrialExpiry();
+    if (lensTrial.expired) {
+      const { showLensLockedPopup } = require('./src/main/window-manager');
+      showLensLockedPopup();
+      return;
+    }
+    if (isCaptureOverlayOpen()) closeCaptureOverlay();
+    else showCaptureOverlay();
+  };
+  setLensCaptureCallback(lensAction);
+  setCaptureAction(lensAction);   // ← tray "Capture" menu item
+
+  // ── Translator Panel (Alt+Shift+T) ──────────────────────────────
+  const translatorAction = () => {
+    if (translatorManager.isTranslatorVisible()) {
+      closeTranslatorAndRestoreOverlay();
+    } else {
+      openTranslator();
+    }
+  };
+  setTranslatorAction(translatorAction);
+
+  // Also allow triggering from the overlay icon button
+  ipcMain.on('open-lens-capture', lensAction);
+  registerHotkeys(toggleListening);
+
+  // ── Screen Recorder (launched from Lens editor toolbar) ───────────
+  setupScreenRecorderIpc();
+
+  // ── Media Gallery ─────────────────────────────────────────────────
+  setupGalleryIpc();
+
+  // ── Video Editor ──────────────────────────────────────────────────
+  setupEditorIpc();
 
   // ── Whisper API (Cloud) init ──────────────────────────────────────
   const whisperApiManager = require('./src/main/whisper-api-manager');

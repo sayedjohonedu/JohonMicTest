@@ -106,8 +106,8 @@ html, body {
 
 /* ── Title bar ── */
 #titlebar {
-  display: flex; align-items: center; gap: 8px;
-  padding: 10px 13px 7px;
+  display: flex; align-items: center; gap: 5px;
+  padding: 7px 11px 6px;
   flex-shrink: 0;
   border-radius: var(--radius) var(--radius) 0 0;
   cursor: grab;
@@ -148,12 +148,12 @@ html, body {
 #lang-wrapper { position: relative; flex-shrink: 0; -webkit-app-region: no-drag; }
 
 #lang-btn {
-  display: flex; align-items: center; gap: 5px;
+  display: flex; align-items: center; gap: 4px;
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 20px;
-  padding: 3px 10px 3px 7px;
-  font-size: 11.5px; font-weight: 500;
+  padding: 2px 8px 2px 6px;
+  font-size: 10.5px; font-weight: 500;
   color: var(--text);
   cursor: pointer;
   transition: background 0.15s;
@@ -161,27 +161,31 @@ html, body {
   -webkit-app-region: no-drag;
 }
 #lang-btn:hover { background: rgba(255,255,255,0.13); }
-#lang-flag    { font-size: 14px; line-height: 1; }
-#lang-chevron { font-size: 9px; color: var(--muted); margin-left: 1px; }
+#lang-flag    { font-size: 13px; line-height: 1; }
+#lang-chevron { font-size: 8px; color: var(--muted); margin-left: 1px; }
 
-/* ── Settings, Browser, Translator & Clipboard Buttons ── */
-#settings-btn, #browser-btn, #translator-btn, #clipboard-btn {
+/* ── Settings, Browser, Translator, Clipboard & Screen Recorder Buttons ── */
+#settings-btn, #browser-btn, #translator-btn, #clipboard-btn, #screen-rec-btn {
   display: flex; align-items: center; justify-content: center;
   background: transparent;
   border: none;
   border-radius: 50%;
-  width: 26px; height: 26px;
-  font-size: 14px; color: var(--muted);
+  width: 20px; height: 20px;
+  font-size: 11px; color: var(--muted);
   cursor: pointer; transition: background 0.15s, color 0.15s, transform 0.1s;
   flex-shrink: 0;
   -webkit-app-region: no-drag;
 }
-#settings-btn:hover, #browser-btn:hover, #translator-btn:hover, #clipboard-btn:hover { background: var(--surface); color: var(--text); transform: scale(1.05); }
-#settings-btn:active, #browser-btn:active, #translator-btn:active, #clipboard-btn:active { transform: scale(0.95); }
+#settings-btn:hover, #browser-btn:hover, #translator-btn:hover, #clipboard-btn:hover, #screen-rec-btn:hover { background: var(--surface); color: var(--text); transform: scale(1.05); }
+#settings-btn:active, #browser-btn:active, #translator-btn:active, #clipboard-btn:active, #screen-rec-btn:active { transform: scale(0.95); }
 [data-theme="light"] #settings-btn:hover,
 [data-theme="light"] #browser-btn:hover,
 [data-theme="light"] #translator-btn:hover,
-[data-theme="light"] #clipboard-btn:hover { background: rgba(0,0,0,0.08); }
+[data-theme="light"] #clipboard-btn:hover,
+[data-theme="light"] #screen-rec-btn:hover { background: rgba(0,0,0,0.08); }
+/* Screen recorder active state — red dot when recording */
+#screen-rec-btn.recording { color: #ef4444; }
+#screen-rec-btn.recording:hover { color: #f87171; }
 
 /* ── Mini / Compact button ── */
 #mini-btn, #expand-btn {
@@ -189,8 +193,8 @@ html, body {
   background: transparent;
   border: none;
   border-radius: 50%;
-  width: 26px; height: 26px;
-  font-size: 13px; color: var(--muted);
+  width: 20px; height: 20px;
+  font-size: 11px; color: var(--muted);
   cursor: pointer; transition: background 0.15s, color 0.15s, transform 0.1s;
   flex-shrink: 0;
   -webkit-app-region: no-drag;
@@ -239,6 +243,7 @@ html, body {
 #card.mini-mode #browser-btn,
 #card.mini-mode #translator-btn,
 #card.mini-mode #clipboard-btn,
+#card.mini-mode #screen-rec-btn,
 #card.mini-mode #mini-btn,
 #card.mini-mode #transcript-area,
 #card.mini-mode #waveform-wrap,
@@ -251,6 +256,7 @@ html, body {
 #card.mini-mode #mini-lang-flag    { display: flex !important; }
 #card.mini-mode #mini-browser-btn  { display: flex !important; }
 #card.mini-mode #mini-clipboard-btn { display: flex !important; }
+#card.mini-mode #mini-screen-rec-btn { display: flex !important; }
 /* AI badge: visible in pill mode ONLY when AI is active */
 #card.mini-mode #mini-ai-badge.active { display: flex !important; }
 
@@ -313,7 +319,7 @@ html, body {
   display: none;
   align-items: center;
   justify-content: center;
-  width: 24px; height: 24px;
+  width: 22px; height: 22px;
   background: transparent;
   border: none;
   border-radius: 6px;
@@ -325,6 +331,25 @@ html, body {
 }
 #mini-clipboard-btn:hover  { background: rgba(255,255,255,0.12); color: var(--text); }
 #mini-clipboard-btn:active { transform: scale(0.9); }
+
+/* ── Mini screen recorder button (pill mode only) ── */
+#mini-screen-rec-btn {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  width: 22px; height: 22px;
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  color: var(--muted);
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background 0.15s, color 0.15s;
+  -webkit-app-region: no-drag;
+}
+#mini-screen-rec-btn:hover  { background: rgba(255,255,255,0.12); color: var(--text); }
+#mini-screen-rec-btn:active { transform: scale(0.9); }
+#mini-screen-rec-btn.recording { color: #ef4444; }
 
 /* Language dropdown */
 #lang-dropdown {

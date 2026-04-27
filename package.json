@@ -1,6 +1,6 @@
 {
   "name": "mictab",
-  "version": "1.2.9",
+  "version": "1.2.10",
   "description": "MicTab - Voice Dictation App",
   "main": "main.js",
   "scripts": {
@@ -78,6 +78,7 @@
     "google-translate-api-x": "^10.7.2",
     "puppeteer-core": "^24.40.0",
     "robotjs": "^0.7.0",
+    "tesseract.js": "^7.0.0",
     "uiohook-napi": "^1.5.5",
     "ws": "^8.20.0"
   },

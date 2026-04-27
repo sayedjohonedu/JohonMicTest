@@ -4,7 +4,7 @@ const fs = require('fs');
 const path = require('path');
 const store = require('../../store/config');
 const { verifyLicense } = require('./licensing');
-const { applyOverlaySize, getOverlayWindow, getSettingsWindow, OV, closeLicensePopup, closeWordLimitPopup, closeTranslatorLockedPopup, closeAiTrialPopup, showAiTrialExpiredPopup, showWhisperApiLockedPopup, closeWhisperApiLockedPopup, showLicenseCelebration, closeLicenseCelebration } = require('./window-manager');
+const { applyOverlaySize, getOverlayWindow, getSettingsWindow, OV, closeLicensePopup, closeWordLimitPopup, closeTranslatorLockedPopup, closeAiTrialPopup, showAiTrialExpiredPopup, showWhisperApiLockedPopup, closeWhisperApiLockedPopup, showLicenseCelebration, closeLicenseCelebration, closeScreenRecorderLockedPopup, closeLensLockedPopup } = require('./window-manager');
 const { uIOhook } = require('uiohook-napi');
 const { setupFloatingBrowserIpc } = require('./floating-browser-manager');
 const { callLlmRaw, httpPost, httpGet } = require('./llm-client');
@@ -146,6 +146,12 @@ function setupIpcHandlers(toggleListening, registerHotkeys, getWsClient, resetSi
   ipcMain.on('close-whisper-api-locked-popup', () => {
     if (typeof closeWhisperApiLockedPopup === 'function') closeWhisperApiLockedPopup();
   });
+  ipcMain.on('close-screen-recorder-locked-popup', () => {
+    if (typeof closeScreenRecorderLockedPopup === 'function') closeScreenRecorderLockedPopup();
+  });
+  ipcMain.on('close-lens-locked-popup', () => {
+    if (typeof closeLensLockedPopup === 'function') closeLensLockedPopup();
+  });
   ipcMain.on('show-license-celebration', () => {
     showLicenseCelebration();
   });
@@ -234,6 +240,21 @@ function setupIpcHandlers(toggleListening, registerHotkeys, getWsClient, resetSi
   ipcMain.handle('verify-license', async (event, key) => verifyLicense(key));
 
   ipcMain.handle('get-version', () => app.getVersion());
+
+  // Expose active STT engine info to UI (overlay pill, settings)
+  ipcMain.handle('get-stt-engine-info', () => {
+    const { getActiveBrowserInfo } = require('../../engine/chrome-launcher');
+    const info = getActiveBrowserInfo();
+    if (!info) return { name: 'Unknown', engine: 'unknown', engineLabel: 'Disconnected' };
+    return { name: info.name, engine: info.engine, engineLabel: info.engineLabel };
+  });
+
+  // List all installed Chromium browsers for the settings dropdown
+  ipcMain.handle('get-available-browsers', () => {
+    const { findAllBrowsers } = require('../../engine/browser-finder');
+    return findAllBrowsers();
+  });
+
   ipcMain.on('check-updates', () => autoUpdater.checkForUpdates());
   ipcMain.on('download-update', () => autoUpdater.downloadUpdate());
   ipcMain.on('install-update', () => autoUpdater.quitAndInstall());
@@ -606,7 +627,13 @@ function setupIpcHandlers(toggleListening, registerHotkeys, getWsClient, resetSi
   /* ── Whisper API — AI Post-Processing IPC ──────────────────────── */
 
   ipcMain.handle('whisper-api-ai-enable', (event, enabled) => {
-    store.set('whisperApiAiEnabled', enabled === true);
+    const newState = enabled === true;
+    store.set('whisperApiAiEnabled', newState);
+    // Sync pill badge when the settings toggle changes AI mode
+    const { BrowserWindow } = require('electron');
+    BrowserWindow.getAllWindows().forEach(win => {
+      if (!win.isDestroyed()) win.webContents.send('whisper-ai-mode-pill', newState);
+    });
     return { ok: true };
   });
 

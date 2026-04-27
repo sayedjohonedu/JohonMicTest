@@ -4,13 +4,18 @@
 /* Handles mic recording in the renderer process.                      */
 /* Uses the same visualizer engine as the main overlay pill mode.       */
 
+// Sparkle SVG — same icon as the AI Dictation entry in the settings sidebar
+const SPARKLE_SVG = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/><path d="M5 3v4"/><path d="M19 17v4"/><path d="M3 5h4"/><path d="M17 19h4"/></svg>`;
+const WARN_SVG    = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>`;
+const CHECK_SVG   = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>`;
+
 const STATUS_MAP = {
-  recording:    { icon: '🔴', text: 'Listening…' },
-  processing:   { icon: '⚙️', text: 'Processing…' },
-  transcribing: { icon: '🔤', text: 'Transcribing…' },
-  polishing:    { icon: '✨', text: 'AI Polishing…' },
-  done:         { icon: '✓',  text: 'Done!' },
-  error:        { icon: '⚠️', text: 'Error' },
+  recording:    { icon: '',          text: 'Listening…' },
+  processing:   { icon: SPARKLE_SVG, text: 'Processing…' },
+  transcribing: { icon: SPARKLE_SVG, text: 'Transcribing…' },
+  polishing:    { icon: SPARKLE_SVG, text: 'AI Polishing…' },
+  done:         { icon: CHECK_SVG,   text: 'Done!' },
+  error:        { icon: WARN_SVG,    text: 'Error' },
 };
 
 const iconEl = document.getElementById('status-icon');
@@ -151,7 +156,10 @@ async function startRecording() {
     scriptProcessor.connect(audioContext.destination);
 
     _isStarting = false;
-    document.body.className = 'recording';
+    // Use classList instead of className to preserve the ai-mode class
+    // that was already set by the preceding onPillState IPC message
+    document.body.classList.remove('processing', 'transcribing', 'polishing', 'done', 'error');
+    document.body.classList.add('recording');
     isSpeaking = true;
     startVisualizer();
     console.log('[OfflinePill] Recording started');
@@ -393,10 +401,19 @@ window.offlineAPI.onStopRecording(() => {
   stopRecording();
 });
 
-window.offlineAPI.onPillState(({ state, detail }) => {
+window.offlineAPI.onPillState(({ state, detail, aiMode }) => {
   const info = STATUS_MAP[state] || { icon: '🎙', text: state };
-  document.body.className = state;
-  iconEl.textContent = info.icon;
+  // Use classList instead of className to preserve ai-mode across state changes
+  const allStates = ['recording', 'processing', 'transcribing', 'polishing', 'done', 'error'];
+  document.body.classList.remove(...allStates);
+  document.body.classList.add(state);
+  // Apply ai-mode class from the payload — arrives with every state message
+  if (aiMode) {
+    document.body.classList.add('ai-mode');
+  } else {
+    document.body.classList.remove('ai-mode');
+  }
+  iconEl.innerHTML = info.icon;
   textEl.textContent = detail || info.text;
 });
 
@@ -404,3 +421,17 @@ window.offlineAPI.onPillState(({ state, detail }) => {
 window.offlineAPI.onConfigUpdate((cfg) => {
   if (cfg.visualizerType) visualizerType = cfg.visualizerType;
 });
+
+// ── Whisper AI Polish badge (✦) ────────────────────────────────────────
+// Secondary sync — fires when the user toggles AI mode via the shortcut
+// while the pill is already visible (e.g. during a recording).
+window.offlineAPI.onWhisperAiMode((on) => {
+  if (on) {
+    document.body.classList.add('ai-mode');
+  } else {
+    document.body.classList.remove('ai-mode');
+  }
+});
+
+
+

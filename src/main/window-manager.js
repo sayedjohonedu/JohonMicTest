@@ -12,6 +12,8 @@ let offlineLockedPopupWindow = null;
 let whisperApiLockedPopupWindow = null;
 let updateReminderPopupWindow = null;
 let licenseCelebrationWindow = null;
+let screenRecorderLockedPopupWindow = null;
+let lensLockedPopupWindow = null;
 
 /**
  * On macOS, only revert to 'accessory' activation policy (no dock icon)
@@ -446,6 +448,70 @@ function closeLicenseCelebration() {
   }
 }
 
+function showScreenRecorderLockedPopup() {
+  if (screenRecorderLockedPopupWindow && !screenRecorderLockedPopupWindow.isDestroyed()) {
+    screenRecorderLockedPopupWindow.show();
+    screenRecorderLockedPopupWindow.focus();
+    return screenRecorderLockedPopupWindow;
+  }
+  screenRecorderLockedPopupWindow = new BrowserWindow({
+    width: 360,
+    height: 310,
+    transparent: true,
+    frame: false,
+    alwaysOnTop: true,
+    resizable: false,
+    skipTaskbar: true,
+    webPreferences: {
+      nodeIntegration: false,
+      contextIsolation: true,
+      preload: path.join(__dirname, '../../ui', 'overlay-preload.js')
+    }
+  });
+  screenRecorderLockedPopupWindow.loadFile(path.join(__dirname, '../../ui/screen-recorder-locked-popup.html'));
+  screenRecorderLockedPopupWindow.on('closed', () => screenRecorderLockedPopupWindow = null);
+  screenRecorderLockedPopupWindow.center();
+  return screenRecorderLockedPopupWindow;
+}
+
+function closeScreenRecorderLockedPopup() {
+  if (screenRecorderLockedPopupWindow && !screenRecorderLockedPopupWindow.isDestroyed()) {
+    screenRecorderLockedPopupWindow.close();
+  }
+}
+
+function showLensLockedPopup() {
+  if (lensLockedPopupWindow && !lensLockedPopupWindow.isDestroyed()) {
+    lensLockedPopupWindow.show();
+    lensLockedPopupWindow.focus();
+    return lensLockedPopupWindow;
+  }
+  lensLockedPopupWindow = new BrowserWindow({
+    width: 360,
+    height: 310,
+    transparent: true,
+    frame: false,
+    alwaysOnTop: true,
+    resizable: false,
+    skipTaskbar: true,
+    webPreferences: {
+      nodeIntegration: false,
+      contextIsolation: true,
+      preload: path.join(__dirname, '../../ui', 'overlay-preload.js')
+    }
+  });
+  lensLockedPopupWindow.loadFile(path.join(__dirname, '../../ui/lens-locked-popup.html'));
+  lensLockedPopupWindow.on('closed', () => lensLockedPopupWindow = null);
+  lensLockedPopupWindow.center();
+  return lensLockedPopupWindow;
+}
+
+function closeLensLockedPopup() {
+  if (lensLockedPopupWindow && !lensLockedPopupWindow.isDestroyed()) {
+    lensLockedPopupWindow.close();
+  }
+}
+
 let offlinePillWindow = null;
 
 function createOfflinePill() {
@@ -517,6 +583,10 @@ module.exports = {
   getUpdateReminderPopupWindow,
   showLicenseCelebration,
   closeLicenseCelebration,
+  showScreenRecorderLockedPopup,
+  closeScreenRecorderLockedPopup,
+  showLensLockedPopup,
+  closeLensLockedPopup,
   applyOverlaySize,
   getOverlayWindow,
   getSettingsWindow,

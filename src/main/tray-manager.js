@@ -4,6 +4,14 @@ const { LANGUAGES } = require('./constants');
 const store = require('../../store/config');
 
 let tray = null;
+let _captureAction = null;
+let _translatorAction = null;
+
+/** Register the function that should fire when the user clicks "Capture" in the tray. */
+function setCaptureAction(fn) { _captureAction = fn; }
+
+/** Register the function that should fire when the user clicks "Translator" in the tray. */
+function setTranslatorAction(fn) { _translatorAction = fn; }
 
 function createTray(toggleListening, showSettings, app, switchTrayLanguage, isListening) {
   const isMac = process.platform === 'darwin';
@@ -66,6 +74,17 @@ function updateTrayMenu(toggleListening, showSettings, app, switchTrayLanguage, 
   const contextMenu = Menu.buildFromTemplate([
     { label: isListening ? 'Stop Listening' : 'Start Listening', click: () => toggleListening() },
     { type: 'separator' },
+    {
+      label: 'Capture',
+      accelerator: 'Alt+Shift+S',
+      click: () => { if (_captureAction) _captureAction(); }
+    },
+    {
+      label: 'Translator',
+      accelerator: 'Alt+Shift+T',
+      click: () => { if (_translatorAction) _translatorAction(); }
+    },
+    { type: 'separator' },
     { label: 'Language', submenu: langSubmenu },
     { type: 'separator' },
     { label: 'Settings', click: () => showSettings() },
@@ -75,4 +94,4 @@ function updateTrayMenu(toggleListening, showSettings, app, switchTrayLanguage, 
   tray.setContextMenu(contextMenu);
 }
 
-module.exports = { createTray, updateTrayMenu };
+module.exports = { createTray, updateTrayMenu, setCaptureAction, setTranslatorAction };

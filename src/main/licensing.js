@@ -159,6 +159,45 @@ function checkWhisperApiTrialExpiry() {
   return { expired: false, daysLeft: Math.ceil(15 - daysUsed) };
 }
 
+/**
+ * Checks whether the free Screen Recorder trial (15 days) has expired for non-licensed users.
+ * Screen recorder is a premium feature — free-tier users get 15 days from first install.
+ * Returns { expired: true, daysUsed } or { expired: false, daysLeft }.
+ */
+function checkScreenRecorderTrialExpiry() {
+  const status = store.get('licenseStatus');
+  if (status === 'active') return { expired: false, daysLeft: Infinity };
+
+  // Piggyback on the app's firstLaunchDate (same 15-day window as the rest of the app)
+  let firstLaunch = store.get('firstLaunchDate') || 0;
+  if (!firstLaunch) return { expired: false, daysLeft: 15 };
+
+  const daysUsed = (Date.now() - firstLaunch) / (1000 * 60 * 60 * 24);
+  if (daysUsed > 15) {
+    return { expired: true, daysUsed: Math.floor(daysUsed) };
+  }
+  return { expired: false, daysLeft: Math.ceil(15 - daysUsed) };
+}
+
+/**
+ * Checks whether the free MicTab Lens trial (15 days) has expired for non-licensed users.
+ * Lens capture/annotation is a premium feature — free-tier users get 15 days from first install.
+ * Returns { expired: true, daysUsed } or { expired: false, daysLeft }.
+ */
+function checkLensTrialExpiry() {
+  const status = store.get('licenseStatus');
+  if (status === 'active') return { expired: false, daysLeft: Infinity };
+
+  let firstLaunch = store.get('firstLaunchDate') || 0;
+  if (!firstLaunch) return { expired: false, daysLeft: 15 };
+
+  const daysUsed = (Date.now() - firstLaunch) / (1000 * 60 * 60 * 24);
+  if (daysUsed > 15) {
+    return { expired: true, daysUsed: Math.floor(daysUsed) };
+  }
+  return { expired: false, daysLeft: Math.ceil(15 - daysUsed) };
+}
+
 module.exports = {
   checkAuthStatus,
   verifyLicense,
@@ -167,4 +206,6 @@ module.exports = {
   checkAiTrialExpiry,
   checkOfflineTrialExpiry,
   checkWhisperApiTrialExpiry,
+  checkScreenRecorderTrialExpiry,
+  checkLensTrialExpiry,
 };

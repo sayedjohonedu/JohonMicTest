@@ -109,7 +109,14 @@
 
         // --- Recognition ---
         function createRecognition() {
-            const r = new webkitSpeechRecognition();
+            const SpeechRecognitionCtor = window.webkitSpeechRecognition || window.SpeechRecognition;
+            if (!SpeechRecognitionCtor) {
+                if (ws && ws.readyState === WebSocket.OPEN) {
+                    ws.send(JSON.stringify({ type: 'status', message: 'speech-api-unavailable' }));
+                }
+                return null;
+            }
+            const r = new SpeechRecognitionCtor();
             r.continuous = true;
             r.interimResults = true; // Send interim for live typing effect in overlay
             r.lang = currentLang;

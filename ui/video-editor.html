@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>MicTab Editor</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="video-editor.css">
+</head>
+<body>
+
+<!-- ═══ TITLE BAR ═══ -->
+<div id="titlebar">
+  <button class="tb-btn close" id="btn-close" title="Close">
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M18 6 6 18M6 6l12 12"/></svg>
+  </button>
+  <span class="tb-title">MicTab Editor</span>
+  <button class="tb-btn" id="btn-minimize" title="Minimize">
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14"/></svg>
+  </button>
+  <button class="tb-btn" id="btn-maximize" title="Maximize">
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/></svg>
+  </button>
+</div>
+
+<!-- ═══ MAIN LAYOUT ═══ -->
+<div id="editor-root">
+
+  <!-- ═══ ICON SIDEBAR ═══ -->
+  <div id="sidebar">
+    <button class="sidebar-btn active" id="sb-select" title="Select (V)">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m3 3 7.07 16.97 2.51-7.39 7.39-2.51L3 3z"/></svg>
+      <span>Select</span>
+    </button>
+    <button class="sidebar-btn" id="sb-cut" title="Split (S)">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><line x1="20" y1="4" x2="8.12" y2="15.88"/><line x1="14.47" y1="14.48" x2="20" y2="20"/><line x1="8.12" y1="8.12" x2="12" y2="12"/></svg>
+      <span>Split</span>
+    </button>
+    <button class="sidebar-btn" id="sb-silence" title="Detect Silence">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><line x1="23" y1="9" x2="17" y2="15"/><line x1="17" y1="9" x2="23" y2="15"/></svg>
+      <span>Silence</span>
+    </button>
+
+    <div class="sidebar-spacer"></div>
+
+    <button class="sidebar-btn" id="sb-undo" title="Undo (⌘Z)">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7v6h6"/><path d="M3 13a9 9 0 0 1 15.36-6.36"/></svg>
+      <span>Undo</span>
+    </button>
+    <button class="sidebar-btn" id="sb-redo" title="Redo (⌘⇧Z)">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 7v6h-6"/><path d="M21 13A9 9 0 0 0 5.64 6.64"/></svg>
+      <span>Redo</span>
+    </button>
+    <button class="sidebar-btn" id="sb-reset" title="Reset to Original">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 1 0 9-9"/><polyline points="3 3 3 9 9 9"/><path d="M3 3l6 6"/></svg>
+      <span>Reset</span>
+    </button>
+
+    <div style="height:4px"></div>
+
+    <button class="sidebar-btn" id="sb-settings" title="Style Settings">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
+      <span>Style</span>
+    </button>
+  </div>
+
+  <!-- ═══ MAIN CONTENT ═══ -->
+  <div id="main-content">
+
+    <!-- ═══ TOP PANELS ═══ -->
+    <div id="top-panels">
+
+      <!-- Video Viewport -->
+      <div id="viewport">
+        <div id="viewport-header">
+          <span>Canvas</span>
+          <span class="res-label" id="res-label">Loading…</span>
+        </div>
+        <canvas id="preview-canvas"></canvas>
+      </div>
+
+      <!-- Resize Handle -->
+      <div class="resize-handle" id="panel-resize"></div>
+
+      <!-- Right Inspector Panel (context-sensitive) -->
+      <div id="tools-panel">
+        <div class="tools-header" id="inspector-title">Inspector</div>
+        <div class="tools-body" id="inspector-body">
+          <!-- Content is dynamically generated based on selection -->
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══ TIMELINE AREA (2-track, Videoeditor3 style) ═══ -->
+    <div id="timeline-area">
+
+      <!-- Timeline toolbar -->
+      <div id="tl-toolbar">
+        <button class="tl-btn" id="btn-skip-back" title="Back 5s (←)">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="11 19 2 12 11 5 11 19"/><polygon points="22 19 13 12 22 5 22 19"/></svg>
+        </button>
+        <button class="tl-btn play" id="btn-play" title="Play / Pause (Space)">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" stroke="none"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+        </button>
+        <button class="tl-btn" id="btn-skip-fwd" title="Forward 5s (→)">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 19 22 12 13 5 13 19"/><polygon points="2 19 11 12 2 5 2 19"/></svg>
+        </button>
+
+        <span class="time-code">
+          <span class="current" id="tc-current">00:00</span>
+          <span> / </span>
+          <span id="tc-total">00:00</span>
+        </span>
+
+        <div class="tl-sep"></div>
+
+        <div class="tl-zoom">
+          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#4b5563" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/><line x1="8" y1="11" x2="14" y2="11"/></svg>
+          <input type="range" id="tl-zoom-slider" min="30" max="300" value="100" step="10">
+          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#4b5563" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/><line x1="11" y1="8" x2="11" y2="14"/><line x1="8" y1="11" x2="14" y2="11"/></svg>
+        </div>
+
+        <div class="tl-spacer"></div>
+
+        <button class="tl-btn export" id="btn-export" title="Export video">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          Export
+        </button>
+      </div>
+
+      <!-- Timeline scroll area -->
+      <div id="tl-scroll">
+        <div id="tl-content">
+          <div id="tl-ruler"></div>
+          <canvas id="waveform-canvas"></canvas>
+
+          <!-- Track 1: Active (green) -->
+          <div id="track-active">
+            <span class="track-label">Active Track</span>
+          </div>
+
+          <!-- Track 2: Zoom (amber) -->
+          <div id="track-zoom">
+            <span class="track-label">Zoom</span>
+          </div>
+
+          <div id="playhead"></div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script src="veditor-core.js"></script>
+<script src="video-editor.js"></script>
+</body>
+</html>

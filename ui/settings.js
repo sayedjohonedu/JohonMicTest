@@ -305,7 +305,7 @@ window.resetAiSendKey = function() { if (recordingMode === 'ai-send') stopRecord
 window.syncHotkeyEnable = function() { document.getElementById('row-hotkey-combo').classList.toggle('disabled-row', !document.getElementById('toggle-hotkey').checked); };
 window.syncHoldEnable = function() { const on = document.getElementById('toggle-holdkey').checked; document.getElementById('row-hold-key').classList.toggle('disabled-row', !on); document.getElementById('row-hold-dur').classList.toggle('disabled-row', !on); };
 window.syncSilenceEnable = function() { document.getElementById('row-silence-timeout').classList.toggle('disabled-row', !document.getElementById('toggle-silence').checked); };
-window.syncReplaceEnable = function() { document.getElementById('row-replacements').classList.toggle('disabled-row', !document.getElementById('toggle-replace').checked); };
+window.syncReplaceEnable = function() { const off = !document.getElementById('toggle-replace').checked; document.getElementById('row-replacements').classList.toggle('disabled-row', off); document.getElementById('row-replace-inline').classList.toggle('disabled-row', off); };
 
 // ── Clipboard Manager toggle (instant on/off) ────────────────────────
 window.onClipboardToggle = async function() {
@@ -654,7 +654,7 @@ async function loadConfig() {
   document.getElementById('toggle-clipboard-enabled').checked = cfg.clipboardEnabled !== false;
   document.getElementById('toggle-silence').checked = cfg.silenceTimeoutEnabled === true; syncSilenceEnable(); document.getElementById('silence-timeout-val').value = String(cfg.silenceTimeoutVal ?? '10'); const tU = document.getElementById('silence-timeout-unit'); if ([...tU.options].some(o => o.value === String(cfg.silenceTimeoutUnit || 'sec'))) tU.value = String(cfg.silenceTimeoutUnit || 'sec');
   document.getElementById('toggle-sim-typing').checked = cfg.simulateTyping === true; loadMicList(false, cfg.selectedMicId || '');
-  document.getElementById('toggle-replace').checked = cfg.textReplaceEnabled === true; syncReplaceEnable();
+  document.getElementById('toggle-replace').checked = cfg.textReplaceEnabled === true; document.getElementById('toggle-replace-inline').checked = cfg.textReplaceInline !== false; syncReplaceEnable();
   const rL = document.getElementById('replacement-list'); rL.innerHTML = ''; if (!(cfg.textReplacements || []).length) addReplacementRow('', ''); else cfg.textReplacements.forEach(r => addReplacementRow(r.say || '', r.replace || ''));
   const lHL = document.getElementById('lang-hotkeys-list'); lHL.innerHTML = ''; (cfg.langHotkeys || []).forEach(lh => addLangHotkeyRow(lh.combo || '', lh.lang || 'bn-BD'));
   const lI = document.getElementById('input-license'); lI.value = cfg.licenseKey || ''; lI.type = cfg.licenseKey ? 'password' : 'text';
@@ -696,7 +696,105 @@ async function loadConfig() {
   document.getElementById('ai-personal-dict').value = cfg.aiPersonalDictionary || '';
   const aiTempSlider = document.getElementById('ai-temperature');
   if (aiTempSlider) { aiTempSlider.value = cfg.aiTemperature ?? 0.3; document.getElementById('label-ai-temp').textContent = parseFloat(aiTempSlider.value).toFixed(1); }
+  // ── Speech Engine Browser ──
+  loadBrowserSettings(cfg.preferredBrowser || 'auto');
 }
+
+/* ═══════════════════════════════════════════════════════════════════
+   ██  SPEECH ENGINE — BROWSER SELECTION & STATUS
+   ═══════════════════════════════════════════════════════════════════ */
+
+async function loadBrowserSettings(savedPref) {
+  const sel = document.getElementById('preferred-browser');
+  if (!sel) return;
+
+  // Populate dropdown with installed browsers
+  try {
+    const browsers = await window.electronAPI.getAvailableBrowsers();
+    // Keep the "Auto" option, remove any old dynamic options
+    sel.querySelectorAll('option:not([value="auto"])').forEach(o => o.remove());
+    const ICONS = { 'Google Chrome': '🟢', 'Microsoft Edge': '🔵', 'Brave': '🟠' };
+    browsers.forEach(b => {
+      const opt = document.createElement('option');
+      opt.value = b.name;
+      opt.textContent = `${ICONS[b.name] || '●'} ${b.name}  (${b.engineLabel})`;
+      sel.appendChild(opt);
+    });
+
+    // If no browsers found (extremely unlikely), show a hint
+    if (!browsers.length) {
+      const opt = document.createElement('option');
+      opt.value = ''; opt.disabled = true;
+      opt.textContent = '⚠ No compatible browser found';
+      sel.appendChild(opt);
+    }
+  } catch (e) {
+    console.warn('Could not list browsers:', e);
+  }
+
+  // Restore saved preference
+  if ([...sel.options].some(o => o.value === savedPref)) {
+    sel.value = savedPref;
+  } else {
+    sel.value = 'auto';
+  }
+
+  // Update the active engine status badge
+  refreshSttEngineBadge();
+}
+
+async function refreshSttEngineBadge() {
+  const badge = document.getElementById('stt-engine-badge');
+  const label = document.getElementById('stt-engine-label');
+  const dot   = document.getElementById('stt-engine-dot');
+  const desc  = document.getElementById('stt-engine-status');
+  if (!badge || !label) return;
+
+  try {
+    const info = await window.electronAPI.getSttEngineInfo();
+    if (info && info.name !== 'Unknown') {
+      const ENGINE_STYLES = {
+        google: { color: '#4ade80', bg: 'rgba(74,222,128,0.1)',  border: 'rgba(74,222,128,0.25)' },
+        azure:  { color: '#60a5fa', bg: 'rgba(96,165,250,0.1)',  border: 'rgba(96,165,250,0.25)' },
+        apple:  { color: '#f472b6', bg: 'rgba(244,114,182,0.1)', border: 'rgba(244,114,182,0.25)' },
+      };
+      const s = ENGINE_STYLES[info.engine] || ENGINE_STYLES.google;
+      label.textContent = `${info.engineLabel} via ${info.name}`;
+      dot.style.background = s.color;
+      badge.style.color = s.color;
+      badge.style.background = s.bg;
+      badge.style.borderColor = s.border;
+      desc.textContent = `Using ${info.name} for speech-to-text recognition.`;
+    } else {
+      label.textContent = 'Not connected';
+      dot.style.background = '#6b7280';
+      badge.style.color = '#6b7280';
+      badge.style.background = 'rgba(107,114,128,0.1)';
+      badge.style.borderColor = 'rgba(107,114,128,0.25)';
+      desc.textContent = 'No browser engine is currently active. Start dictation to initialize.';
+    }
+  } catch {
+    label.textContent = '—';
+    desc.textContent = 'Could not detect speech engine.';
+  }
+}
+
+window.onPreferredBrowserChange = function() {
+  const sel = document.getElementById('preferred-browser');
+  if (!sel) return;
+  // Save immediately so the next bridge launch picks it up
+  window.electronAPI.saveConfig({ preferredBrowser: sel.value });
+  markDirty();
+  // Update the badge description (actual engine won't change until restart)
+  const desc = document.getElementById('stt-engine-status');
+  if (desc) {
+    if (sel.value === 'auto') {
+      desc.textContent = 'Auto mode — MicTab will choose the best available browser.';
+    } else {
+      desc.textContent = `Preference set to ${sel.value}. Will take effect next time dictation starts.`;
+    }
+  }
+};
 
 window.addReplacementRow = function(say, rep) {
   const row = document.createElement('div'); row.className = 'replace-row'; row.innerHTML = `<input type="text" class="replace-input val-say" placeholder="I will say..."><span style="font-size:12px; color:var(--muted); margin-top:12px;">→</span><textarea class="replace-input val-replace" placeholder="Replace with..."></textarea><button class="btn-del-row" onclick="this.parentElement.remove(); markDirty();">✕</button>`;
@@ -836,7 +934,7 @@ window.saveSettings = function() {
   const silenceSecs = silenceEnabled ? (silenceVal * silenceMult) : 0;
   // Get active profile values for flat config (backend compatibility)
   const activeP = getActiveAiProfile();
-  window.electronAPI.saveConfig({ hotkey: pendingHotkey || DEFAULT_HOTKEY, hotkeyEnabled: document.getElementById('toggle-hotkey').checked, holdKey: pendingHoldKey || 'Alt', holdKeyEnabled: document.getElementById('toggle-holdkey').checked, holdDuration: parseFloat(document.getElementById('hold-duration').value), mouseButton: document.getElementById('mouse-button')?.value || '3', mouseAction: document.getElementById('mouse-action')?.value || 'none', autoLaunch: document.getElementById('toggle-autolunch').checked, language: document.getElementById('lang-select').value, clipboardEnabled: document.getElementById('toggle-clipboard-enabled').checked, silenceTimeoutEnabled: silenceEnabled, silenceTimeoutVal: silenceVal, silenceTimeoutUnit: silenceUnit, silenceTimeout: silenceSecs, simulateTyping: document.getElementById('toggle-sim-typing').checked, theme: document.getElementById('theme-select').value, visualizerType: document.getElementById('visualizer-style')?.value || 'wave', soundVolume: parseInt(document.getElementById('sound-volume')?.value ?? 80, 10), micSensitivity: parseFloat(document.getElementById('mic-sensitivity')?.value || 1.0), textReplaceEnabled: document.getElementById('toggle-replace').checked, textReplacements: reps, langHotkeys: lH, aiModeEnabled: document.getElementById('toggle-ai-mode').checked, aiFallbackEnabled: document.getElementById('toggle-ai-fallback').checked, aiSilenceTimeout: parseInt(document.getElementById('ai-silence-timeout')?.value || '8', 10), aiActivationKey: pendingAiSendKey || AI_SENDKEY_DEFAULT, aiProfiles: _aiProfiles, aiActiveProfileId: _aiActiveProfileId, aiProvider: activeP?.provider || 'openai', aiModel: activeP?.model || '', aiApiKey: activeP?.apiKey || '', aiBaseUrl: activeP?.baseUrl || '', aiSystemPrompt: document.getElementById('ai-system-prompt').value, aiPersonalDictionary: document.getElementById('ai-personal-dict').value, aiTemperature: parseFloat(document.getElementById('ai-temperature')?.value || 0.3) });
+  window.electronAPI.saveConfig({ hotkey: pendingHotkey || DEFAULT_HOTKEY, hotkeyEnabled: document.getElementById('toggle-hotkey').checked, holdKey: pendingHoldKey || 'Alt', holdKeyEnabled: document.getElementById('toggle-holdkey').checked, holdDuration: parseFloat(document.getElementById('hold-duration').value), mouseButton: document.getElementById('mouse-button')?.value || '3', mouseAction: document.getElementById('mouse-action')?.value || 'none', autoLaunch: document.getElementById('toggle-autolunch').checked, language: document.getElementById('lang-select').value, preferredBrowser: document.getElementById('preferred-browser')?.value || 'auto', clipboardEnabled: document.getElementById('toggle-clipboard-enabled').checked, silenceTimeoutEnabled: silenceEnabled, silenceTimeoutVal: silenceVal, silenceTimeoutUnit: silenceUnit, silenceTimeout: silenceSecs, simulateTyping: document.getElementById('toggle-sim-typing').checked, theme: document.getElementById('theme-select').value, visualizerType: document.getElementById('visualizer-style')?.value || 'wave', soundVolume: parseInt(document.getElementById('sound-volume')?.value ?? 80, 10), micSensitivity: parseFloat(document.getElementById('mic-sensitivity')?.value || 1.0), textReplaceEnabled: document.getElementById('toggle-replace').checked, textReplaceInline: document.getElementById('toggle-replace-inline').checked, textReplacements: reps, langHotkeys: lH, aiModeEnabled: document.getElementById('toggle-ai-mode').checked, aiFallbackEnabled: document.getElementById('toggle-ai-fallback').checked, aiSilenceTimeout: parseInt(document.getElementById('ai-silence-timeout')?.value || '8', 10), aiActivationKey: pendingAiSendKey || AI_SENDKEY_DEFAULT, aiProfiles: _aiProfiles, aiActiveProfileId: _aiActiveProfileId, aiProvider: activeP?.provider || 'openai', aiModel: activeP?.model || '', aiApiKey: activeP?.apiKey || '', aiBaseUrl: activeP?.baseUrl || '', aiSystemPrompt: document.getElementById('ai-system-prompt').value, aiPersonalDictionary: document.getElementById('ai-personal-dict').value, aiTemperature: parseFloat(document.getElementById('ai-temperature')?.value || 0.3) });
   b.disabled = false; clearDirty();
 };
 
@@ -909,6 +1007,18 @@ if (window.electronAPI.onAiModeToggled) {
   window.electronAPI.onAiModeToggled((on) => {
     const toggle = document.getElementById('toggle-ai-mode');
     if (toggle) { toggle.checked = on; syncAiEnable(); }
+  });
+}
+
+// ── Live sync: Whisper AI Polish toggled via Right Alt+Right Shift+/ while settings is open ──
+if (window.electronAPI.onWhisperAiModeToggled) {
+  window.electronAPI.onWhisperAiModeToggled((on) => {
+    const chk = document.getElementById('chk-whisper-ai-enabled');
+    const section = document.getElementById('whisper-ai-section');
+    if (chk) {
+      chk.checked = on;
+      if (section) section.style.display = on ? 'block' : 'none';
+    }
   });
 }
 
