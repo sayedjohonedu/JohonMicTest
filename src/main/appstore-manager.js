@@ -777,9 +777,9 @@ function installBuiltInApps() {
     const destDir = path.join(getAppsDir(), `builtin_${dir.name}`);
     fs.mkdirSync(destDir, { recursive: true });
 
-    // Copy all files
+    // Copy all files and folders recursively
     for (const file of fs.readdirSync(srcDir)) {
-      fs.copyFileSync(path.join(srcDir, file), path.join(destDir, file));
+      fs.cpSync(path.join(srcDir, file), path.join(destDir, file), { recursive: true });
     }
 
     // Read manifest
