@@ -46,6 +46,7 @@ contextBridge.exposeInMainWorld('junoAPI', {
   openLensCapture:       () => ipcRenderer.send('open-lens-capture'),
   openTranslator:               () => ipcRenderer.send('open-translator'),
   openClipboardManager:         () => ipcRenderer.send('open-clipboard-manager'),
+  openAppStore:                 () => ipcRenderer.send('open-appstore'),
   closeLicensePopup:            () => ipcRenderer.send('close-license-popup'),
   closeWordLimitPopup:          () => ipcRenderer.send('close-wordlimit-popup'),
   closeTranslatorLockedPopup:   () => ipcRenderer.send('close-translator-locked-popup'),

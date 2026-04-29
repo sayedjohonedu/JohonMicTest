@@ -305,7 +305,7 @@ function buildEntryCard(entry) {
     img.className = 'entry-thumb';
     img.src = `file://${entry.imagePath}`;
     img.alt = 'Clipboard Image';
-    img.onclick = () => showImageModal(`file://${entry.imagePath}`);
+    img.onclick = () => showImageModal(`file://${entry.imagePath}`, entry.imagePath);
     card.appendChild(img);
   } else if (entry.type === 'text') {
     const ph = document.createElement('div');
@@ -326,7 +326,7 @@ function buildEntryCard(entry) {
     : '📷 Image';
   preview.title = entry.type === 'text' ? (entry.text || '') : 'Click to preview';
   if (entry.type === 'image') {
-    preview.onclick = () => showImageModal(`file://${entry.imagePath}`);
+    preview.onclick = () => showImageModal(`file://${entry.imagePath}`, entry.imagePath);
     preview.style.cursor = 'zoom-in';
   } else {
     preview.ondblclick = () => openEditModal(entry);
@@ -409,6 +409,13 @@ function buildEntryCard(entry) {
     folderBtn.title = 'Show in folder';
     folderBtn.onclick = (e) => { e.stopPropagation(); doShowInFolder(entry.id); };
     actions.appendChild(folderBtn);
+
+    const editImgBtn = document.createElement('button');
+    editImgBtn.className = 'entry-btn';
+    editImgBtn.innerHTML = '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4z"/></svg>';
+    editImgBtn.title = 'Edit Image';
+    editImgBtn.onclick = (e) => { e.stopPropagation(); doEditImage(entry.imagePath); };
+    actions.appendChild(editImgBtn);
   }
 
   // Add to Category button (tag icon) with dropdown
@@ -535,6 +542,10 @@ async function doShowInFolder(id) {
   if (!res || !res.ok) {
     showToast('Could not locate the image file.', 'error');
   }
+}
+
+function doEditImage(imagePath) {
+  window.clipboardAPI.openInLens(imagePath);
 }
 
 function removeCardFromDom(id) {
@@ -808,9 +819,17 @@ async function openImagesFolder() {
 }
 
 // ── Image preview modal ────────────────────────────────────────────────────
-function showImageModal(src) {
+function showImageModal(src, imagePath) {
   document.getElementById('image-preview-img').src = src;
   document.getElementById('image-modal').style.display = 'flex';
+  const editBtn = document.getElementById('image-modal-edit-btn');
+  if (editBtn) {
+    editBtn.onclick = (e) => {
+      e.stopPropagation();
+      if (imagePath) doEditImage(imagePath);
+      closeImageModal();
+    };
+  }
 }
 
 function closeImageModal() {

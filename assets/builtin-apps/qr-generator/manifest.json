@@ -1,0 +1,9 @@
+{
+  "name": "QR Code Generator",
+  "description": "Generate QR codes from text, URLs, or WiFi credentials. Download as PNG.",
+  "icon": "qr",
+  "entry": "index.html",
+  "width": 480,
+  "height": 550,
+  "category": "tools"
+}

@@ -360,6 +360,46 @@ const schema = {
     type: 'boolean',
     default: true         // If active profile fails, try other profiles
   },
+  // ══════════════════════════════════════════════════════════════════
+  // ██  CENTRAL API VAULT  (replaces per-feature profile pools)
+  // ══════════════════════════════════════════════════════════════════
+  // LLM profiles — used by: AI Dictation, Translator, Whisper AI Polish, future AI features
+  apiVaultLlmProfiles: {
+    type: 'array',
+    default: []           // [{ id, name, provider, model, apiKey, baseUrl }]
+  },
+  // Whisper STT profiles — used by: Whisper Engine
+  apiVaultWhisperProfiles: {
+    type: 'array',
+    default: []           // [{ id, name, provider, model, apiKey, baseUrl }]
+  },
+  // Per-feature default profile IDs (each feature picks its own default from the vault)
+  vaultDefaultAiDictation: {
+    type: 'string',
+    default: ''
+  },
+  vaultDefaultTranslator: {
+    type: 'string',
+    default: ''
+  },
+  vaultDefaultWhisperStt: {
+    type: 'string',
+    default: ''
+  },
+  vaultDefaultWhisperPolish: {
+    type: 'string',
+    default: ''
+  },
+  // Global fallback toggle — if the default profile fails, try other profiles
+  apiVaultFallbackEnabled: {
+    type: 'boolean',
+    default: true
+  },
+  // Migration flag — set to true after legacy profiles have been imported
+  apiVaultMigrated: {
+    type: 'boolean',
+    default: false
+  },
   // ── Update Reminder ──────────────────────────────────────────────
   updateReminderDismissedAt: {
     type: 'number',
@@ -368,6 +408,15 @@ const schema = {
   updateReminderVersion: {
     type: 'string',
     default: ''          // version string that was dismissed (e.g. '1.3.0')
+  },
+  // ── App Store ──────────────────────────────────────────────────
+  appStoreShortcut: {
+    type: 'string',
+    default: 'Shift+Alt+A'
+  },
+  appStoreWindowPosition: {
+    type: 'object',
+    default: {}
   }
 };
 

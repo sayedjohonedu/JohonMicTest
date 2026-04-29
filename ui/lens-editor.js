@@ -4,6 +4,11 @@
    MicTab Lens Editor — Annotation + OCR + Translation
    ═══════════════════════════════════════════════════════ */
 
+/* ── Theme synchronisation ── */
+function applyTheme(t) { if (t) document.documentElement.setAttribute('data-theme', t); }
+window.lensEditor.getConfig().then(c => { if (c && c.theme) applyTheme(c.theme); }).catch(() => {});
+window.lensEditor.onConfigUpdate(c => { if (c && c.theme) applyTheme(c.theme); });
+
 // ── Canvas refs ──
 const imgCanvas  = document.getElementById('img-canvas');
 const drawCanvas = document.getElementById('draw-canvas');
@@ -14,7 +19,8 @@ const canvasWrap = document.getElementById('canvas-wrap');
 // ── State ──
 let originalImage = null;
 let annotations   = [];
-let currentTool   = 'select';
+let redoStack     = [];
+let currentTool   = localStorage.getItem('lens-current-tool') || 'rect';
 let currentColor  = '#ef4444';
 let currentStroke = 3;
 let isDrawing     = false;
@@ -30,13 +36,23 @@ let displayScale  = 1;   // canvas pixels per CSS pixel
 let displayW      = 0;   // CSS display width
 let displayH      = 0;   // CSS display height
 // ── New tool state ──
-let blurIntensity    = 12;   // pixelate block size
-let numberRadius     = 14;   // number badge radius (CSS pixels, before displayScale)
+let blurIntensity    = parseInt(localStorage.getItem('lens-blur-intensity'), 10);
+if (isNaN(blurIntensity)) blurIntensity = 12;   // pixelate block size
+let numberRadius     = parseInt(localStorage.getItem('lens-number-radius'), 10);
+if (isNaN(numberRadius)) numberRadius = 10;   // number badge radius (CSS pixels, before displayScale)
 let recentColors     = [];   // last 3 custom colors
 let arrowStyle       = 'standard'; // 'standard' | 'fancy' | 'curved'
 let textStyle        = 'standard'; // 'standard' | 'outlined' | 'box' | 'mono'
 let blurStyle        = 'pixelate'; // 'pixelate' | 'smooth' | 'blackout'
-let textFontSize     = 16;         // text tool font size (px at displayScale)
+let textFontSize     = parseInt(localStorage.getItem('lens-text-size'), 10);
+if (isNaN(textFontSize)) textFontSize = 16;         // text tool font size (px at displayScale)
+let textGlowSize     = parseInt(localStorage.getItem('lens-text-glow'), 10);
+if (isNaN(textGlowSize)) textGlowSize = 0;          // text glow size (px at displayScale)
+let textBoxOpacity   = parseInt(localStorage.getItem('lens-text-box-opacity'), 10);
+if (isNaN(textBoxOpacity)) textBoxOpacity = 3;
+// ── Crop state ──
+let cropBox = null;
+let cropActiveHandle = null;
 // ── Background state ──
 let bgEnabled       = false;
 let bgBlurLevel     = 30;    // 0–100 (percentage mapped to px)
@@ -48,6 +64,8 @@ let spotlightDarkness = 55;  // spotlight overlay opacity (10–90%)
 // ── Aspect Ratio state ──
 let bgAspectRatio   = 'free';    // 'free' | '16:9' | '1:1' | '4:3' | '9:16' | '4:5' | '3:2' | '21:9'
 let bgPadPercent    = 6;         // padding percentage (2–25%)
+let bgCornerRadius  = 12;        // 0-48px
+let bgShadow        = 40;        // 0-80px
 
 /** Get next available number — fills gaps (1,2,3 → delete 2 → next is 2) */
 function getNextNumber() {
@@ -105,9 +123,20 @@ window.lensEditor.onLoadImage((dataUrl) => {
     imgCtx.drawImage(img, 0, 0, fullW, fullH);
 
     // Scale annotation stroke so it looks correct at any resolution
-    currentStroke = Math.round(3 * displayScale);
+    let savedStroke = parseInt(localStorage.getItem('lens-stroke-width'), 10);
+    if (isNaN(savedStroke) || savedStroke < 1 || savedStroke > 12) savedStroke = 3;
+    currentStroke = savedStroke * displayScale;
     const slider = document.getElementById('stroke-width');
-    if (slider) slider.value = currentStroke;
+    if (slider) slider.value = savedStroke;
+
+    // Reset cropBox because canvas dimensions just changed
+    cropBox = null;
+    if (currentTool === 'crop') {
+      const padX = Math.min(40 * displayScale, drawCanvas.width * 0.1);
+      const padY = Math.min(40 * displayScale, drawCanvas.height * 0.1);
+      cropBox = { x: padX, y: padY, w: drawCanvas.width - padX*2, h: drawCanvas.height - padY*2 };
+    }
+    redraw();
   };
   img.src = dataUrl;
 });
@@ -201,6 +230,34 @@ function redraw() {
     }
     renderAnnotation(drawCtx, annotations[i], i === selectedIdx);
   }
+  
+  // ── Render Crop Overlay ──
+  if (currentTool === 'crop' && cropBox) {
+    const cw = drawCanvas.width, ch = drawCanvas.height;
+    drawCtx.save();
+    drawCtx.fillStyle = 'rgba(0,0,0,0.6)';
+    drawCtx.beginPath();
+    drawCtx.rect(0, 0, cw, ch);
+    drawCtx.rect(cropBox.x, cropBox.y, cropBox.w, cropBox.h);
+    drawCtx.fill('evenodd');
+    
+    drawCtx.strokeStyle = '#2563eb';
+    drawCtx.lineWidth = 2 * displayScale;
+    drawCtx.strokeRect(cropBox.x, cropBox.y, cropBox.w, cropBox.h);
+
+    const handles = getCropHandles();
+    for (const h of handles) {
+      drawCtx.beginPath();
+      drawCtx.arc(h.x, h.y, 8 * displayScale, 0, 2*Math.PI);
+      drawCtx.fillStyle = '#ffffff';
+      drawCtx.fill();
+      drawCtx.lineWidth = 2 * displayScale;
+      drawCtx.strokeStyle = '#2563eb';
+      drawCtx.stroke();
+    }
+    drawCtx.restore();
+  }
+
   updateContextSliders();
 }
 
@@ -247,6 +304,31 @@ function updateContextSliders() {
     const valEl = document.getElementById('text-size-value');
     if (slider) slider.value = fsPx;
     if (valEl) valEl.textContent = fsPx + 'pt';
+
+    const glowPx = Math.round((sel.glowSize !== undefined ? sel.glowSize : textGlowSize * displayScale) / displayScale);
+    const glowSlider = document.getElementById('text-glow');
+    const glowValEl = document.getElementById('text-glow-value');
+    if (glowSlider) glowSlider.value = glowPx;
+    if (glowValEl) glowValEl.textContent = glowPx + 'px';
+
+    const boxOpacitySlider = document.getElementById('text-box-opacity');
+    const boxOpacityValEl = document.getElementById('text-box-opacity-value');
+    if (boxOpacitySlider) boxOpacitySlider.value = sel.boxOpacity !== undefined ? sel.boxOpacity : textBoxOpacity;
+    if (boxOpacityValEl) boxOpacityValEl.textContent = (sel.boxOpacity !== undefined ? sel.boxOpacity : textBoxOpacity) + '%';
+    const textStyleMenu = sel.textStyle || textStyle;
+    const isBox = textStyleMenu === 'box';
+    document.querySelectorAll('.box-opacity-label, .box-opacity-slider, .box-opacity-value').forEach(el => el.style.display = isBox ? 'inline-block' : 'none');
+  } else if (!sel && currentTool === 'text' && textGroup) {
+    const glowSlider = document.getElementById('text-glow');
+    const glowValEl = document.getElementById('text-glow-value');
+    if (glowSlider) glowSlider.value = textGlowSize;
+    if (glowValEl) glowValEl.textContent = textGlowSize + 'px';
+    const boxOpacitySlider = document.getElementById('text-box-opacity');
+    const boxOpacityValEl = document.getElementById('text-box-opacity-value');
+    if (boxOpacitySlider) boxOpacitySlider.value = textBoxOpacity;
+    if (boxOpacityValEl) boxOpacityValEl.textContent = textBoxOpacity + '%';
+    const isBox = textStyle === 'box';
+    document.querySelectorAll('.box-opacity-label, .box-opacity-slider, .box-opacity-value').forEach(el => el.style.display = isBox ? 'inline-block' : 'none');
   }
 }
 
@@ -260,7 +342,7 @@ function renderAnnotation(ctx, ann, isSelected) {
 
   switch (ann.type) {
     case 'arrow':
-      drawArrow(ctx, ann.x1, ann.y1, ann.x2, ann.y2, ann.stroke, ann.arrowStyle || 'standard');
+      drawArrow(ctx, ann.x1, ann.y1, ann.x2, ann.y2, ann.stroke, ann.arrowStyle || 'standard', ann.cx, ann.cy);
       break;
     case 'rect': {
       const rr = Math.max(6, ann.stroke * 2);
@@ -302,7 +384,7 @@ function renderAnnotation(ctx, ann, isSelected) {
     case 'line':
       ctx.beginPath();
       ctx.moveTo(ann.x1, ann.y1);
-      ctx.lineTo(ann.x2, ann.y2);
+      ctx.quadraticCurveTo(ann.cx !== undefined ? ann.cx : (ann.x1 + ann.x2) / 2, ann.cy !== undefined ? ann.cy : (ann.y1 + ann.y2) / 2, ann.x2, ann.y2);
       ctx.stroke();
       break;
     case 'freehand':
@@ -328,43 +410,65 @@ function renderAnnotation(ctx, ann, isSelected) {
       const isMono = (ts === 'mono');
       const fontFam = isMono ? '"SF Mono", "Fira Code", "Consolas", monospace' : 'Inter, sans-serif';
       ctx.font = `600 ${fs}px ${fontFam}`;
-      const tm = ctx.measureText(ann.text);
+      
+      const lines = ann.text.split('\n');
+      let maxW = 0;
+      for (const line of lines) {
+        maxW = Math.max(maxW, ctx.measureText(line).width);
+      }
+      
       const pad = Math.round(fs * 0.3);
+      const lineHeight = fs * 1.2;
+      const glowPx = ann.glowSize !== undefined ? ann.glowSize : textGlowSize * displayScale;
 
       if (ts === 'box') {
-        // Rounded pill with background
-        const bx = ann.x - pad * 1.5, by = ann.y - fs + 1;
-        const bw = tm.width + pad * 3, bh = fs + pad * 2;
-        const r = Math.min(6, bh / 2);
-        ctx.fillStyle = ann.color;
+        const boxOp = ann.boxOpacity !== undefined ? ann.boxOpacity : textBoxOpacity;
+        ctx.fillStyle = `rgba(0, 0, 0, ${boxOp / 100})`;
+        const totalHeight = fs * lines.length + pad * 2 + (lines.length - 1) * fs * 0.2;
+        const tbr = Math.min(6, totalHeight / 2);
         ctx.beginPath();
-        ctx.roundRect(bx, by, bw, bh, r);
+        ctx.roundRect(ann.x - pad, ann.y - fs + 1, maxW + pad * 2, totalHeight, tbr);
         ctx.fill();
-        // White text on colored background
-        ctx.fillStyle = '#fff';
-        ctx.fillText(ann.text, ann.x, ann.y + pad);
+        
+        ctx.shadowColor = ann.color;
+        ctx.shadowBlur = glowPx;
+        ctx.fillStyle = ann.color;
+        lines.forEach((line, i) => {
+          ctx.fillText(line, ann.x, ann.y + pad + i * lineHeight);
+        });
+        ctx.shadowBlur = 0;
       } else if (ts === 'outlined') {
-        // Stroke text (no fill bg)
         ctx.strokeStyle = ann.color;
         ctx.lineWidth = Math.max(2, fs / 12);
         ctx.lineJoin = 'round';
-        ctx.strokeText(ann.text, ann.x, ann.y + pad);
-        ctx.fillStyle = ann.color;
-        ctx.fillText(ann.text, ann.x, ann.y + pad);
-        // Add subtle outer glow
+        lines.forEach((line, i) => {
+          ctx.strokeText(line, ann.x, ann.y + pad + i * lineHeight);
+        });
+        ctx.fillStyle = '#fff';
+        lines.forEach((line, i) => {
+          ctx.fillText(line, ann.x, ann.y + pad + i * lineHeight);
+        });
         ctx.shadowColor = 'rgba(0,0,0,0.6)';
-        ctx.shadowBlur = 4;
-        ctx.fillText(ann.text, ann.x, ann.y + pad);
+        ctx.shadowBlur = glowPx;
+        lines.forEach((line, i) => {
+          ctx.fillText(line, ann.x, ann.y + pad + i * lineHeight);
+        });
         ctx.shadowBlur = 0;
       } else {
-        // Standard + Mono: dark bg shadow + colored text
         ctx.fillStyle = 'rgba(0,0,0,0.6)';
-        const tbr = Math.min(6, (fs + pad * 2) / 2);
+        const totalHeight = fs * lines.length + pad * 2 + (lines.length - 1) * fs * 0.2;
+        const tbr = Math.min(6, totalHeight / 2);
         ctx.beginPath();
-        ctx.roundRect(ann.x - pad, ann.y - fs + 1, tm.width + pad * 2, fs + pad * 2, tbr);
+        ctx.roundRect(ann.x - pad, ann.y - fs + 1, maxW + pad * 2, totalHeight, tbr);
         ctx.fill();
+        
+        ctx.shadowColor = ann.color;
+        ctx.shadowBlur = glowPx;
         ctx.fillStyle = ann.color;
-        ctx.fillText(ann.text, ann.x, ann.y + pad);
+        lines.forEach((line, i) => {
+          ctx.fillText(line, ann.x, ann.y + pad + i * lineHeight);
+        });
+        ctx.shadowBlur = 0;
       }
       break;
     }
@@ -382,29 +486,54 @@ function renderAnnotation(ctx, ann, isSelected) {
         ctx.roundRect(bx, by, bw, bh, blurRR);
         ctx.fill();
       } else if (bStyle === 'smooth') {
-        // Gaussian blur via CanvasFilter — clipped to rounded rect
-        const bs = (ann.blurSize || 12) * 1.5;
+        // True Gaussian blur using canvas filter API
+        const bs = (ann.blurSize || 12);
+        const blurPx = Math.round(bs * 2.5); // map slider value to a strong blur radius
+
+        // Step 1: grab the raw source pixels from the original image
         const srcData = imgCtx.getImageData(bx, by, bw, bh);
         const tmpC = document.createElement('canvas');
         tmpC.width = bw; tmpC.height = bh;
         const tmpX = tmpC.getContext('2d');
         tmpX.putImageData(srcData, 0, 0);
-        const smW = Math.max(1, Math.round(bw / Math.max(2, bs / 4)));
-        const smH = Math.max(1, Math.round(bh / Math.max(2, bs / 4)));
-        const smC = document.createElement('canvas');
-        smC.width = smW; smC.height = smH;
-        const smX = smC.getContext('2d');
-        smX.imageSmoothingEnabled = true;
-        smX.imageSmoothingQuality = 'high';
-        smX.drawImage(tmpC, 0, 0, smW, smH);
+
+        // Step 2: apply Gaussian blur via canvas filter into a blurred canvas
+        // For strong blurs (>100px limit), we do multi-pass at reduced size first
+        const blurC = document.createElement('canvas');
+        blurC.width = bw; blurC.height = bh;
+        const blurX = blurC.getContext('2d');
+
+        if (blurPx <= 100) {
+          // Single pass — browser handles it natively
+          blurX.filter = `blur(${blurPx}px)`;
+          // Draw with overflow padding to avoid dark edges at the blur boundary
+          const pad = blurPx;
+          blurX.drawImage(tmpC, -pad, -pad, bw + pad * 2, bh + pad * 2);
+        } else {
+          // Multi-pass for very strong blur: scale down → blur → scale back up
+          const passes = 3;
+          const passBlur = Math.round(blurPx / passes);
+          let srcCanvas = tmpC;
+          for (let pass = 0; pass < passes; pass++) {
+            const passC = document.createElement('canvas');
+            passC.width = bw; passC.height = bh;
+            const passX = passC.getContext('2d');
+            passX.filter = `blur(${passBlur}px)`;
+            const pad = passBlur;
+            passX.drawImage(srcCanvas, -pad, -pad, bw + pad * 2, bh + pad * 2);
+            srcCanvas = passC;
+          }
+          blurX.drawImage(srcCanvas, 0, 0);
+        }
+
+        // Step 3: paint the blurred result clipped to a rounded rect
         ctx.save();
         ctx.beginPath();
         ctx.roundRect(bx, by, bw, bh, blurRR);
         ctx.clip();
-        ctx.imageSmoothingEnabled = true;
-        ctx.imageSmoothingQuality = 'high';
-        ctx.drawImage(smC, 0, 0, smW, smH, bx, by, bw, bh);
+        ctx.drawImage(blurC, bx, by, bw, bh);
         ctx.restore();
+
       } else {
         // Pixelate (default) — clipped to rounded rect
         const bs = ann.blurSize || 12;
@@ -514,8 +643,87 @@ function renderAnnotation(ctx, ann, isSelected) {
       ctx.stroke();
     }
     ctx.setLineDash([]);
+    drawHandles(ctx, ann);
   }
   ctx.restore();
+}
+
+function getHandles(ann) {
+  const handles = [];
+  if (ann.type === 'arrow' || ann.type === 'line') {
+    handles.push({ id: 'start', x: ann.x1, y: ann.y1, cursor: 'crosshair' });
+    handles.push({ id: 'end', x: ann.x2, y: ann.y2, cursor: 'crosshair' });
+    const cx = ann.cx !== undefined ? ann.cx : (ann.x1 + ann.x2) / 2;
+    const cy = ann.cy !== undefined ? ann.cy : (ann.y1 + ann.y2) / 2;
+    handles.push({ id: 'middle', x: cx, y: cy, cursor: 'move' });
+  } else if (['rect', 'fillrect', 'squarehighlight', 'circle', 'blur', 'circleblur', 'spotlight', 'circlespotlight'].includes(ann.type)) {
+    const x = Math.min(ann.x, ann.x + ann.w);
+    const y = Math.min(ann.y, ann.y + ann.h);
+    const w = Math.abs(ann.w);
+    const h = Math.abs(ann.h);
+    handles.push({ id: 'tl', x: x, y: y, cursor: 'nwse-resize' });
+    handles.push({ id: 'tr', x: x + w, y: y, cursor: 'nesw-resize' });
+    handles.push({ id: 'bl', x: x, y: y + h, cursor: 'nesw-resize' });
+    handles.push({ id: 'br', x: x + w, y: y + h, cursor: 'nwse-resize' });
+  }
+  return handles;
+}
+
+function drawHandles(ctx, ann) {
+  const handles = getHandles(ann);
+  for (const h of handles) {
+    ctx.beginPath();
+    ctx.arc(h.x, h.y, 8, 0, 2 * Math.PI);
+    ctx.fillStyle = '#ffffff';
+    ctx.fill();
+    ctx.lineWidth = 2;
+    ctx.strokeStyle = '#2563eb';
+    ctx.stroke();
+  }
+}
+
+function hitTestHandles(ann, x, y) {
+  if (!ann) return null;
+  const handles = getHandles(ann);
+  const HIT_RADIUS = 24;
+  for (const h of handles) {
+    const dx = h.x - x;
+    const dy = h.y - y;
+    if (Math.sqrt(dx*dx + dy*dy) <= HIT_RADIUS) {
+      return h;
+    }
+  }
+  return null;
+}
+
+function getCropHandles() {
+  if (!cropBox) return [];
+  const {x, y, w, h} = cropBox;
+  const mx = x + w/2;
+  const my = y + h/2;
+  return [
+    {id:'tl', x, y, cursor:'nwse-resize'},
+    {id:'tr', x:x+w, y, cursor:'nesw-resize'},
+    {id:'bl', x, y:y+h, cursor:'nesw-resize'},
+    {id:'br', x:x+w, y:y+h, cursor:'nwse-resize'},
+    {id:'t', x:mx, y, cursor:'ns-resize'},
+    {id:'b', x:mx, y:y+h, cursor:'ns-resize'},
+    {id:'l', x, y:my, cursor:'ew-resize'},
+    {id:'r', x:x+w, y:my, cursor:'ew-resize'}
+  ];
+}
+
+function hitTestCropHandles(px, py) {
+  if (!cropBox) return null;
+  const handles = getCropHandles();
+  for (const h of handles) {
+    const dx = h.x - px, dy = h.y - py;
+    if (Math.sqrt(dx*dx + dy*dy) <= 24 * displayScale) return h;
+  }
+  if (px >= cropBox.x && px <= cropBox.x + cropBox.w && py >= cropBox.y && py <= cropBox.y + cropBox.h) {
+    return { id: 'move', cursor: 'move' };
+  }
+  return null;
 }
 
 /* ── Bounding box for any annotation ── */
@@ -526,8 +734,13 @@ function getAnnBounds(ann) {
       return { x, y, w: Math.abs(ann.w), h: Math.abs(ann.h) };
     }
     case 'arrow': case 'line': {
-      const x = Math.min(ann.x1, ann.x2), y = Math.min(ann.y1, ann.y2);
-      return { x, y, w: Math.abs(ann.x2 - ann.x1), h: Math.abs(ann.y2 - ann.y1) };
+      const cx = ann.cx !== undefined ? ann.cx : (ann.x1 + ann.x2) / 2;
+      const cy = ann.cy !== undefined ? ann.cy : (ann.y1 + ann.y2) / 2;
+      const minX = Math.min(ann.x1, ann.x2, cx);
+      const maxX = Math.max(ann.x1, ann.x2, cx);
+      const minY = Math.min(ann.y1, ann.y2, cy);
+      const maxY = Math.max(ann.y1, ann.y2, cy);
+      return { x: minX, y: minY, w: maxX - minX, h: maxY - minY };
     }
     case 'text': {
       const fs = ann.fontSize || 16;
@@ -535,12 +748,20 @@ function getAnnBounds(ann) {
       const isMono = (ts === 'mono');
       const fontFam = isMono ? '"SF Mono", "Fira Code", "Consolas", monospace' : 'Inter, sans-serif';
       drawCtx.font = `600 ${fs}px ${fontFam}`;
-      const tw = drawCtx.measureText(ann.text).width;
-      const pad = Math.round(fs * 0.3);
-      if (ts === 'box') {
-        return { x: ann.x - pad * 1.5, y: ann.y - fs + 1, w: tw + pad * 3, h: fs + pad * 2 };
+      
+      const lines = ann.text.split('\n');
+      let maxW = 0;
+      for (const line of lines) {
+        maxW = Math.max(maxW, drawCtx.measureText(line).width);
       }
-      return { x: ann.x - pad, y: ann.y - fs, w: tw + pad * 2, h: fs + pad * 2 };
+      
+      const pad = Math.round(fs * 0.3);
+      const h = fs * lines.length + pad * 2 + (lines.length - 1) * fs * 0.2;
+      
+      if (ts === 'box') {
+        return { x: ann.x - pad * 1.5, y: ann.y - fs + 1, w: maxW + pad * 3, h: h };
+      }
+      return { x: ann.x - pad, y: ann.y - fs, w: maxW + pad * 2, h: h };
     }
     case 'freehand': case 'highlighter': {
       if (!ann.points.length) return null;
@@ -573,77 +794,114 @@ function hitTestAll(px, py) {
   return -1;
 }
 
-function drawArrow(ctx, x1, y1, x2, y2, stroke, style) {
+function drawArrow(ctx, x1, y1, x2, y2, stroke, style, cx, cy) {
   style = style || 'standard';
-  const dx = x2 - x1, dy = y2 - y1;
-  const angle = Math.atan2(dy, dx);
-  const len = Math.sqrt(dx * dx + dy * dy);
-  const headLen = Math.max(stroke * 4, 14);
+  if (cx === undefined) cx = (x1 + x2) / 2;
+  if (cy === undefined) cy = (y1 + y2) / 2;
+
+  const unscaled = stroke / (displayScale || 1);
+  const mappedUnscaled = 7 + ((unscaled - 1) / 11) * 53;
+  const baseStroke = mappedUnscaled * (displayScale || 1); 
+  const headLen = Math.max(baseStroke * 4, 20);
+
+  // Bezier evaluation helpers
+  const getB = (t) => {
+    const mt = 1 - t;
+    return {
+      x: mt * mt * x1 + 2 * mt * t * cx + t * t * x2,
+      y: mt * mt * y1 + 2 * mt * t * cy + t * t * y2
+    };
+  };
+
+  const endAngle = Math.atan2(y2 - cy, x2 - cx);
+  const startAngle = Math.atan2(y1 - cy, x1 - cx);
+
+  // Calculate curve length approximately
+  const stepsForLen = 20;
+  let len = 0;
+  let lastP = {x: x1, y: y1};
+  for (let i = 1; i <= stepsForLen; i++) {
+    const p = getB(i / stepsForLen);
+    len += Math.hypot(p.x - lastP.x, p.y - lastP.y);
+    lastP = p;
+  }
 
   if (style === 'fancy') {
-    // ── Tapered arrow: thin tail → thick head (CleanShot X "Fancy") ──
-    const shaftEnd = len - headLen * 0.8;
-    if (shaftEnd > 0) {
-      const steps = Math.max(Math.round(len / 3), 12);
-      ctx.lineCap = 'round';
-      for (let i = 0; i < steps; i++) {
-        const t0 = i / steps, t1 = (i + 1) / steps;
-        const px0 = shaftEnd * t0, px1 = Math.min(shaftEnd, shaftEnd * t1);
-        const w = Math.max(1.5, stroke * 0.3 + (stroke * 1.2) * (px0 / shaftEnd));
-        ctx.lineWidth = w;
-        ctx.beginPath();
-        ctx.moveTo(x1 + px0 * Math.cos(angle), y1 + px0 * Math.sin(angle));
-        ctx.lineTo(x1 + px1 * Math.cos(angle), y1 + px1 * Math.sin(angle));
-        ctx.stroke();
-      }
+    const shaftEndLen = Math.max(0.1, len - headLen * 0.8);
+    const steps = Math.max(Math.round(len / 3), 12);
+    ctx.lineCap = 'round';
+    for (let i = 0; i < steps; i++) {
+      const t0 = i / steps;
+      const t1 = (i + 1) / steps;
+      // Map linear distance to t
+      const pt0 = getB(t0 * (shaftEndLen / len));
+      const pt1 = getB(Math.min(1, t1 * (shaftEndLen / len)));
+      const w = Math.max(2, baseStroke * 0.3 + (baseStroke * 1.2) * t0);
+      ctx.lineWidth = w;
+      ctx.beginPath();
+      ctx.moveTo(pt0.x, pt0.y);
+      ctx.lineTo(pt1.x, pt1.y);
+      ctx.stroke();
     }
     // Large filled arrowhead
-    const hW = headLen * 0.45;
+    const hW = headLen * 0.55;
     ctx.beginPath();
     ctx.moveTo(x2, y2);
-    ctx.lineTo(x2 - headLen * Math.cos(angle) + hW * Math.sin(angle),
-               y2 - headLen * Math.sin(angle) - hW * Math.cos(angle));
-    ctx.lineTo(x2 - headLen * 0.65 * Math.cos(angle), y2 - headLen * 0.65 * Math.sin(angle));
-    ctx.lineTo(x2 - headLen * Math.cos(angle) - hW * Math.sin(angle),
-               y2 - headLen * Math.sin(angle) + hW * Math.cos(angle));
+    ctx.lineTo(x2 - headLen * Math.cos(endAngle) + hW * Math.sin(endAngle),
+               y2 - headLen * Math.sin(endAngle) - hW * Math.cos(endAngle));
+    ctx.lineTo(x2 - headLen * 0.65 * Math.cos(endAngle), y2 - headLen * 0.65 * Math.sin(endAngle));
+    ctx.lineTo(x2 - headLen * Math.cos(endAngle) - hW * Math.sin(endAngle),
+               y2 - headLen * Math.sin(endAngle) + hW * Math.cos(endAngle));
     ctx.closePath();
     ctx.fill();
 
-  } else if (style === 'curved') {
-    // ── Curved arrow with quadratic Bezier ──
-    const mx = (x1 + x2) / 2, my = (y1 + y2) / 2;
-    const perp = len * 0.25;
-    const cpx = mx + perp * Math.sin(angle), cpy = my - perp * Math.cos(angle);
-    // Compute tangent at curve endpoint (derivative of quadratic Bezier at t=1)
-    const endAngle = Math.atan2(y2 - cpy, x2 - cpx);
-    // Shaft: draw curve stopping short of the tip along the curve's tangent
-    const shaftEndX = x2 - headLen * 0.5 * Math.cos(endAngle);
-    const shaftEndY = y2 - headLen * 0.5 * Math.sin(endAngle);
-    ctx.lineWidth = Math.max(stroke, 2.5);
+  } else if (style === 'double') {
+    ctx.lineWidth = Math.max(baseStroke, 3);
+    const tailAngle = startAngle;
+    
+    // Draw shaft leaving space for both heads
+    const startT = Math.min(0.4, (headLen * 0.7) / len);
+    const endT = Math.max(0.6, 1 - (headLen * 0.7) / len);
+    const pStart = getB(startT);
+    const pEnd = getB(endT);
+    
     ctx.beginPath();
-    ctx.moveTo(x1, y1);
-    ctx.quadraticCurveTo(cpx, cpy, shaftEndX, shaftEndY);
+    ctx.moveTo(pStart.x, pStart.y);
+    ctx.quadraticCurveTo(cx, cy, pEnd.x, pEnd.y);
     ctx.stroke();
-    // Arrowhead at tip, oriented along curve tangent
+    
+    // Head 1 (at x2, y2)
     ctx.beginPath();
     ctx.moveTo(x2, y2);
     ctx.lineTo(x2 - headLen * Math.cos(endAngle - Math.PI / 7), y2 - headLen * Math.sin(endAngle - Math.PI / 7));
     ctx.lineTo(x2 - headLen * Math.cos(endAngle + Math.PI / 7), y2 - headLen * Math.sin(endAngle + Math.PI / 7));
     ctx.closePath();
     ctx.fill();
-
-  } else {
-    // ── Standard: bold uniform shaft + filled head ──
-    ctx.lineWidth = Math.max(stroke, 2.5);
+    
+    // Head 2 (at x1, y1)
     ctx.beginPath();
     ctx.moveTo(x1, y1);
-    ctx.lineTo(x2 - headLen * 0.7 * Math.cos(angle), y2 - headLen * 0.7 * Math.sin(angle));
+    ctx.lineTo(x1 - headLen * Math.cos(tailAngle - Math.PI / 7), y1 - headLen * Math.sin(tailAngle - Math.PI / 7));
+    ctx.lineTo(x1 - headLen * Math.cos(tailAngle + Math.PI / 7), y1 - headLen * Math.sin(tailAngle + Math.PI / 7));
+    ctx.closePath();
+    ctx.fill();
+
+  } else {
+    // Standard and curved
+    ctx.lineWidth = Math.max(baseStroke, 3);
+    const endT = Math.max(0.1, 1 - (headLen * 0.5) / len);
+    const pEnd = getB(endT);
+
+    ctx.beginPath();
+    ctx.moveTo(x1, y1);
+    ctx.quadraticCurveTo(cx, cy, pEnd.x, pEnd.y);
     ctx.stroke();
+
     // Filled arrowhead
     ctx.beginPath();
     ctx.moveTo(x2, y2);
-    ctx.lineTo(x2 - headLen * Math.cos(angle - Math.PI / 7), y2 - headLen * Math.sin(angle - Math.PI / 7));
-    ctx.lineTo(x2 - headLen * Math.cos(angle + Math.PI / 7), y2 - headLen * Math.sin(angle + Math.PI / 7));
+    ctx.lineTo(x2 - headLen * Math.cos(endAngle - Math.PI / 7), y2 - headLen * Math.sin(endAngle - Math.PI / 7));
+    ctx.lineTo(x2 - headLen * Math.cos(endAngle + Math.PI / 7), y2 - headLen * Math.sin(endAngle + Math.PI / 7));
     ctx.closePath();
     ctx.fill();
   }
@@ -662,13 +920,44 @@ function getPos(e) {
   };
 }
 
+function applyShiftConstraint(p, e) {
+  if (!e.shiftKey) return p;
+  const dx = p.x - drawStartX;
+  const dy = p.y - drawStartY;
+  const adx = Math.abs(dx);
+  const ady = Math.abs(dy);
+  
+  if (['rect', 'fillrect', 'squarehighlight', 'circle', 'blur', 'circleblur', 'spotlight', 'circlespotlight'].includes(currentTool)) {
+    const size = Math.max(adx, ady);
+    return {
+      x: drawStartX + (Math.sign(dx) || 1) * size,
+      y: drawStartY + (Math.sign(dy) || 1) * size
+    };
+  } else if (['line', 'arrow'].includes(currentTool)) {
+    if (adx > ady * 2) {
+      return { x: p.x, y: drawStartY };
+    } else if (ady > adx * 2) {
+      return { x: drawStartX, y: p.y };
+    } else {
+      const size = Math.max(adx, ady);
+      return {
+        x: drawStartX + (Math.sign(dx) || 1) * size,
+        y: drawStartY + (Math.sign(dy) || 1) * size
+      };
+    }
+  }
+  return p;
+}
+
 /* Helper: move annotation by dx,dy */
 function moveAnnotation(ann, dx, dy) {
   switch (ann.type) {
     case 'rect': case 'fillrect': case 'squarehighlight': case 'circle': case 'blur': case 'circleblur': case 'spotlight': case 'circlespotlight':
       ann.x += dx; ann.y += dy; break;
     case 'arrow': case 'line':
-      ann.x1 += dx; ann.y1 += dy; ann.x2 += dx; ann.y2 += dy; break;
+      ann.x1 += dx; ann.y1 += dy; ann.x2 += dx; ann.y2 += dy;
+      if (ann.cx !== undefined) { ann.cx += dx; ann.cy += dy; }
+      break;
     case 'text':
       ann.x += dx; ann.y += dy; break;
     case 'freehand': case 'highlighter':
@@ -683,15 +972,64 @@ function bringToFront(idx) {
   if (idx < 0 || idx >= annotations.length) return;
   const ann = annotations.splice(idx, 1)[0];
   annotations.push(ann);
+  redoStack = [];
   selectedIdx = annotations.length - 1;
 }
+
+let isDraggingHandle = false;
+let activeHandle = null;
+let lastTextClickTime = 0;
+let lastTextClickAnn = null;
 
 drawCanvas.addEventListener('mousedown', (e) => {
   if (e.button !== 0) return;
   const p = getPos(e);
 
+  if (currentTool === 'crop') {
+    const handleHit = hitTestCropHandles(p.x, p.y);
+    if (handleHit) {
+      isDraggingHandle = true;
+      activeHandle = handleHit.id;
+      dragOffsetX = p.x;
+      dragOffsetY = p.y;
+    } else {
+      // Allow clicking outside to quickly set a new crop box start point?
+      // For now, if they click outside handles in crop mode, we could just reset it.
+    }
+    return;
+  }
+
+  // 0) Check if clicking a handle of the currently selected annotation
+  if (selectedIdx >= 0) {
+    const handleHit = hitTestHandles(annotations[selectedIdx], p.x, p.y);
+    if (handleHit) {
+      isDraggingHandle = true;
+      activeHandle = handleHit.id;
+      return; // Skip other logic
+    }
+  }
+
   // 1) Always try hit-test first (regardless of tool)
   const hitIdx = hitTestAll(p.x, p.y);
+
+  // Manual double-click detection for text editing
+  const now = Date.now();
+  if (hitIdx >= 0 && annotations[hitIdx].type === 'text') {
+    const clickedAnn = annotations[hitIdx];
+    if (now - lastTextClickTime < 400 && lastTextClickAnn === clickedAnn) {
+      selectedIdx = hitIdx;
+      bringToFront(hitIdx);
+      editExistingText(annotations.length - 1);
+      lastTextClickTime = 0;
+      lastTextClickAnn = null;
+      return; // Prevent further mousedown logic
+    }
+    lastTextClickTime = now;
+    lastTextClickAnn = clickedAnn;
+  } else {
+    lastTextClickTime = 0;
+    lastTextClickAnn = null;
+  }
 
   // 2) Select tool — only select/move, never draw
   if (currentTool === 'select') {
@@ -739,6 +1077,7 @@ drawCanvas.addEventListener('mousedown', (e) => {
       selectedIdx = -1;
       const r = Math.round(numberRadius * displayScale);
       annotations.push({ type: 'number', cx: p.x, cy: p.y, num: getNextNumber(), color: currentColor, stroke: currentStroke, radius: r });
+      redoStack = [];
       selectedIdx = annotations.length - 1;
       redraw();
       window.lensEditor.markDirty();
@@ -752,6 +1091,7 @@ drawCanvas.addEventListener('mousedown', (e) => {
       // If removing a number, recalculate counter
       const removed = annotations[hitIdx];
       annotations.splice(hitIdx, 1);
+      redoStack = [];
       selectedIdx = -1;
       redraw();
       window.lensEditor.markDirty();
@@ -784,8 +1124,72 @@ drawCanvas.addEventListener('mousedown', (e) => {
 });
 
 drawCanvas.addEventListener('mousemove', (e) => {
-  const p = getPos(e);
+  let p = getPos(e);
 
+  // Resizing/Reorienting a selected annotation or Crop Box
+  if (isDraggingHandle) {
+    if (currentTool === 'crop' && cropBox) {
+      if (activeHandle === 'move') {
+        const dx = p.x - dragOffsetX;
+        const dy = p.y - dragOffsetY;
+        cropBox.x += dx;
+        cropBox.y += dy;
+        dragOffsetX = p.x;
+        dragOffsetY = p.y;
+      } else {
+        const currentX1 = cropBox.x;
+        const currentY1 = cropBox.y;
+        const currentX2 = currentX1 + cropBox.w;
+        const currentY2 = currentY1 + cropBox.h;
+        
+        let newX1 = currentX1; let newY1 = currentY1;
+        let newX2 = currentX2; let newY2 = currentY2;
+
+        if (activeHandle.includes('l')) newX1 = p.x;
+        if (activeHandle.includes('r')) newX2 = p.x;
+        if (activeHandle.includes('t')) newY1 = p.y;
+        if (activeHandle.includes('b')) newY2 = p.y;
+
+        cropBox.x = Math.min(newX1, newX2);
+        cropBox.y = Math.min(newY1, newY2);
+        cropBox.w = Math.abs(newX2 - newX1);
+        cropBox.h = Math.abs(newY2 - newY1);
+      }
+      redraw();
+      return;
+    }
+
+    if (selectedIdx >= 0) {
+      const ann = annotations[selectedIdx];
+    if (activeHandle === 'start') {
+      ann.x1 = p.x; ann.y1 = p.y;
+    } else if (activeHandle === 'end') {
+      ann.x2 = p.x; ann.y2 = p.y;
+    } else if (activeHandle === 'middle') {
+      ann.cx = p.x; ann.cy = p.y;
+    } else if (['tl', 'tr', 'bl', 'br'].includes(activeHandle)) {
+      const currentX1 = ann.w < 0 ? ann.x + ann.w : ann.x;
+      const currentY1 = ann.h < 0 ? ann.y + ann.h : ann.y;
+      const currentX2 = currentX1 + Math.abs(ann.w);
+      const currentY2 = currentY1 + Math.abs(ann.h);
+      
+      let newX1 = currentX1; let newY1 = currentY1;
+      let newX2 = currentX2; let newY2 = currentY2;
+
+      if (activeHandle === 'tl') { newX1 = p.x; newY1 = p.y; }
+      if (activeHandle === 'tr') { newX2 = p.x; newY1 = p.y; }
+      if (activeHandle === 'bl') { newX1 = p.x; newY2 = p.y; }
+      if (activeHandle === 'br') { newX2 = p.x; newY2 = p.y; }
+
+      ann.x = newX1;
+      ann.y = newY1;
+      ann.w = newX2 - newX1;
+      ann.h = newY2 - newY1;
+    }
+    redraw();
+    return;
+  }
+  }
   // Moving a selected annotation
   if (isDragging && selectedIdx >= 0) {
     const dx = p.x - dragOffsetX;
@@ -799,24 +1203,39 @@ drawCanvas.addEventListener('mousemove', (e) => {
 
   // Drawing preview
   if (!isDrawing) {
+    if (currentTool === 'crop') {
+      const hit = hitTestCropHandles(p.x, p.y);
+      drawCanvas.style.cursor = hit ? hit.cursor : 'crosshair';
+      return;
+    }
+
     // Hover cursor
-    const hit = hitTestAll(p.x, p.y);
-    if (hit >= 0) {
-      drawCanvas.style.cursor = currentTool === 'eraser' ? 'pointer' : 'grab';
-    } else if (currentTool === 'select') {
-      drawCanvas.style.cursor = 'default';
-    } else if (currentTool === 'text') {
-      drawCanvas.style.cursor = 'text';
-    } else if (currentTool === 'number') {
-      drawCanvas.style.cursor = 'copy';
-    } else if (currentTool === 'eraser') {
-      drawCanvas.style.cursor = 'not-allowed';
+    let handleHit = null;
+    if (selectedIdx >= 0) {
+      handleHit = hitTestHandles(annotations[selectedIdx], p.x, p.y);
+    }
+    if (handleHit) {
+      drawCanvas.style.cursor = handleHit.cursor;
     } else {
-      drawCanvas.style.cursor = 'crosshair';
+      const hit = hitTestAll(p.x, p.y);
+      if (hit >= 0) {
+        drawCanvas.style.cursor = currentTool === 'eraser' ? 'pointer' : 'grab';
+      } else if (currentTool === 'select') {
+        drawCanvas.style.cursor = 'default';
+      } else if (currentTool === 'text') {
+        drawCanvas.style.cursor = 'text';
+      } else if (currentTool === 'number') {
+        drawCanvas.style.cursor = 'copy';
+      } else if (currentTool === 'eraser') {
+        drawCanvas.style.cursor = 'not-allowed';
+      } else {
+        drawCanvas.style.cursor = 'crosshair';
+      }
     }
     return;
   }
 
+  p = applyShiftConstraint(p, e);
   redraw();
   drawCtx.save();
   drawCtx.strokeStyle = currentColor;
@@ -1023,6 +1442,13 @@ drawCanvas.addEventListener('mousemove', (e) => {
 });
 
 drawCanvas.addEventListener('mouseup', (e) => {
+  if (isDraggingHandle) {
+    isDraggingHandle = false;
+    activeHandle = null;
+    window.lensEditor.markDirty();
+    return;
+  }
+
   // End drag
   if (isDragging) {
     isDragging = false;
@@ -1033,7 +1459,15 @@ drawCanvas.addEventListener('mouseup', (e) => {
 
   if (!isDrawing) return;
   isDrawing = false;
-  const p = getPos(e);
+  let p = getPos(e);
+  p = applyShiftConstraint(p, e);
+
+  const dragDist = Math.hypot(p.x - drawStartX, p.y - drawStartY);
+  if (currentTool !== 'text' && currentTool !== 'number' && dragDist < 5) {
+    freehandPoints = [];
+    redraw();
+    return;
+  }
 
   let ann = null;
   switch (currentTool) {
@@ -1079,6 +1513,7 @@ drawCanvas.addEventListener('mouseup', (e) => {
 
   if (ann) {
     annotations.push(ann);
+    redoStack = [];
     selectedIdx = annotations.length - 1; // Auto-select new annotation
     redraw();
     window.lensEditor.markDirty();
@@ -1111,20 +1546,39 @@ function showTextInput(x, y, editIdx) {
   const cssX = x / displayScale;
   const cssY = y / displayScale;
 
-  const input = document.createElement('input');
-  input.type = 'text';
+  const input = document.createElement('textarea');
   input.value = existingText;
-  input.placeholder = 'Type text…';
+  input.placeholder = 'Type text… (Shift+Enter for newline)';
+  input.rows = existingText.split('\n').length;
   input.style.cssText = `
     position:absolute; z-index:100; left:${cssX}px; top:${cssY - existingFs * 0.8}px;
     font: 600 ${existingFs}px ${fontFam}; color:${existingColor};
-    background:rgba(0,0,0,0.6); border:1px solid rgba(255,255,255,0.2);
-    border-radius:6px; padding:6px 10px; outline:none; min-width:140px;
-    backdrop-filter:blur(4px);
+    background:rgba(0,0,0,0.03); border:1px solid rgba(255,255,255,0.05);
+    border-radius:6px; padding:6px 10px; outline:none; min-width:20px;
+    backdrop-filter:blur(4px); resize:none; overflow:hidden; white-space:pre;
+    field-sizing: content;
   `;
   canvasWrap.appendChild(input);
   textInputEl = input;
-  setTimeout(() => input.focus(), 50);
+  
+  const adjustSize = () => {
+    input.style.width = 'auto';
+    input.style.height = 'auto';
+    input.style.width = (input.scrollWidth + 2) + 'px';
+    input.style.height = (input.scrollHeight + 2) + 'px';
+  };
+  
+  setTimeout(() => {
+    input.focus();
+    input.selectionStart = input.selectionEnd = input.value.length;
+    adjustSize();
+  }, 50);
+
+  input.addEventListener('input', () => {
+    const lines = input.value.split('\n').length;
+    input.rows = lines > 0 ? lines : 1;
+    adjustSize();
+  });
 
   let committed = false;
   const commit = () => {
@@ -1137,10 +1591,12 @@ function showTextInput(x, y, editIdx) {
         annotations[editIdx].text = txt;
       } else {
         annotations.splice(editIdx, 1);
+        redoStack = [];
         selectedIdx = -1;
       }
     } else if (txt) {
-      annotations.push({ type: 'text', x, y: y + 6 * displayScale, text: txt, color: currentColor, stroke: currentStroke, fontSize: Math.round(textFontSize * displayScale), textStyle });
+      annotations.push({ type: 'text', x, y: y + 6 * displayScale, text: txt, color: currentColor, stroke: currentStroke, fontSize: Math.round(textFontSize * displayScale), textStyle, glowSize: Math.round(textGlowSize * displayScale), boxOpacity: textBoxOpacity });
+      redoStack = [];
       selectedIdx = annotations.length - 1;
     }
     redraw();
@@ -1152,7 +1608,10 @@ function showTextInput(x, y, editIdx) {
 
   input.addEventListener('keydown', (e) => {
     e.stopPropagation();
-    if (e.key === 'Enter') commit();
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      commit();
+    }
     if (e.key === 'Escape') { committed = true; input.remove(); textInputEl = null; drawCanvas.style.pointerEvents = 'auto'; }
   });
   input.addEventListener('blur', () => setTimeout(commit, 100));
@@ -1208,20 +1667,40 @@ loadSubstyles();
       item.classList.toggle('active', item.dataset.substyle === style);
     });
   }
+  // Initialize tool selection based on localStorage
+  selectTool(currentTool);
 })();
 
 /** Helper: select a tool (update UI + state) */
 function selectTool(toolName) {
   currentTool = toolName;
+  localStorage.setItem('lens-current-tool', toolName);
   document.querySelectorAll('.tool-btn').forEach(b => b.classList.remove('active'));
   const btn = document.querySelector(`[data-tool="${toolName}"]`);
   if (btn) btn.classList.add('active');
+  
+  const cropActions = document.getElementById('crop-actions');
+  if (toolName === 'crop') {
+    if (!cropBox) {
+      // Default crop box with padding
+      const padX = Math.min(40 * displayScale, drawCanvas.width * 0.1);
+      const padY = Math.min(40 * displayScale, drawCanvas.height * 0.1);
+      cropBox = { x: padX, y: padY, w: drawCanvas.width - padX*2, h: drawCanvas.height - padY*2 };
+    }
+    if (cropActions) cropActions.style.display = 'flex';
+  } else {
+    if (cropActions) cropActions.style.display = 'none';
+  }
+  
   updateContextSliders();
   if (currentTool === 'select') drawCanvas.style.cursor = 'default';
+  else if (currentTool === 'crop') drawCanvas.style.cursor = 'crosshair';
   else if (currentTool === 'text') drawCanvas.style.cursor = 'text';
   else if (currentTool === 'number') drawCanvas.style.cursor = 'copy';
   else if (currentTool === 'eraser') drawCanvas.style.cursor = 'not-allowed';
   else drawCanvas.style.cursor = 'crosshair';
+  
+  redraw();
 }
 
 // Tool selection — single handler for all tool buttons including has-dropdown ones
@@ -1276,10 +1755,14 @@ function positionMenu(menu, triggerBtn) {
 // Blur intensity slider
 const blurSlider = document.getElementById('blur-intensity');
 if (blurSlider) {
+  blurSlider.value = blurIntensity;
+  const valEl = document.getElementById('blur-value');
+  if (valEl) valEl.textContent = blurIntensity + 'px';
   blurSlider.addEventListener('input', (e) => {
     blurIntensity = parseInt(e.target.value, 10);
-    const valEl = document.getElementById('blur-value');
-    if (valEl) valEl.textContent = blurIntensity + 'px';
+    localStorage.setItem('lens-blur-intensity', blurIntensity);
+    const vEl = document.getElementById('blur-value');
+    if (vEl) vEl.textContent = blurIntensity + 'px';
     // Live-update selected blur/circleblur annotation
     if (selectedIdx >= 0 && (annotations[selectedIdx].type === 'blur' || annotations[selectedIdx].type === 'circleblur')) {
       annotations[selectedIdx].blurSize = blurIntensity;
@@ -1292,10 +1775,14 @@ if (blurSlider) {
 // Number size slider
 const numSizeSlider = document.getElementById('number-size');
 if (numSizeSlider) {
+  numSizeSlider.value = numberRadius;
+  const valEl = document.getElementById('number-size-value');
+  if (valEl) valEl.textContent = numberRadius;
   numSizeSlider.addEventListener('input', (e) => {
     numberRadius = parseInt(e.target.value, 10);
-    const valEl = document.getElementById('number-size-value');
-    if (valEl) valEl.textContent = numberRadius;
+    localStorage.setItem('lens-number-radius', numberRadius);
+    const vEl = document.getElementById('number-size-value');
+    if (vEl) vEl.textContent = numberRadius;
     // Live-update selected number annotation
     if (selectedIdx >= 0 && annotations[selectedIdx].type === 'number') {
       annotations[selectedIdx].radius = Math.round(numberRadius * displayScale);
@@ -1308,13 +1795,54 @@ if (numSizeSlider) {
 // Text size slider
 const textSizeSlider = document.getElementById('text-size');
 if (textSizeSlider) {
+  textSizeSlider.value = textFontSize;
+  const valEl = document.getElementById('text-size-value');
+  if (valEl) valEl.textContent = textFontSize + 'pt';
   textSizeSlider.addEventListener('input', (e) => {
     textFontSize = parseInt(e.target.value, 10);
-    const valEl = document.getElementById('text-size-value');
-    if (valEl) valEl.textContent = textFontSize + 'pt';
+    localStorage.setItem('lens-text-size', textFontSize);
+    const vEl = document.getElementById('text-size-value');
+    if (vEl) vEl.textContent = textFontSize + 'pt';
     // Live-update selected text annotation
     if (selectedIdx >= 0 && annotations[selectedIdx].type === 'text') {
       annotations[selectedIdx].fontSize = Math.round(textFontSize * displayScale);
+      redraw();
+      window.lensEditor.markDirty();
+    }
+  });
+}
+
+const textGlowSlider = document.getElementById('text-glow');
+if (textGlowSlider) {
+  textGlowSlider.value = textGlowSize;
+  const valEl = document.getElementById('text-glow-value');
+  if (valEl) valEl.textContent = textGlowSize + 'px';
+  textGlowSlider.addEventListener('input', (e) => {
+    textGlowSize = parseInt(e.target.value, 10);
+    localStorage.setItem('lens-text-glow', textGlowSize);
+    const vEl = document.getElementById('text-glow-value');
+    if (vEl) vEl.textContent = textGlowSize + 'px';
+    // Live-update selected text annotation
+    if (selectedIdx >= 0 && annotations[selectedIdx].type === 'text') {
+      annotations[selectedIdx].glowSize = Math.round(textGlowSize * displayScale);
+      redraw();
+      window.lensEditor.markDirty();
+    }
+  });
+}
+
+const textBoxOpacitySlider = document.getElementById('text-box-opacity');
+if (textBoxOpacitySlider) {
+  textBoxOpacitySlider.value = textBoxOpacity;
+  const valEl = document.getElementById('text-box-opacity-value');
+  if (valEl) valEl.textContent = textBoxOpacity + '%';
+  textBoxOpacitySlider.addEventListener('input', (e) => {
+    textBoxOpacity = parseInt(e.target.value, 10);
+    localStorage.setItem('lens-text-box-opacity', textBoxOpacity);
+    const vEl = document.getElementById('text-box-opacity-value');
+    if (vEl) vEl.textContent = textBoxOpacity + '%';
+    if (selectedIdx >= 0 && annotations[selectedIdx].type === 'text') {
+      annotations[selectedIdx].boxOpacity = textBoxOpacity;
       redraw();
       window.lensEditor.markDirty();
     }
@@ -1332,9 +1860,30 @@ document.querySelectorAll('.tool-sub-menu').forEach(menu => {
     menu.querySelectorAll('.sub-item').forEach(i => i.classList.remove('active'));
     item.classList.add('active');
     // Update state
-    if (menu.id === 'arrow-dropdown')     arrowStyle = style;
-    else if (menu.id === 'text-dropdown') textStyle  = style;
-    else if (menu.id === 'blur-dropdown') blurStyle  = style;
+    if (menu.id === 'arrow-dropdown') {
+      arrowStyle = style;
+      if (selectedIdx >= 0 && annotations[selectedIdx].type === 'arrow') {
+        annotations[selectedIdx].arrowStyle = style;
+      }
+    } else if (menu.id === 'text-dropdown') {
+      textStyle = style;
+      if (selectedIdx >= 0 && annotations[selectedIdx].type === 'text') {
+        annotations[selectedIdx].textStyle = style;
+      }
+      const isBox = textStyle === 'box';
+      document.querySelectorAll('.box-opacity-label, .box-opacity-slider, .box-opacity-value').forEach(el => el.style.display = isBox ? 'inline-block' : 'none');
+    } else if (menu.id === 'blur-dropdown') {
+      blurStyle = style;
+      if (selectedIdx >= 0 && annotations[selectedIdx].type === 'blur') {
+        annotations[selectedIdx].blurStyle = style;
+      }
+    }
+    
+    if (selectedIdx >= 0) {
+      redraw();
+      window.lensEditor.markDirty();
+    }
+    
     // Persist
     saveSubstyles();
     // Close menu
@@ -1503,42 +2052,78 @@ if (bgToggle) {
   });
 }
 
-// Bg thumb selection
-document.getElementById('bg-thumb-grid').addEventListener('click', (e) => {
-  const thumb = e.target.closest('.bg-thumb');
-  if (!thumb) return;
+const ALL_WALLPAPERS = [
+  "6ffdbef4-5949-42e1-bef0-826ed3a080dd.jpg", "Abstract Shapes 2.jpg", "Abstract Shapes.jpg", 
+  "Chroma 1.jpg", "Chroma 2.jpg", "El Capitan.jpg", "High Sierra.jpg", "Milky Way.jpg", 
+  "Mojave Day.jpg", "Mojave Night.jpg", "Poppies.jpg", "Sierra 2.jpg", "Sierra.jpg", 
+  "Snow.jpg", "Yosemite.jpg", "adam-kool-ndN00KmbJ1c-unsplash.jpg", 
+  "andreas-gucklhorn-mawU2PoJWfU-unsplash.jpg", "armennano-gerbera-4712871_1920.jpg", 
+  "aszak-sunrise-9750192_1920.jpg", "e54c05da-7844-47cf-9581-2f56f4378f4e.jpg", 
+  "himmelstraeume-flower-7543035_1920.jpg", "inspiredimages-pencils-452238_1920.jpg", 
+  "macos-big-sur-abstract-grey-colour-5k-bx (1).jpg", "medienservice-texture-2917553_1920.jpg", 
+  "milad-fakurian-E8Ufcyxz514-unsplash.jpg", "milad-fakurian-seA-FPPXL-M-unsplash.jpg", 
+  "pexels-simon73-1323550.jpg", "richard-horvath-_nWaeTF6qo0-unsplash.jpg", 
+  "waldrebell-trees-5899195_1920.jpg"
+];
 
-  document.querySelectorAll('.bg-thumb').forEach(t => t.classList.remove('active'));
-  document.querySelectorAll('.bg-history-thumb').forEach(t => t.classList.remove('active'));
-  thumb.classList.add('active');
+function shuffleWallpapers() {
+  const grid = document.getElementById('bg-wallpaper-grid');
+  if (!grid) return;
+  grid.innerHTML = '';
+  const shuffled = [...ALL_WALLPAPERS].sort(() => 0.5 - Math.random());
+  const selected = shuffled.slice(0, 12);
+  
+  selected.forEach(file => {
+    const div = document.createElement('div');
+    div.className = 'bg-thumb';
+    const src = `../assets/walpaper/${file}`;
+    if (bgType === 'image' && bgValue === src) {
+      div.classList.add('active');
+    }
+    div.dataset.bg = 'image';
+    div.dataset.src = src;
+    div.style.backgroundImage = `url("${src}")`;
+    grid.appendChild(div);
+  });
+}
 
-  const type = thumb.dataset.bg;
-  if (type === 'solid') {
-    bgType = 'solid';
-    bgValue = thumb.dataset.color;
-    bgImageObj = null;
-  } else if (type === 'gradient') {
-    bgType = 'gradient';
-    bgValue = thumb.dataset.gradient;
-    bgImageObj = null;
-  } else if (type === 'image') {
+// Initial shuffle
+shuffleWallpapers();
+document.addEventListener('DOMContentLoaded', () => {
+  shuffleWallpapers();
+});
+
+const shuffleBtn = document.getElementById('bg-shuffle-btn');
+if (shuffleBtn) {
+  shuffleBtn.addEventListener('click', shuffleWallpapers);
+}
+
+const wallpaperGrid = document.getElementById('bg-wallpaper-grid');
+if (wallpaperGrid) {
+  wallpaperGrid.addEventListener('click', (e) => {
+    const thumb = e.target.closest('.bg-thumb');
+    if (!thumb) return;
+
+    document.querySelectorAll('.bg-thumb').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.bg-history-thumb').forEach(t => t.classList.remove('active'));
+    thumb.classList.add('active');
+
     bgType = 'image';
     bgValue = thumb.dataset.src;
-    // Load the image for export
+    
     const img = new Image();
     img.onload = () => { bgImageObj = img; if (bgEnabled) applyBackground(); };
     img.src = bgValue;
-  }
 
-  // Auto-enable bg when user picks a background
-  if (!bgEnabled) {
-    bgEnabled = true;
-    bgToggle.classList.add('on');
-    bgToggleLabel.textContent = 'On';
-    bgTrigger.classList.add('active');
-  }
-  applyBackground();
-});
+    if (!bgEnabled) {
+      bgEnabled = true;
+      bgToggle.classList.add('on');
+      bgToggleLabel.textContent = 'On';
+      bgTrigger.classList.add('active');
+    }
+    applyBackground();
+  });
+}
 
 // Custom upload
 const bgUploadInput = document.getElementById('bg-upload-input');
@@ -1549,6 +2134,7 @@ if (bgUploadInput) {
     const reader = new FileReader();
     reader.onload = (ev) => {
       customBgDataUrl = ev.target.result;
+      addToBgUploadHistory(customBgDataUrl);
       bgType = 'image';
       bgValue = customBgDataUrl;
       const img = new Image();
@@ -1562,80 +2148,157 @@ if (bgUploadInput) {
         }
         // Deselect all presets
         document.querySelectorAll('.bg-thumb').forEach(t => t.classList.remove('active'));
-        // Save to upload history
-        addToBgHistory(customBgDataUrl);
         applyBackground();
       };
       img.src = customBgDataUrl;
     };
     reader.readAsDataURL(file);
+    e.target.value = ''; // allow uploading the same file again
   });
 }
 
-/* ── Background Upload History (localStorage) ── */
-const BG_HISTORY_KEY = 'mictab-bg-history';
-const BG_HISTORY_MAX = 10; // max saved backgrounds
-
-function loadBgHistory() {
-  try {
-    return JSON.parse(localStorage.getItem(BG_HISTORY_KEY)) || [];
-  } catch { return []; }
-}
-
-function saveBgHistoryList(list) {
-  try {
-    localStorage.setItem(BG_HISTORY_KEY, JSON.stringify(list));
-  } catch (e) {
-    console.warn('[BG History] localStorage save failed:', e);
+function generateRandomGradientString() {
+  const isDark = Math.random() > 0.5;
+  const h1 = Math.floor(Math.random() * 360);
+  const h2 = (h1 + 30 + Math.random() * 60) % 360; 
+  
+  let s1, s2, l1, l2;
+  if (isDark) {
+    s1 = 50 + Math.random() * 30;
+    s2 = 50 + Math.random() * 30;
+    l1 = 15 + Math.random() * 15;
+    l2 = 15 + Math.random() * 15;
+  } else {
+    s1 = 70 + Math.random() * 30;
+    s2 = 70 + Math.random() * 30;
+    l1 = 60 + Math.random() * 20;
+    l2 = 60 + Math.random() * 20;
   }
+  
+  function hslToHex(h, s, l) {
+    l /= 100;
+    const a = s * Math.min(l, 1 - l) / 100;
+    const f = n => {
+      const k = (n + h / 30) % 12;
+      const color = l - a * Math.max(Math.min(k - 3, 9 - k, 1), -1);
+      return Math.round(255 * color).toString(16).padStart(2, '0');
+    };
+    return `#${f(0)}${f(8)}${f(4)}`;
+  }
+
+  const hex1 = hslToHex(h1, s1, l1);
+  const hex2 = hslToHex(h2, s2, l2);
+  const angle = Math.floor(Math.random() * 360);
+  return `linear-gradient(${angle}deg, ${hex1} 0%, ${hex2} 100%)`;
 }
 
-function addToBgHistory(dataUrl) {
-  const list = loadBgHistory();
-  // Avoid duplicates (same data URL)
+const bgRandomBtn = document.getElementById('bg-random-btn');
+if (bgRandomBtn) {
+  bgRandomBtn.addEventListener('click', () => {
+    const gradStr = generateRandomGradientString();
+    customBgDataUrl = gradStr;
+    addToBgGradientHistory(gradStr);
+    
+    bgType = 'gradient';
+    bgValue = gradStr;
+    
+    if (!bgEnabled) {
+      bgEnabled = true;
+      const tgl = document.getElementById('bg-toggle');
+      const tglLbl = document.getElementById('bg-toggle-label');
+      if (tgl) tgl.classList.add('on');
+      if (tglLbl) tglLbl.textContent = 'On';
+      const trg = document.getElementById('bg-trigger');
+      if (trg) trg.classList.add('active');
+    }
+    
+    document.querySelectorAll('.bg-thumb').forEach(t => t.classList.remove('active'));
+    setTimeout(() => {
+      const grid = document.getElementById('bg-history-grid');
+      if (grid) {
+        grid.querySelectorAll('.bg-history-thumb').forEach(t => t.classList.remove('active'));
+        const first = grid.querySelector('.bg-history-thumb');
+        if (first) first.classList.add('active');
+      }
+    }, 50);
+    applyBackground();
+  });
+}
+
+
+/* ── Background History (localStorage) ── */
+const BG_GRADIENT_HISTORY_KEY = 'mictab-bg-grad-history';
+const BG_UPLOAD_HISTORY_KEY = 'mictab-bg-upload-history';
+const BG_HISTORY_MAX = 6;
+
+function loadBgHistory(key) {
+  try { return JSON.parse(localStorage.getItem(key)) || []; } catch { return []; }
+}
+function saveBgHistoryList(key, list) {
+  try { localStorage.setItem(key, JSON.stringify(list)); } catch (e) { console.warn('localStorage save failed:', e); }
+}
+
+function addToBgGradientHistory(dataUrl) {
+  const list = loadBgHistory(BG_GRADIENT_HISTORY_KEY);
   if (list.includes(dataUrl)) return;
   list.unshift(dataUrl);
-  // Trim to max
   while (list.length > BG_HISTORY_MAX) list.pop();
-  saveBgHistoryList(list);
-  renderBgHistory();
+  saveBgHistoryList(BG_GRADIENT_HISTORY_KEY, list);
+  renderBgGradientHistory();
 }
 
-function removeFromBgHistory(idx) {
-  const list = loadBgHistory();
+function addToBgUploadHistory(dataUrl) {
+  const list = loadBgHistory(BG_UPLOAD_HISTORY_KEY);
+  if (list.includes(dataUrl)) return;
+  list.unshift(dataUrl);
+  while (list.length > BG_HISTORY_MAX) list.pop();
+  saveBgHistoryList(BG_UPLOAD_HISTORY_KEY, list);
+  renderBgUploadHistory();
+}
+
+function removeFromBgGradientHistory(idx) {
+  const list = loadBgHistory(BG_GRADIENT_HISTORY_KEY);
   list.splice(idx, 1);
-  saveBgHistoryList(list);
-  renderBgHistory();
+  saveBgHistoryList(BG_GRADIENT_HISTORY_KEY, list);
+  renderBgGradientHistory();
 }
 
-function renderBgHistory() {
-  const section = document.getElementById('bg-history-section');
-  const grid = document.getElementById('bg-history-grid');
+function removeFromBgUploadHistory(idx) {
+  const list = loadBgHistory(BG_UPLOAD_HISTORY_KEY);
+  list.splice(idx, 1);
+  saveBgHistoryList(BG_UPLOAD_HISTORY_KEY, list);
+  renderBgUploadHistory();
+}
+
+function renderHistoryGrid(sectionId, gridId, list, type, removeHandler) {
+  const section = document.getElementById(sectionId);
+  const grid = document.getElementById(gridId);
   if (!section || !grid) return;
-  const list = loadBgHistory();
   if (list.length === 0) {
     section.style.display = 'none';
     return;
   }
   section.style.display = 'block';
   grid.innerHTML = '';
-  list.forEach((dataUrl, idx) => {
+  list.forEach((data, idx) => {
     const thumb = document.createElement('div');
     thumb.className = 'bg-history-thumb';
-    thumb.style.backgroundImage = `url(${dataUrl})`;
-    thumb.title = `Upload #${idx + 1}`;
-    // If this is the currently active background, mark active
-    if (bgType === 'image' && bgValue === dataUrl) thumb.classList.add('active');
+    if (data.startsWith('linear-gradient')) {
+      thumb.style.background = data;
+    } else {
+      thumb.style.backgroundImage = `url(${data})`;
+    }
+    thumb.title = `Recent #${idx + 1}`;
+    
+    if ((bgType === 'image' || bgType === 'gradient') && bgValue === data) thumb.classList.add('active');
 
-    // Click to apply
     thumb.addEventListener('click', (e) => {
       if (e.target.classList.contains('bg-history-remove')) return;
-      customBgDataUrl = dataUrl;
-      bgType = 'image';
-      bgValue = dataUrl;
-      const img = new Image();
-      img.onload = () => {
-        bgImageObj = img;
+      customBgDataUrl = data;
+      bgType = data.startsWith('linear-gradient') ? 'gradient' : 'image';
+      bgValue = data;
+
+      const applyAndToggle = () => {
         if (!bgEnabled) {
           bgEnabled = true;
           const tgl = document.getElementById('bg-toggle');
@@ -1645,33 +2308,45 @@ function renderBgHistory() {
           const trg = document.getElementById('bg-trigger');
           if (trg) trg.classList.add('active');
         }
-        // Deselect presets
         document.querySelectorAll('.bg-thumb').forEach(t => t.classList.remove('active'));
-        // Mark this history thumb active
-        grid.querySelectorAll('.bg-history-thumb').forEach(t => t.classList.remove('active'));
+        document.querySelectorAll('.bg-history-thumb').forEach(t => t.classList.remove('active'));
         thumb.classList.add('active');
         applyBackground();
       };
-      img.src = dataUrl;
+
+      if (bgType === 'image') {
+        const img = new Image();
+        img.onload = () => { bgImageObj = img; applyAndToggle(); };
+        img.src = data;
+      } else {
+        applyAndToggle();
+      }
     });
 
-    // Remove button
     const removeBtn = document.createElement('button');
     removeBtn.className = 'bg-history-remove';
     removeBtn.innerHTML = '✕';
-    removeBtn.title = 'Remove from history';
+    removeBtn.title = 'Remove';
     removeBtn.addEventListener('click', (e) => {
       e.stopPropagation();
-      removeFromBgHistory(idx);
+      removeHandler(idx);
     });
     thumb.appendChild(removeBtn);
-
     grid.appendChild(thumb);
   });
 }
 
+function renderBgGradientHistory() {
+  renderHistoryGrid('bg-gradients-section', 'bg-gradients-grid', loadBgHistory(BG_GRADIENT_HISTORY_KEY), 'gradient', removeFromBgGradientHistory);
+}
+
+function renderBgUploadHistory() {
+  renderHistoryGrid('bg-uploads-section', 'bg-uploads-grid', loadBgHistory(BG_UPLOAD_HISTORY_KEY), 'image', removeFromBgUploadHistory);
+}
+
 // Render history on load
-renderBgHistory();
+renderBgGradientHistory();
+renderBgUploadHistory();
 
 // Blur slider
 if (bgBlurSlider) {
@@ -1694,6 +2369,12 @@ if (bgAspectGrid) {
     const valEl = document.getElementById('bg-aspect-value');
     if (valEl) valEl.textContent = bgAspectRatio === 'free' ? 'Free' : bgAspectRatio;
 
+    // Toggle Padding slider visibility
+    const padRow = document.getElementById('bg-padding-row');
+    if (padRow) {
+      padRow.style.display = bgAspectRatio === 'free' ? 'none' : 'flex';
+    }
+
     // Auto-enable BG when user picks a non-free aspect ratio
     if (bgAspectRatio !== 'free' && !bgEnabled) {
       bgEnabled = true;
@@ -1705,6 +2386,17 @@ if (bgAspectGrid) {
   });
 }
 
+// Corner Radius slider
+const bgCornerSlider = document.getElementById('bg-corner-slider');
+const bgCornerValue  = document.getElementById('bg-corner-value');
+if (bgCornerSlider) {
+  bgCornerSlider.addEventListener('input', (e) => {
+    bgCornerRadius = parseInt(e.target.value, 10);
+    if (bgCornerValue) bgCornerValue.textContent = bgCornerRadius + 'px';
+    applyBackground();
+  });
+}
+
 // Padding slider
 const bgPaddingSlider = document.getElementById('bg-padding-slider');
 const bgPaddingValue  = document.getElementById('bg-padding-value');
@@ -1712,6 +2404,17 @@ if (bgPaddingSlider) {
   bgPaddingSlider.addEventListener('input', (e) => {
     bgPadPercent = parseInt(e.target.value, 10);
     if (bgPaddingValue) bgPaddingValue.textContent = bgPadPercent + '%';
+    applyBackground();
+  });
+}
+
+// Shadow slider
+const bgShadowSlider = document.getElementById('bg-shadow-slider');
+const bgShadowValue  = document.getElementById('bg-shadow-value');
+if (bgShadowSlider) {
+  bgShadowSlider.addEventListener('input', (e) => {
+    bgShadow = parseInt(e.target.value, 10);
+    if (bgShadowValue) bgShadowValue.textContent = bgShadow + 'px';
     applyBackground();
   });
 }
@@ -1788,6 +2491,8 @@ function applyBackground() {
     // Restore checkerboard pattern
     const container = document.getElementById('canvas-container');
     container.style.background = '';
+    canvasWrap.style.borderRadius = '';
+    canvasWrap.style.boxShadow = '';
     return;
   }
 
@@ -1815,11 +2520,21 @@ function applyBackground() {
   bgLayer.style.filter = blurPx > 0 ? `blur(${blurPx}px)` : 'none';
   // Scale up slightly to hide blur edge artifacts
   bgLayer.style.transform = blurPx > 0 ? 'scale(1.1)' : 'none';
+
+  // Apply Viewport styles (Corner, Shadow)
+  canvasWrap.style.borderRadius = bgCornerRadius + 'px';
+  if (bgShadow > 0) {
+    canvasWrap.style.boxShadow = `0 ${bgShadow * 0.3}px ${bgShadow}px rgba(0,0,0,0.6), 0 0 0 1px rgba(255,255,255,0.06)`;
+  } else {
+    canvasWrap.style.boxShadow = '0 0 0 1px rgba(255,255,255,0.06)';
+  }
 }
 
 // Stroke width
 document.getElementById('stroke-width').addEventListener('input', (e) => {
-  currentStroke = parseInt(e.target.value, 10);
+  const val = parseInt(e.target.value, 10);
+  currentStroke = val * displayScale;
+  localStorage.setItem('lens-stroke-width', val);
   if (selectedIdx >= 0) {
     annotations[selectedIdx].stroke = currentStroke;
     redraw();
@@ -1846,14 +2561,24 @@ if (spotSlider) {
 // Undo
 document.getElementById('btn-undo').addEventListener('click', () => {
   if (!annotations.length) return;
-  annotations.pop();
+  redoStack.push(annotations.pop());
   selectedIdx = -1;
   redraw();
+});
+
+// Redo
+document.getElementById('btn-redo')?.addEventListener('click', () => {
+  if (!redoStack.length) return;
+  annotations.push(redoStack.pop());
+  selectedIdx = annotations.length - 1;
+  redraw();
+  window.lensEditor.markDirty();
 });
 
 // Reset
 document.getElementById('btn-reset').addEventListener('click', () => {
   annotations = [];
+  redoStack = [];
   selectedIdx = -1;
   redraw();
   window.lensEditor.markClean();
@@ -1863,12 +2588,14 @@ document.getElementById('btn-reset').addEventListener('click', () => {
 // Keyboard shortcuts
 document.addEventListener('keydown', (e) => {
   if (textInputEl) return;
-  if ((e.ctrlKey || e.metaKey) && e.key === 'z') { document.getElementById('btn-undo').click(); return; }
+  if ((e.ctrlKey || e.metaKey) && e.shiftKey && (e.key === 'z' || e.key === 'Z')) { e.preventDefault(); document.getElementById('btn-redo')?.click(); return; }
+  if ((e.ctrlKey || e.metaKey) && !e.shiftKey && e.key === 'z') { e.preventDefault(); document.getElementById('btn-undo').click(); return; }
   if ((e.ctrlKey || e.metaKey) && e.key === 's') { e.preventDefault(); document.getElementById('btn-save').click(); return; }
   if ((e.ctrlKey || e.metaKey) && e.key === 'c') { document.getElementById('btn-copy').click(); return; }
   // Delete selected annotation
   if ((e.key === 'Delete' || e.key === 'Backspace') && selectedIdx >= 0) {
     annotations.splice(selectedIdx, 1);
+    redoStack = [];
     selectedIdx = -1;
     redraw();
     window.lensEditor.markDirty();
@@ -1885,6 +2612,75 @@ document.addEventListener('keydown', (e) => {
    MERGE CANVAS (for save / copy — no selection indicator)
    ───────────────────────────────────────────── */
 
+// Crop actions
+document.getElementById('btn-crop-cancel')?.addEventListener('click', () => {
+  cropBox = null;
+  selectTool('select');
+  redraw();
+});
+
+document.getElementById('btn-crop-apply')?.addEventListener('click', () => {
+  if (!cropBox) return;
+  
+  const cx = Math.round(cropBox.x);
+  const cy = Math.round(cropBox.y);
+  const cw = Math.max(1, Math.round(cropBox.w));
+  const ch = Math.max(1, Math.round(cropBox.h));
+  
+  const tmpC = document.createElement('canvas');
+  tmpC.width = cw;
+  tmpC.height = ch;
+  const tmpCtx = tmpC.getContext('2d');
+  tmpCtx.drawImage(imgCanvas, cx, cy, cw, ch, 0, 0, cw, ch);
+  
+  for (const ann of annotations) {
+    if (ann.x !== undefined) ann.x -= cx;
+    if (ann.y !== undefined) ann.y -= cy;
+    if (ann.x1 !== undefined) ann.x1 -= cx;
+    if (ann.y1 !== undefined) ann.y1 -= cy;
+    if (ann.x2 !== undefined) ann.x2 -= cx;
+    if (ann.y2 !== undefined) ann.y2 -= cy;
+    if (ann.cx !== undefined) ann.cx -= cx;
+    if (ann.cy !== undefined) ann.cy -= cy;
+    if (ann.points) {
+      for (const p of ann.points) { p[0] -= cx; p[1] -= cy; }
+    }
+  }
+  
+  const img = new Image();
+  img.onload = () => {
+    originalImage = img;
+    const fullW = img.naturalWidth;
+    const fullH = img.naturalHeight;
+    const container = document.getElementById('canvas-container');
+    const maxW = container.clientWidth - 40;
+    const maxH = container.clientHeight - 40;
+    const fitScale = Math.min(maxW / fullW, maxH / fullH, 1);
+    displayW = Math.round(fullW * fitScale);
+    displayH = Math.round(fullH * fitScale);
+    displayScale = fullW / displayW;
+    imgCanvas.width  = fullW;  imgCanvas.height  = fullH;
+    drawCanvas.width = fullW;  drawCanvas.height = fullH;
+    canvasWrap.style.width  = displayW + 'px';
+    canvasWrap.style.height = displayH + 'px';
+    imgCanvas.style.width   = displayW + 'px';
+    imgCanvas.style.height  = displayH + 'px';
+    drawCanvas.style.width  = displayW + 'px';
+    drawCanvas.style.height = displayH + 'px';
+    imgCtx.clearRect(0, 0, fullW, fullH);
+    imgCtx.drawImage(img, 0, 0, fullW, fullH);
+    cropBox = null;
+    selectTool('select');
+    redraw();
+    window.lensEditor.markDirty();
+  };
+  img.src = tmpC.toDataURL('image/png');
+});
+
+/* ─────────────────────────────────────────────
+   MERGE CANVAS (for save / copy — no selection indicator)
+   ───────────────────────────────────────────── */
+
 function getMergedDataUrl() {
   const fullW = imgCanvas.width;
   const fullH = imgCanvas.height;
@@ -1893,7 +2689,9 @@ function getMergedDataUrl() {
   if (bgEnabled) {
     const layout = computeAspectLayout(fullW, fullH, bgAspectRatio, bgPadPercent);
     const { totalW, totalH, imgX, imgY, imgDrawW, imgDrawH } = layout;
-    const cornerR = Math.round(Math.max(imgDrawW, imgDrawH) * 0.012); // corner radius
+    
+    // Scale corner radius based on the image size vs display size to match preview proportions
+    const cornerR = bgCornerRadius * (imgDrawW / parseFloat(canvasWrap.style.width || imgDrawW)); 
 
     const mergeCanvas = document.createElement('canvas');
     mergeCanvas.width = totalW;
@@ -1948,11 +2746,28 @@ function getMergedDataUrl() {
 
     // Draw screenshot with rounded corners + shadow
     ctx.save();
-    ctx.shadowColor = 'rgba(0,0,0,0.5)';
-    ctx.shadowBlur = Math.round(minPad * 0.6);
-    ctx.shadowOffsetX = 0;
-    ctx.shadowOffsetY = Math.round(minPad * 0.15);
+    if (bgShadow > 0) {
+      // Scale shadow based on image size vs display size to match preview proportions
+      const shadowScale = imgDrawW / parseFloat(canvasWrap.style.width || imgDrawW);
+      const scaledShadow = bgShadow * shadowScale;
+      ctx.shadowColor = 'rgba(0,0,0,0.6)';
+      ctx.shadowBlur = scaledShadow;
+      ctx.shadowOffsetX = 0;
+      ctx.shadowOffsetY = scaledShadow * 0.3;
+    }
+    
     roundRect(ctx, imgX, imgY, imgDrawW, imgDrawH, cornerR);
+    if (bgShadow > 0) {
+      // Fill to cast shadow behind the actual image draw
+      ctx.fillStyle = '#000';
+      ctx.fill();
+      // Clear shadow properties before drawing image to avoid double shadowing
+      ctx.shadowColor = 'transparent';
+      ctx.shadowBlur = 0;
+      ctx.shadowOffsetY = 0;
+    }
+    
+    // Now clip and draw image
     ctx.clip();
     ctx.drawImage(imgCanvas, 0, 0, fullW, fullH, imgX, imgY, imgDrawW, imgDrawH);
     ctx.restore();

@@ -24,6 +24,7 @@ const fs     = require('fs');
 const { exec } = require('child_process');
 const store  = require('../../store/config');
 const { openGallery } = require('./gallery-manager');
+const { uIOhook } = require('uiohook-napi');
 
 /* ── NOTE on native cursor in screen capture ─────────────────
    The OS (both macOS and Windows) composites the native cursor
@@ -53,12 +54,31 @@ let lastRecordingSettings  = {};
 
 /* ── Cursor position logger (for editor zoom feature) ────── */
 let cursorTrack       = [];   // [{t, x, y}, ...]
+let cursorClicks      = [];   // [{t, type, x, y}, ...]
 let cursorTrackStart  = 0;    // Date.now() when recording started
 let cursorTrackTimer  = null; // 10Hz interval
 let cursorDisplayBounds = null; // {x, y, width, height} of the recorded area
 
+uIOhook.on('mousedown', (e) => {
+  if (!isRecording || !cursorTrackStart) return;
+  cursorClicks.push({
+    t: +(((Date.now() - cursorTrackStart) / 1000).toFixed(2)),
+    type: 'down',
+    x: e.x, y: e.y
+  });
+});
+
+uIOhook.on('mousedrag', (e) => {
+  if (!isRecording || !cursorTrackStart) return;
+  const t = +(((Date.now() - cursorTrackStart) / 1000).toFixed(2));
+  const last = cursorClicks.length ? cursorClicks[cursorClicks.length - 1] : null;
+  if (last && last.type === 'drag' && (t - last.t) < 0.1) return; // 10Hz throttle
+  cursorClicks.push({ t, type: 'drag', x: e.x, y: e.y });
+});
+
 function startCursorTracking(displayBounds) {
   cursorTrack = [];
+  cursorClicks = [];
   cursorTrackStart = Date.now();
   cursorDisplayBounds = displayBounds;
   if (cursorTrackTimer) clearInterval(cursorTrackTimer);
@@ -79,13 +99,14 @@ function saveCursorTrack(videoFilePath) {
   if (!cursorTrack.length) return;
   try {
     const sidecarPath = videoFilePath.replace(/\.[^.]+$/, '.mictab-cursor.json');
-    const data = { displayBounds: cursorDisplayBounds, track: cursorTrack };
+    const data = { displayBounds: cursorDisplayBounds, track: cursorTrack, clicks: cursorClicks };
     fs.writeFileSync(sidecarPath, JSON.stringify(data), 'utf8');
-    console.log(`[ScreenRecorder] Cursor track saved (${cursorTrack.length} points)`);
+    console.log(`[ScreenRecorder] Cursor track saved (${cursorTrack.length} pts, ${cursorClicks.length} clicks)`);
   } catch (e) {
     console.error('[ScreenRecorder] Cursor track save failed:', e.message);
   }
   cursorTrack = [];
+  cursorClicks = [];
 }
 
 /* ── Mouse position broadcaster (60 fps) ───────────────────── */
@@ -351,6 +372,7 @@ async function openControlBar(region, fullscreen, settings = {}) {
     stopMouseBroadcast();
     stopCursorTracking();
     cursorTrack = [];
+    cursorClicks = [];
     closeCameraWindow();
     if (controlBar && !controlBar.isDestroyed()) {
       controlBar.destroy();
@@ -591,6 +613,7 @@ function setupScreenRecorderIpc() {
     stopMouseBroadcast();
     stopCursorTracking();
     cursorTrack = []; // discard on cancel
+    cursorClicks = [];
     controlBarFrameDead = true;
     closeCameraWindow();
     if (controlBar && !controlBar.isDestroyed()) {

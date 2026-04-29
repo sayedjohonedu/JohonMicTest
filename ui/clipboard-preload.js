@@ -40,6 +40,7 @@ contextBridge.exposeInMainWorld('clipboardAPI', {
 
   // ── Image folder ─────────────────────────────────────────────────────────
   openImagesFolder: ()              => ipcRenderer.invoke('cb-open-images-folder'),
+  openInLens:       (filePath)      => ipcRenderer.send('cb-open-in-lens', filePath),
 
   // ── Settings ──────────────────────────────────────────────────────────────
   getConfig:           ()    => ipcRenderer.invoke('cb-get-config'),

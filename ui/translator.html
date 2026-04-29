@@ -9,294 +9,369 @@
 <body>
 <div id="card">
 
-  <!-- ── TITLEBAR ── -->
-  <div id="titlebar">
-    <div class="dot" id="dot-close" title="Close"></div>
-
-    <div id="titlebar-center">
-      <div id="tb-icon">
-        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" width="14" height="14">
-          <path d="M2 3h6M5 3v2M2 5h6M8 3l4 9M10.5 8H15M12.5 3l-4 9"/>
-        </svg>
-      </div>
-      <span id="tb-title">MicTab Translator</span>
-
-
+  <!-- ── LEFT SIDEBAR ── -->
+  <div id="sidebar-left">
+    <div class="traffic-lights">
+      <div class="dot" id="dot-close" title="Close"></div>
+      <div class="dot" id="dot-minimize" style="background:#FFBD2E" title="Minimize"></div>
+      <div class="dot" id="dot-maximize" style="background:#27C93F" title="Maximize"></div>
     </div>
-
-    <div id="titlebar-right">
-      <!-- Expand/Collapse playground -->
-      <button class="tb-btn" id="btn-expand-playground" title="Multi-language Playground">
-        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6">
+    <nav class="sidebar-nav">
+      <div class="sb-nav-item active" data-view="translate">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20">
+          <circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
+        </svg>
+        <span>Translate</span>
+      </div>
+      <div class="sb-nav-item" data-view="history" id="btn-toggle-history">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20">
+          <circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/>
+        </svg>
+        <span>History</span>
+      </div>
+      <div class="sb-nav-item" data-view="favorites" style="display:none;">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20">
+          <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
+        </svg>
+        <span>Favorites</span>
+      </div>
+      <div class="sb-nav-item" id="btn-settings">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20">
+          <circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-2 2 2 2 0 01-2-2v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83 0 2 2 0 010-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 01-2-2 2 2 0 012-2h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 010-2.83 2 2 0 012.83 0l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 012-2 2 2 0 012 2v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 0 2 2 0 010 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 012 2 2 2 0 01-2 2h-.09a1.65 1.65 0 00-1.51 1z"/>
+        </svg>
+        <span>Settings</span>
+      </div>
+      
+      <!-- Playground is hidden in horizontal layout but accessible -->
+      <div class="sb-nav-item" id="btn-expand-playground" title="Multi-language Playground">
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" width="20" height="20">
           <rect x="1" y="1" width="6" height="6" rx="1.5"/>
           <rect x="9" y="1" width="6" height="6" rx="1.5"/>
           <rect x="1" y="9" width="6" height="6" rx="1.5"/>
           <rect x="9" y="9" width="6" height="6" rx="1.5"/>
         </svg>
-      </button>
+        <span>Playground</span>
+      </div>
+    </nav>
+  </div>
 
-      <!-- Settings -->
-      <button class="tb-btn" id="btn-settings" title="Settings">
-        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6">
-          <circle cx="8" cy="8" r="2.5"/>
-          <path d="M8 1v2M8 13v2M1 8h2M13 8h2M3.05 3.05l1.41 1.41M11.54 11.54l1.41 1.41M11.54 4.46l-1.41 1.41M4.46 11.54l-1.41 1.41"/>
+  <!-- ── MAIN CONTENT ── -->
+  <div id="main-content">
+    <div id="topbar-drag"></div>
+
+    <!-- NO API WARNING -->
+    <div id="no-api-warning" style="display:none; text-align:center;">
+      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" width="14" height="14">
+        <path d="M8 1L15 14H1L8 1zM8 6v4M8 11.5v.5"/>
+      </svg>
+      No API profile configured. <a href="#" id="warning-settings-link" style="color:inherit;text-decoration:underline;cursor:pointer;">Open Settings</a>
+    </div>
+
+    <!-- ── LANGUAGE ROW ── -->
+    <div id="lang-row">
+      <div class="lang-select-wrap">
+        <select id="src-lang">
+          <option value="auto">Auto-detect</option>
+          <option value="en">English</option>
+          <option value="bn">Bengali</option>
+          <option value="es">Spanish</option>
+          <option value="fr">French</option>
+          <option value="de">German</option>
+          <option value="it">Italian</option>
+          <option value="pt">Portuguese</option>
+          <option value="ru">Russian</option>
+          <option value="ja">Japanese</option>
+          <option value="ko">Korean</option>
+          <option value="zh-CN">Chinese (Simplified)</option>
+          <option value="zh-TW">Chinese (Traditional)</option>
+          <option value="ar">Arabic</option>
+          <option value="hi">Hindi</option>
+          <option value="tr">Turkish</option>
+          <option value="pl">Polish</option>
+          <option value="nl">Dutch</option>
+          <option value="sv">Swedish</option>
+          <option value="da">Danish</option>
+          <option value="fi">Finnish</option>
+          <option value="no">Norwegian</option>
+          <option value="uk">Ukrainian</option>
+          <option value="vi">Vietnamese</option>
+          <option value="th">Thai</option>
+          <option value="id">Indonesian</option>
+          <option value="ms">Malay</option>
+          <option value="fa">Persian</option>
+          <option value="ur">Urdu</option>
+          <option value="he">Hebrew</option>
+          <option value="ro">Romanian</option>
+          <option value="hu">Hungarian</option>
+          <option value="cs">Czech</option>
+          <option value="el">Greek</option>
+          <option value="bg">Bulgarian</option>
+        </select>
+      </div>
+
+      <button id="swap-btn" title="Swap languages">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+          <path d="M17 3l4 4-4 4M7 21l-4-4 4-4M3 7h18M21 17H3"/>
         </svg>
       </button>
-    </div>
-  </div>
 
-  <!-- ── LANGUAGE ROW ── -->
-  <div id="lang-row">
-    <div class="lang-select-wrap">
-      <label>Source</label>
-      <select id="src-lang">
-        <option value="auto">Auto-detect</option>
-        <option value="en">English</option>
-        <option value="bn">Bengali</option>
-        <option value="es">Spanish</option>
-        <option value="fr">French</option>
-        <option value="de">German</option>
-        <option value="it">Italian</option>
-        <option value="pt">Portuguese</option>
-        <option value="ru">Russian</option>
-        <option value="ja">Japanese</option>
-        <option value="ko">Korean</option>
-        <option value="zh-CN">Chinese (Simplified)</option>
-        <option value="zh-TW">Chinese (Traditional)</option>
-        <option value="ar">Arabic</option>
-        <option value="hi">Hindi</option>
-        <option value="tr">Turkish</option>
-        <option value="pl">Polish</option>
-        <option value="nl">Dutch</option>
-        <option value="sv">Swedish</option>
-        <option value="da">Danish</option>
-        <option value="fi">Finnish</option>
-        <option value="no">Norwegian</option>
-        <option value="uk">Ukrainian</option>
-        <option value="vi">Vietnamese</option>
-        <option value="th">Thai</option>
-        <option value="id">Indonesian</option>
-        <option value="ms">Malay</option>
-        <option value="fa">Persian</option>
-        <option value="ur">Urdu</option>
-        <option value="he">Hebrew</option>
-        <option value="ro">Romanian</option>
-        <option value="hu">Hungarian</option>
-        <option value="cs">Czech</option>
-        <option value="el">Greek</option>
-        <option value="bg">Bulgarian</option>
-      </select>
-    </div>
-
-    <button id="swap-btn" title="Swap languages">
-      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6">
-        <path d="M11 2l3 3-3 3M2 5h12M5 14l-3-3 3-3M14 11H2"/>
-      </svg>
-    </button>
-
-    <div class="lang-select-wrap">
-      <label>Target</label>
-      <select id="tgt-lang">
-        <option value="en">English</option>
-        <option value="bn" selected>Bengali</option>
-        <option value="es">Spanish</option>
-        <option value="fr">French</option>
-        <option value="de">German</option>
-        <option value="it">Italian</option>
-        <option value="pt">Portuguese</option>
-        <option value="ru">Russian</option>
-        <option value="ja">Japanese</option>
-        <option value="ko">Korean</option>
-        <option value="zh-CN">Chinese (Simplified)</option>
-        <option value="zh-TW">Chinese (Traditional)</option>
-        <option value="ar">Arabic</option>
-        <option value="hi">Hindi</option>
-        <option value="tr">Turkish</option>
-        <option value="pl">Polish</option>
-        <option value="nl">Dutch</option>
-        <option value="sv">Swedish</option>
-        <option value="da">Danish</option>
-        <option value="fi">Finnish</option>
-        <option value="no">Norwegian</option>
-        <option value="uk">Ukrainian</option>
-        <option value="vi">Vietnamese</option>
-        <option value="th">Thai</option>
-        <option value="id">Indonesian</option>
-        <option value="ms">Malay</option>
-        <option value="fa">Persian</option>
-        <option value="ur">Urdu</option>
-        <option value="he">Hebrew</option>
-        <option value="ro">Romanian</option>
-        <option value="hu">Hungarian</option>
-        <option value="cs">Czech</option>
-        <option value="el">Greek</option>
-        <option value="bg">Bulgarian</option>
-      </select>
-    </div>
-  </div>
-
-  <!-- ── STATUS BAR ── -->
-  <div id="status-bar">
-    <button id="btn-mic" title="Start / Stop listening">
-      <svg id="mic-icon-on" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" width="14" height="14">
-        <rect x="5" y="1" width="6" height="9" rx="3"/>
-        <path d="M2 8a6 6 0 0012 0M8 14v-2"/>
-      </svg>
-      <svg id="mic-icon-off" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" width="14" height="14" style="display:none;">
-        <rect x="5" y="1" width="6" height="9" rx="3"/>
-        <path d="M2 8a6 6 0 0012 0M8 14v-2M2 2l12 12"/>
-      </svg>
-      <span id="status-text">Click to start listening</span>
-      <div id="waveform-mini">
-        <canvas id="mini-canvas"></canvas>
+      <div class="lang-select-wrap">
+        <select id="tgt-lang">
+          <option value="en">English</option>
+          <option value="bn" selected>Bengali</option>
+          <option value="es">Spanish</option>
+          <option value="fr">French</option>
+          <option value="de">German</option>
+          <option value="it">Italian</option>
+          <option value="pt">Portuguese</option>
+          <option value="ru">Russian</option>
+          <option value="ja">Japanese</option>
+          <option value="ko">Korean</option>
+          <option value="zh-CN">Chinese (Simplified)</option>
+          <option value="zh-TW">Chinese (Traditional)</option>
+          <option value="ar">Arabic</option>
+          <option value="hi">Hindi</option>
+          <option value="tr">Turkish</option>
+          <option value="pl">Polish</option>
+          <option value="nl">Dutch</option>
+          <option value="sv">Swedish</option>
+          <option value="da">Danish</option>
+          <option value="fi">Finnish</option>
+          <option value="no">Norwegian</option>
+          <option value="uk">Ukrainian</option>
+          <option value="vi">Vietnamese</option>
+          <option value="th">Thai</option>
+          <option value="id">Indonesian</option>
+          <option value="ms">Malay</option>
+          <option value="fa">Persian</option>
+          <option value="ur">Urdu</option>
+          <option value="he">Hebrew</option>
+          <option value="ro">Romanian</option>
+          <option value="hu">Hungarian</option>
+          <option value="cs">Czech</option>
+          <option value="el">Greek</option>
+          <option value="bg">Bulgarian</option>
+        </select>
       </div>
-    </button>
-  </div>
+    </div>
 
-  <!-- ── NO API WARNING ── -->
-  <div id="no-api-warning">
-    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6">
-      <path d="M8 1L15 14H1L8 1zM8 6v4M8 11.5v.5"/>
-    </svg>
-    No API profile configured. <a href="#" id="warning-settings-link" style="color:inherit;text-decoration:underline;cursor:pointer;">Open Settings</a>
-  </div>
+    <!-- ── BODY ── -->
+    <div id="body">
+      
+      <!-- DEFAULT TRANSLATE VIEW -->
+      <div id="translate-view" class="view-panel active">
+        <div id="panels-wrapper">
+          <!-- LEFT SIDE -->
+          <div class="panel-column">
+            <div id="draft-wrap" class="translation-panel">
+              <textarea id="draft-area" placeholder="Speak or type here…" spellcheck="false"></textarea>
+              
+              <div id="draft-stt-indicator" class="floating-controls top-right">
+                <div class="stt-dot"></div><span>Listening</span>
+              </div>
+              <button class="icon-btn floating-controls top-right-btn" id="btn-clear-draft" title="Clear draft" style="display:none;">
+                <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" width="12" height="12"><path d="M4 4l8 8M12 4l-8 8"/></svg>
+              </button>
+              <span id="silence-timer" style="display:none;"></span>
+            </div>
+            
+            <div class="panel-action-bar">
+              <button id="btn-mic" title="Start / Stop listening" class="modern-btn glass highlight-bg">
+                <svg id="mic-icon-on" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" width="14" height="14">
+                  <rect x="5" y="1" width="6" height="9" rx="3"/>
+                  <path d="M2 8a6 6 0 0012 0M8 14v-2"/>
+                </svg>
+                <svg id="mic-icon-off" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" width="14" height="14" style="display:none;">
+                  <rect x="5" y="1" width="6" height="9" rx="3"/>
+                  <path d="M2 8a6 6 0 0012 0M8 14v-2M2 2l12 12"/>
+                </svg>
+                <span id="status-text">Start Listening</span>
+                <div id="waveform-mini" style="display:none;"><canvas id="mini-canvas"></canvas></div>
+              </button>
+              <div class="split-btn-group">
+                <button id="btn-translate" class="modern-btn glass">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14">
+                    <path d="M5 8l6 6M4 14l6-6 2-3M2 5h12M7 2h1M22 22l-5-10-5 10M14 18h6"/>
+                  </svg>
+                  <span>Translate</span>
+                  <div class="spinner" id="translate-spinner"></div>
+                </button>
+                <button id="btn-translate-opt" class="modern-btn glass icon-only" title="Translation Priority">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18">
+                    <path d="M6 9l6 6 6-6"/>
+                  </svg>
+                </button>
 
-  <!-- ── MAIN BODY ── -->
-  <div id="body">
+                <div id="translate-menu" class="priority-menu glass">
+                  <div class="priority-menu-item" data-mode="ai" id="pri-ai">
+                    <div class="menu-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg></div>
+                    <div class="priority-menu-text">
+                      <div class="priority-menu-title">AI First</div>
+                      <div class="priority-menu-sub">Use LLM, fallback to Free</div>
+                    </div>
+                    <div class="menu-check"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg></div>
+                  </div>
+                  <div class="priority-menu-item" data-mode="regular" id="pri-free">
+                    <div class="menu-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg></div>
+                    <div class="priority-menu-text">
+                      <div class="priority-menu-title">FREE First</div>
+                      <div class="priority-menu-sub">Use free Google Translate</div>
+                    </div>
+                    <div class="menu-check"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
 
-    <!-- DRAFT -->
-    <div class="section">
-      <div class="section-label">
-        <span>Draft — What you said</span>
-        <div class="section-label-actions">
-          <span id="silence-timer" style="font-size:10px;color:var(--muted);display:none;"></span>
-          <button class="btn-sm" id="btn-copy-draft" title="Copy draft text">
+          <!-- RIGHT SIDE -->
+          <div class="panel-column">
+            <div id="output-wrap" class="translation-panel">
+              <textarea id="output-area" placeholder="Translation will appear here…" spellcheck="false"></textarea>
+              
+              <div class="floating-controls bottom-right flex-row">
+                <!-- Before/After toggle (hidden until humanize) -->
+                <button class="icon-btn glass" id="btn-toggle-humanize" title="Toggle before/after humanize" style="display:none;">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+                    <polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/>
+                    <polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/>
+                  </svg>
+                </button>
+                <button class="icon-btn glass" id="btn-copy-output" title="Copy translated text">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+                    <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+                  </svg>
+                </button>
+                <button class="icon-btn glass" id="btn-play-audio" title="Play Audio">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+                    <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"/>
+                  </svg>
+                </button>
+                <!-- TTS playback controls (hidden, shown during playback) -->
+                <button class="icon-btn glass tts-ctrl" id="btn-tts-prev" title="Previous paragraph" style="display:none;">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+                    <polygon points="11 19 2 12 11 5 11 19"/><line x1="22" y1="5" x2="22" y2="19"/>
+                  </svg>
+                </button>
+                <button class="icon-btn glass tts-ctrl" id="btn-tts-next" title="Next paragraph" style="display:none;">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+                    <polygon points="13 19 22 12 13 5 13 19"/><line x1="2" y1="5" x2="2" y2="19"/>
+                  </svg>
+                </button>
+                <button class="icon-btn glass tts-ctrl" id="btn-tts-download" title="Download entire voiceover as MP3" style="display:none;">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/>
+                  </svg>
+                </button>
+                <div class="tts-voice-wrapper tts-ctrl" id="tts-voice-wrapper">
+                  <button class="icon-btn glass" id="btn-tts-voice" title="Change voice">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+                      <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+                      <circle cx="12" cy="7" r="4"/>
+                    </svg>
+                  </button>
+                  <div class="tts-voice-dropdown" id="tts-voice-dropdown"></div>
+                </div>
+              </div>
+            </div>
+            
+            <div class="panel-action-bar right-align">
+              <button id="btn-humanize" class="modern-btn glass">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14">
+                  <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/>
+                </svg>
+                Humanize
+              </button>
+              <button id="btn-paste-output" class="modern-btn glass highlight" title="Paste into last active app (Shift+Alt+P)">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14">
+                  <path d="M5 12h14M12 5l7 7-7 7"/>
+                </svg>
+                Paste to App
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <!-- HISTORY SECTION -->
+      <div id="history-section" class="view-panel" style="display: none;">
+        <div class="history-header">
+          <span class="history-title">Translation History</span>
+          <button class="btn-sm danger" id="btn-clear-history">
             <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" width="12" height="12">
-              <rect x="5" y="5" width="8" height="9" rx="1.5"/>
-              <path d="M11 5V4a1 1 0 00-1-1H4a1 1 0 00-1 1v8a1 1 0 001 1h1"/>
+              <path d="M3 4h10M5 4V2h6v2M13 4l-1 9a1 1 0 01-1 1H5a1 1 0 01-1-1L3 4"/>
             </svg>
-            Copy
+            Clear
           </button>
         </div>
-      </div>
-      <div id="draft-wrap">
-        <textarea id="draft-area" placeholder="Speak or type here…" spellcheck="false"></textarea>
-        <div id="draft-stt-indicator">
-          <div class="stt-dot"></div>
-          <span>Listening</span>
+        <div class="history-list" id="history-list">
+          <div class="hist-empty" id="hist-empty">No translations yet</div>
         </div>
       </div>
-      <div class="draft-actions">
-        <button id="btn-translate">
-          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" width="14" height="14">
-            <path d="M2 3h6M5 3v2M2 5h6M8 3l4 9M10.5 8H15M12.5 3l-4 9"/>
-          </svg>
-          Translate
-          <div class="spinner" id="translate-spinner"></div>
-        </button>
-        <button class="btn-sm danger" id="btn-clear-draft" title="Clear draft">
-          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" width="12" height="12">
-            <path d="M4 4l8 8M12 4l-8 8"/>
-          </svg>
-          Clear
-        </button>
-      </div>
-    </div>
+      
+      <!-- PLAYGROUND -->
+      <div id="playground" class="view-panel" style="display: none;">
+        <!-- Input section -->
+        <div class="pg-input-section translation-panel" style="flex: none; height: 120px; margin-bottom: 16px;">
+           <textarea id="pg-draft-area" placeholder="Type text to translate into multiple languages…" spellcheck="false" style="padding-bottom: 40px;"></textarea>
+           
+           <div class="floating-controls bottom-right flex-row">
+             <div class="split-btn-group" style="flex: 1;">
+               <button id="btn-translate-all" class="modern-btn glass highlight-bg" style="flex: 1; padding: 4px 12px; font-size: 13px; font-family: var(--font); height: 28px;">
+                 <span>Translate All</span>
+                 <div class="spinner" id="translate-all-spinner"></div>
+               </button>
+               <button id="btn-translate-all-opt" class="modern-btn glass highlight-bg icon-only" title="Translation Priority" style="height: 28px;">
+                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18">
+                   <path d="M6 9l6 6 6-6"/>
+                 </svg>
+               </button>
+               
+               <div id="translate-all-menu" class="priority-menu glass">
+                 <div class="priority-menu-item" data-mode="ai" id="pri-all-ai">
+                   <div class="menu-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg></div>
+                   <div class="priority-menu-text">
+                     <div class="priority-menu-title">AI First</div>
+                     <div class="priority-menu-sub">Use LLM, fallback to Free</div>
+                   </div>
+                   <div class="menu-check"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg></div>
+                 </div>
+                 <div class="priority-menu-item" data-mode="regular" id="pri-all-free">
+                   <div class="menu-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg></div>
+                   <div class="priority-menu-text">
+                     <div class="priority-menu-title">FREE First</div>
+                     <div class="priority-menu-sub">Use free Google Translate</div>
+                   </div>
+                   <div class="menu-check"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg></div>
+                 </div>
+               </div>
+             </div>
+             <button class="icon-btn glass" id="btn-copy-all" title="Copy All">
+               <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" width="14" height="14">
+                 <rect x="5" y="5" width="8" height="9" rx="1.5"/>
+                 <path d="M11 5V4a1 1 0 00-1-1H4a1 1 0 00-1 1v8a1 1 0 001 1h1"/>
+               </svg>
+             </button>
+           </div>
+        </div>
 
-    <!-- OUTPUT -->
-    <div class="section">
-      <div class="section-label">
-        <span>Output</span>
-        <div class="section-label-actions">
-          <button class="btn-sm" id="btn-copy-output" title="Copy translated text">
-            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" width="12" height="12">
-              <rect x="5" y="5" width="8" height="9" rx="1.5"/>
-              <path d="M11 5V4a1 1 0 00-1-1H4a1 1 0 00-1 1v8a1 1 0 001 1h1"/>
+        <div class="playground-header">
+          <span class="playground-title">Output Languages</span>
+          <button class="btn-sm" id="btn-add-lang">
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" width="13" height="13">
+              <path d="M8 3v10M3 8h10"/>
             </svg>
-            Copy
+            Add Language
           </button>
         </div>
+        
+        <!-- Output sections 2 columns -->
+        <div id="pg-slots" class="pg-slots-grid"></div>
       </div>
-      <div id="output-wrap">
-        <textarea id="output-area" placeholder="Translation will appear here…" spellcheck="false"></textarea>
-      </div>
-      <div class="output-actions">
-        <button id="btn-paste-output" title="Paste into last active app (Shift+Alt+P)">
-          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" width="13" height="13">
-            <path d="M4 6h8M4 10h5M10 13l3-3-3-3"/>
-          </svg>
-          Paste to App
-          <span style="font-size:10px;opacity:0.6;margin-left:2px;">⇧⌥P</span>
-        </button>
-        <button id="btn-humanize" title="Humanize with AI">
-          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" width="12" height="12">
-            <path d="M8 1l1.5 4.5L14 7l-4.5 1.5L8 13l-1.5-4.5L2 7l4.5-1.5L8 1z"/>
-          </svg>
-          Humanize
-          <div class="spinner" id="humanize-spinner"></div>
-        </button>
-        <button id="btn-revert" title="Revert to original translation">
-          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" width="12" height="12">
-            <path d="M3 7a5 5 0 105 5M3 7V3M3 7H7"/>
-          </svg>
-          Revert
-        </button>
-      </div>
-    </div>
 
-    <!-- PLAYGROUND (expanded) -->
-    <div id="playground">
-      <div class="playground-header">
-        <span class="playground-title">Multi-Language Playground</span>
-        <button class="btn-sm" id="btn-copy-all">
-          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" width="12" height="12">
-            <rect x="5" y="5" width="8" height="9" rx="1.5"/>
-            <path d="M11 5V4a1 1 0 00-1-1H4a1 1 0 00-1 1v8a1 1 0 001 1h1"/>
-          </svg>
-          Copy All
-        </button>
-      </div>
-      <div id="pg-slots"></div>
-      <button id="btn-add-lang">
-        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" width="13" height="13">
-          <path d="M8 3v10M3 8h10"/>
-        </svg>
-        Add Language
-      </button>
-      <button id="btn-translate-all">
-        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" width="14" height="14">
-          <path d="M2 3h6M5 3v2M2 5h6M8 3l4 9M10.5 8H15M12.5 3l-4 9"/>
-        </svg>
-        Translate All
-      </button>
-    </div>
+    </div><!-- /#body -->
 
-    <!-- HISTORY TOGGLE -->
-    <button id="btn-toggle-history" class="history-toggle-btn">
-      <svg id="history-chevron" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" width="12" height="12">
-        <path d="M4 6l4 4 4-4"/>
-      </svg>
-      <span>Expand History</span>
-    </button>
-
-    <!-- HISTORY SECTION -->
-    <div id="history-section" style="display: none;">
-      <div class="history-header">
-        <span class="history-title">Translation History</span>
-        <button class="btn-sm danger" id="btn-clear-history">
-          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" width="12" height="12">
-            <path d="M3 4h10M5 4V2h6v2M13 4l-1 9a1 1 0 01-1 1H5a1 1 0 01-1-1L3 4"/>
-          </svg>
-          Clear
-        </button>
-      </div>
-      <div class="history-list" id="history-list">
-        <div class="hist-empty" id="hist-empty">No translations yet</div>
-      </div>
-    </div>
-
-  </div><!-- /#body -->
-
+  </div><!-- /#main-content -->
 </div><!-- /#card -->
 
 <!-- ════════════════════════════════════════════════
@@ -381,86 +456,23 @@
     <!-- ── PANEL: API Profiles ── -->
     <div class="sp-panel sp-panel-active" id="sp-panel-api-profiles">
 
-      <!-- Active profiles -->
+      <!-- Active profiles — vault-driven picker -->
       <div class="sp-card">
         <div class="sp-card-head">
           <div class="sp-card-icon">
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
           </div>
           <div>
-            <div class="sp-card-title">Active Profiles</div>
-            <div class="sp-card-sub">Click a profile to set it as active · ✕ to remove</div>
+            <div class="sp-card-title">Default LLM Profile</div>
+            <div class="sp-card-sub">Click a profile to set as active for Translator. Manage profiles in <strong>Settings → AI & API</strong>.</div>
           </div>
         </div>
-        <div id="profile-list"></div>
-      </div>
-
-      <!-- Add new profile form -->
-      <div class="sp-card" style="margin-top:12px;">
-        <div class="sp-card-head">
-          <div class="sp-card-icon" style="background:rgba(0,210,200,0.12);color:var(--accent2);">
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>
-          </div>
-          <div>
-            <div class="sp-card-title">Add New Profile</div>
-            <div class="sp-card-sub">OpenAI · Gemini · Claude · Mistral · Groq · Custom</div>
-          </div>
-        </div>
-
-        <div id="add-profile-form" style="display:flex;flex-direction:column;gap:11px;">
-          <div class="sp2-field">
-            <label class="sp2-label">Profile Name</label>
-            <input class="sp-input" id="sp-profile-name" placeholder="e.g. My Gemini Pro Key" type="text">
-          </div>
-          <div class="sp2-row sp2-row-2">
-            <div class="sp2-field">
-              <label class="sp2-label">Provider</label>
-              <select class="sp-select" id="sp-provider">
-                <option value="gemini">Google Gemini</option>
-                <option value="openai">OpenAI</option>
-                <option value="anthropic">Anthropic (Claude)</option>
-                <option value="mistral">Mistral</option>
-                <option value="groq">Groq</option>
-                <option value="openrouter">OpenRouter</option>
-                <option value="custom">Custom / Third-Party</option>
-              </select>
-            </div>
-            <div class="sp2-field" id="sp-model-field">
-              <label class="sp2-label">Model</label>
-              <select class="sp-select" id="sp-model">
-                <option value="gemini-3.1-pro-preview">gemini-3.1-pro</option>
-                <option value="gemini-2.5-pro">gemini-2.5-pro</option>
-                <option value="gemini-2.5-flash">gemini-2.5-flash</option>
-              </select>
-            </div>
-          </div>
-          <div class="sp2-field" id="sp-custom-url-field" style="display:none;">
-            <label class="sp2-label">API Base URL</label>
-            <input class="sp-input" id="sp-custom-url" placeholder="https://api.example.com/v1" type="url">
-          </div>
-          <div class="sp2-field" id="sp-custom-model-field" style="display:none;">
-            <label class="sp2-label">Model Name (exact)</label>
-            <input class="sp-input" id="sp-custom-model" placeholder="e.g. llama3-70b-8192" type="text">
-          </div>
-          <div class="sp2-field">
-            <label class="sp2-label">API Key</label>
-            <div style="position:relative;">
-              <input class="sp-input" id="sp-api-key" placeholder="Paste your secret API key here…" type="password" style="padding-right:42px;">
-              <button id="btn-toggle-key-vis" type="button" title="Show/hide key" style="position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:var(--muted);padding:2px;display:flex;">
-                <svg id="eye-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" width="14" height="14"><path d="M1 8s2.5-5 7-5 7 5 7 5-2.5 5-7 5-7-5-7-5z"/><circle cx="8" cy="8" r="2"/></svg>
-              </button>
-            </div>
-          </div>
-          <div style="display:flex;gap:8px;flex-wrap:wrap;">
-            <button class="sp-btn-primary" id="btn-add-profile">
-              <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.7" width="13" height="13"><path d="M8 3v10M3 8h10"/></svg>
-              Add Profile
-            </button>
-            <button class="sp-btn-ghost" id="btn-test-api" title="Test the API key with a sample request">
-              <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.7" width="13" height="13"><path d="M5 3l8 5-8 5V3z"/></svg>
-              Test Key
-            </button>
-          </div>
+        <div id="profile-list" style="padding:4px 0;"></div>
+        <div style="padding:6px 14px 12px;">
+          <button class="sp-btn-ghost" id="btn-open-vault" style="font-size:13px; font-family:var(--font); padding:5px 12px;">
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.7" width="12" height="12"><path d="M6 2H3a1 1 0 00-1 1v10a1 1 0 001 1h10a1 1 0 001-1v-3M10 2h4v4M7 9l7-7"/></svg>
+            Open AI & API Vault
+          </button>
         </div>
       </div>
 
@@ -479,7 +491,7 @@
         <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;">
           <div style="display:flex;flex-direction:column;gap:2px;">
             <label class="sp2-label" style="margin:0;">Enable Profile Fallback</label>
-            <span style="font-size:10.5px;color:var(--muted);line-height:1.4;">If the active profile fails, cycle through other saved profiles</span>
+            <span style="font-size:11px;color:var(--muted);line-height:1.4;font-family:var(--font);">If the active profile fails, cycle through other saved profiles</span>
           </div>
           <label class="sp2-toggle">
             <input type="checkbox" id="sp-fallback-enabled" checked>
@@ -492,7 +504,7 @@
         <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;">
           <div style="display:flex;flex-direction:column;gap:2px;">
             <label class="sp2-label" style="margin:0;">Google Translate Fallback</label>
-            <span style="font-size:10.5px;color:var(--muted);line-height:1.4;">If all AI profiles fail, fall back to free Google Translate</span>
+            <span style="font-size:11px;color:var(--muted);line-height:1.4;font-family:var(--font);">If all AI profiles fail, fall back to free Google Translate</span>
           </div>
           <label class="sp2-toggle">
             <input type="checkbox" id="sp-google-fallback" checked>
@@ -518,7 +530,7 @@
             <div class="sp-card-title">Translation Prompt</div>
             <div class="sp-card-sub">Template sent before each AI translation request</div>
           </div>
-          <button class="sp-btn-ghost" id="btn-reset-prompts" style="margin-left:auto; font-size: 11px; padding: 4px 8px; height:auto; min-width:auto;">Reset</button>
+          <button class="sp-btn-ghost" id="btn-reset-prompts" style="margin-left:auto; font-size: 13px; padding: 4px 8px; height:auto; min-width:auto; font-family:var(--font);">Reset</button>
         </div>
         <div class="sp2-field">
           <label class="sp2-label">System Prompt <span style="font-weight:400;color:var(--muted2);">(leave empty for default)</span></label>
@@ -582,15 +594,16 @@
             <div class="sp-card-title">Global Shortcuts</div>
             <div class="sp-card-sub">System-wide key combos for the translator</div>
           </div>
+          <button class="sp-btn-ghost" id="btn-reset-shortcuts" style="margin-left:auto; font-size: 13px; padding: 4px 8px; height:auto; min-width:auto; font-family:var(--font);" title="Reset to Defaults">Reset</button>
         </div>
         <div class="sp2-field">
           <label class="sp2-label">Open / Toggle Translator</label>
-          <input class="sp-input" id="sp-open-shortcut" type="text" placeholder="Shift+Alt+T">
+          <input class="sp-input" id="sp-open-shortcut" type="text" placeholder="Shift+Alt+T" readonly style="cursor:pointer; text-align:center;">
           <span class="sp-field-hint">Saved automatically on change</span>
         </div>
         <div class="sp2-field" style="margin-top:12px;">
           <label class="sp2-label">Paste Output to Active App</label>
-          <input class="sp-input" id="sp-paste-shortcut" type="text" placeholder="Shift+Alt+P">
+          <input class="sp-input" id="sp-paste-shortcut" type="text" placeholder="Shift+Alt+P" readonly style="cursor:pointer; text-align:center;">
           <span class="sp-field-hint">Injects the translated text wherever your cursor is</span>
         </div>
       </div>
@@ -655,7 +668,7 @@
           </div>
           <div class="sp2-field">
             <label class="sp2-label">Shortcut <span style="font-weight:400;color:var(--muted2);">(optional)</span></label>
-            <input class="sp-input" id="ps-shortcut" placeholder="e.g. Ctrl+Alt+1">
+            <input class="sp-input" id="ps-shortcut" placeholder="e.g. Ctrl+Alt+1" readonly style="cursor:pointer; text-align:center;">
           </div>
           <button class="sp-btn-primary" id="btn-add-preset" style="align-self:flex-start;">
             <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.7" width="13" height="13"><path d="M8 3v10M3 8h10"/></svg>

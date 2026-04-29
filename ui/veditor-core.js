@@ -11,10 +11,11 @@ const S = {
   zoomKeyframes: [],   // {timeSec, scale}
   currentTime: 0, playing: false, speed: 1,
   selectedSegId: null,  // currently selected segment
-  viewport: { radius: 0, padding: 0, shadow: 0, bg: 'none' },
+  viewport: { radius: 0, padding: 0, shadow: 0, bg: 'none', aspectRatio: 'original', bgMode: 'color', blurIntensity: 30, bgImageSrc: '' },
   tlZoom: 100,  // px per second for timeline
   tool: 'select', // select | split | zoom
   history: [], historyIdx: -1,
+  autoZoomApplied: false,
 };
 
 /* ── Helpers ── */
@@ -83,12 +84,62 @@ function toggleDeleteSegment(segId) {
   snapshot();
 }
 
-function resizeBoundary(leftId, rightId, newTimeSec) {
-  const left = S.segments.find(s => s.id === leftId);
-  const right = S.segments.find(s => s.id === rightId);
-  if (!left || !right) return;
-  const t = clamp(newTimeSec, left.startSec + 0.05, right.endSec - 0.05);
-  left.endSec = t; right.startSec = t;
+function resizeBoundary(leftId, rightId, newTimeSec, initialCut) {
+  const leftIdx = S.segments.findIndex(s => s.id === leftId);
+  const rightIdx = S.segments.findIndex(s => s.id === rightId);
+  if (leftIdx < 0 || rightIdx < 0) return;
+  const left = S.segments[leftIdx];
+  const right = S.segments[rightIdx];
+
+  // If one of them is already deleted, just adjust their shared boundary (shrinking/growing the gap)
+  if (left.isDeleted || right.isDeleted) {
+    const minT = left.isDeleted ? left.startSec : left.startSec + 0.05;
+    const maxT = right.isDeleted ? right.endSec : right.endSec - 0.05;
+    const t = clamp(newTimeSec, minT, maxT);
+    left.endSec = t;
+    right.startSec = t;
+    return;
+  }
+
+  // BOTH ARE ACTIVE. We want a Ripple Edit.
+  // We need to maintain a gap between them to represent the trimmed video.
+  
+  // First, check if we already inserted a gap between left and right during this drag session
+  let gap = null;
+  if (rightIdx === leftIdx + 2 && S.segments[leftIdx + 1].isDeleted) {
+    gap = S.segments[leftIdx + 1];
+  } else if (rightIdx === leftIdx + 1) {
+    // We haven't inserted a gap yet. Let's insert one with 0 duration at the initial cut point.
+    if (initialCut === undefined) initialCut = left.endSec;
+    gap = { id: genId(), startSec: initialCut, endSec: initialCut, isDeleted: true };
+    S.segments.splice(leftIdx + 1, 0, gap);
+  } else {
+    return; // Shouldn't happen
+  }
+
+  if (initialCut === undefined) initialCut = left.endSec;
+
+  // Clamp t to prevent shrinking segments too much
+  let t = clamp(newTimeSec, left.startSec + 0.05, right.endSec - 0.05);
+
+  if (t < initialCut) {
+    // Shorten left, gap covers the removed part
+    left.endSec = t;
+    gap.startSec = t;
+    gap.endSec = initialCut;
+    right.startSec = initialCut;
+  } else if (t > initialCut) {
+    // Shorten right, gap covers the removed part
+    left.endSec = initialCut;
+    gap.startSec = initialCut;
+    gap.endSec = t;
+    right.startSec = t;
+  } else {
+    left.endSec = t;
+    gap.startSec = t;
+    gap.endSec = t;
+    right.startSec = t;
+  }
 }
 
 /* ── Zoom Regions (replaces old keyframe diamonds) ── */
@@ -107,8 +158,23 @@ function zoomRegionOverlapsExisting(startSec, durationSec) {
 }
 
 function addZoomRegion(startSec, durationSec, scale, targetX, targetY) {
-  const dur = durationSec || 5;
-  // Block if it would overlap an existing region
+  let dur = durationSec || 5;
+
+  // Check if click is inside an existing region
+  const insideExisting = S.zoomKeyframes.find(r => startSec >= r.startSec && startSec < r.startSec + r.durationSec);
+  if (insideExisting) return null;
+
+  // Check if it overlaps a region to the right, and if so, shrink duration
+  for (const r of S.zoomKeyframes) {
+    if (r.startSec > startSec && r.startSec < startSec + dur) {
+      dur = r.startSec - startSec;
+    }
+  }
+
+  // Ensure minimum duration
+  if (dur < 0.5) dur = 0.5;
+
+  // Final check to block if the minimum duration still causes overlap
   if (zoomRegionOverlapsExisting(startSec, dur)) return null;
 
   const region = {
@@ -165,6 +231,45 @@ function removeZoomKF(idx) { S.zoomKeyframes.splice(idx, 1); snapshot(); }
 let cursorData = null; // {displayBounds, track: [{t, x, y}]}
 
 function setCursorData(data) { cursorData = data; }
+
+function processClicksToZooms(clicks, displayBounds) {
+  if (!clicks || !clicks.length) return;
+  
+  const COOLDOWN = 2.0; 
+  const PRE_CLICK = 1.5; 
+  
+  let currentGroup = null;
+  const groups = [];
+  
+  for (const c of clicks) {
+    if (!currentGroup) {
+      currentGroup = { startT: Math.max(0, c.t - PRE_CLICK), endT: c.t + COOLDOWN, x: c.x, y: c.y };
+      groups.push(currentGroup);
+    } else {
+      const newStart = c.t - PRE_CLICK;
+      if (newStart <= currentGroup.endT) {
+        // Overlaps, so merge
+        currentGroup.endT = Math.max(currentGroup.endT, c.t + COOLDOWN);
+        // keep recent target
+        currentGroup.x = c.x;
+        currentGroup.y = c.y;
+      } else {
+        // New group
+        currentGroup = { startT: Math.max(0, newStart), endT: c.t + COOLDOWN, x: c.x, y: c.y };
+        groups.push(currentGroup);
+      }
+    }
+  }
+  
+  for (const g of groups) {
+    const dur = g.endT - g.startT;
+    const nx = clamp((g.x - displayBounds.x) / displayBounds.width, 0, 1);
+    const ny = clamp((g.y - displayBounds.y) / displayBounds.height, 0, 1);
+    
+    // Check if it overlaps existing zooms (addZoomRegion already does this)
+    addZoomRegion(g.startT, dur, 2.5, nx, ny); // 2.5x zoom
+  }
+}
 
 // Get interpolated cursor position at time t (normalized 0-1)
 function getCursorPosAtTime(t) {
@@ -244,6 +349,15 @@ function getZoomAtTime(t) {
 
 /* ── Canvas Renderer ── */
 let lastRenderTime = 0;
+let bgImageObj = null; // cached Image for image backgrounds
+
+/* Helper: resolve aspect ratio string to numeric w/h ratio or null for original */
+function resolveAR(ar, vw, vh) {
+  if (!ar || ar === 'original') return vw / vh;
+  if (typeof ar === 'number') return ar;
+  const map = { '16:9': 16/9, '9:16': 9/16, '1:1': 1, '4:3': 4/3, '3:4': 3/4, '4:5': 4/5, '21:9': 21/9 };
+  return map[ar] || (vw / vh);
+}
 
 function renderFrame(canvas, video) {
   const ctx = canvas.getContext('2d');
@@ -254,14 +368,66 @@ function renderFrame(canvas, video) {
   lastRenderTime = now;
 
   const vw = video.videoWidth, vh = video.videoHeight;
-  const cw = canvas.width, ch = canvas.height;
-  const { radius, padding, shadow, bg } = S.viewport;
+  const { radius, padding, shadow, bg, aspectRatio, bgMode, blurIntensity, bgImageSrc } = S.viewport;
   const zoomInfo = getZoomAtTime(S.currentTime);
+
+  // Resolve target aspect ratio
+  const targetAR = resolveAR(aspectRatio, vw, vh);
+  const sourceAR = vw / vh;
+
+  // Set canvas dimensions based on target AR
+  const maxW = Math.min(vw, 1920), maxH = Math.min(vh, 1080);
+  let cw, ch;
+  if (Math.abs(targetAR - sourceAR) < 0.01) {
+    cw = maxW; ch = maxH;
+  } else if (targetAR > sourceAR) {
+    // Target is wider — height stays, width grows
+    ch = maxH; cw = Math.round(ch * targetAR);
+  } else {
+    // Target is taller — width stays, height grows
+    cw = maxW; ch = Math.round(cw / targetAR);
+  }
+  // Ensure even
+  cw = cw % 2 === 0 ? cw : cw + 1;
+  ch = ch % 2 === 0 ? ch : ch + 1;
+
+  if (canvas.width !== cw || canvas.height !== ch) {
+    canvas.width = cw; canvas.height = ch;
+  }
 
   ctx.clearRect(0, 0, cw, ch);
 
-  // Draw background
-  if (bg && bg !== 'none') {
+  // ── Compute video draw rect with padding ──
+  const pad = padding;
+  const availW = cw - pad * 2, availH = ch - pad * 2;
+  const scaleToFit = Math.min(availW / vw, availH / vh);
+  const dw = vw * scaleToFit, dh = vh * scaleToFit;
+  const dx = pad + (availW - dw) / 2, dy = pad + (availH - dh) / 2;
+
+  // ── Background layer (Static) ──
+  if (bgMode === 'blur') {
+    ctx.save();
+    const bgScale = Math.max(cw / vw, ch / vh);
+    const bw = vw * bgScale, bh = vh * bgScale;
+    const bx = (cw - bw) / 2, by = (ch - bh) / 2;
+    const sigma = blurIntensity || 30;
+    ctx.filter = `blur(${Math.round(sigma * 0.8)}px) brightness(0.5)`;
+    ctx.drawImage(video, bx - 10, by - 10, bw + 20, bh + 20);
+    ctx.restore();
+  } else if (bgMode === 'image' && bgImageObj) {
+    ctx.save();
+    const iAR = bgImageObj.naturalWidth / bgImageObj.naturalHeight;
+    const cAR = cw / ch;
+    let sx = 0, sy = 0, sw = bgImageObj.naturalWidth, sh = bgImageObj.naturalHeight;
+    if (iAR > cAR) { sw = bgImageObj.naturalHeight * cAR; sx = (bgImageObj.naturalWidth - sw) / 2; }
+    else { sh = bgImageObj.naturalWidth / cAR; sy = (bgImageObj.naturalHeight - sh) / 2; }
+    ctx.drawImage(bgImageObj, sx, sy, sw, sh, 0, 0, cw, ch);
+    if (blurIntensity > 0) {
+      ctx.filter = `blur(${Math.round(blurIntensity * 0.5)}px)`;
+      ctx.drawImage(bgImageObj, sx, sy, sw, sh, -6, -6, cw + 12, ch + 12);
+    }
+    ctx.restore();
+  } else if (bg && bg !== 'none') {
     if (bg.startsWith('linear-gradient')) {
       const m = bg.match(/linear-gradient\(([^,]+),([^,)]+),([^)]+)\)/);
       if (m) {
@@ -276,37 +442,9 @@ function renderFrame(canvas, video) {
     ctx.fillRect(0, 0, cw, ch);
   }
 
-  // Compute video draw rect with padding
-  const pad = padding;
-  const availW = cw - pad * 2, availH = ch - pad * 2;
-  const scaleToFit = Math.min(availW / vw, availH / vh);
-  const dw = vw * scaleToFit, dh = vh * scaleToFit;
-  const dx = pad + (availW - dw) / 2, dy = pad + (availH - dh) / 2;
-
   ctx.save();
 
-  // Shadow
-  if (shadow > 0) {
-    ctx.shadowColor = 'rgba(0,0,0,0.6)';
-    ctx.shadowBlur = shadow;
-    ctx.shadowOffsetY = shadow * 0.3;
-  }
-
-  // Clip rounded corners
-  if (radius > 0) {
-    const r = Math.min(radius, dw/2, dh/2);
-    ctx.beginPath();
-    ctx.roundRect(dx, dy, dw, dh, r);
-    ctx.clip();
-    if (shadow > 0) {
-      ctx.fillStyle = '#000';
-      ctx.beginPath();
-      ctx.roundRect(dx, dy, dw, dh, r);
-      ctx.fill();
-    }
-  }
-
-  // Apply zoom with cinematic camera tracking
+  // Apply zoom with cinematic camera tracking to the video layer
   const zoom = zoomInfo.scale;
   if (zoom > 1) {
     // Smooth the camera target for cinematic motion
@@ -329,9 +467,47 @@ function renderFrame(canvas, video) {
     camX = 0.5; camY = 0.5;
   }
 
+  // Shadow — draw a shape behind the video to cast shadow from
+  if (shadow > 0) {
+    ctx.save();
+    ctx.shadowColor = 'rgba(0,0,0,0.6)';
+    ctx.shadowBlur = shadow;
+    ctx.shadowOffsetY = shadow * 0.3;
+    ctx.fillStyle = '#000';
+    if (radius > 0) {
+      const r = Math.min(radius, dw/2, dh/2);
+      ctx.beginPath();
+      ctx.roundRect(dx, dy, dw, dh, r);
+      ctx.fill();
+    } else {
+      ctx.fillRect(dx, dy, dw, dh);
+    }
+    ctx.restore();
+  }
+
+  // Clip rounded corners
+  if (radius > 0) {
+    const r = Math.min(radius, dw/2, dh/2);
+    ctx.beginPath();
+    ctx.roundRect(dx, dy, dw, dh, r);
+    ctx.clip();
+  }
+
   ctx.drawImage(video, dx, dy, dw, dh);
-  ctx.filter = 'none';
   ctx.restore();
+}
+
+/* ── Export-specific renderer: deterministic dt for consistent spring physics ── */
+function renderFrameForExport(canvas, video, fps) {
+  // Force a deterministic dt = 1/fps so spring physics produce consistent results
+  lastRenderTime = performance.now() - (1000 / (fps || 30));
+  renderFrame(canvas, video);
+}
+
+/* Reset camera state (call before starting export) */
+function resetCameraState() {
+  camX = 0.5; camY = 0.5;
+  lastRenderTime = 0;
 }
 
 /* ── Waveform Generator ── */

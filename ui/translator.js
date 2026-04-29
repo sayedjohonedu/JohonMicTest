@@ -3,6 +3,19 @@
 
 const API = window.translatorAPI;
 
+// ── Vault cache (loaded at init, refreshed on config changes) ──
+let _vaultLlmProfiles = [];
+let _vaultDefaultProfile = null;
+
+async function _refreshVaultCache() {
+  try {
+    _vaultLlmProfiles = await API.vaultGetLlmProfiles() || [];
+    _vaultDefaultProfile = await API.vaultGetDefaultForFeature('translator') || _vaultLlmProfiles[0] || null;
+  } catch (e) {
+    console.warn('[Translator] Failed to refresh vault cache:', e);
+  }
+}
+
 const DEFAULT_HUMANIZE_PROMPT = `# SYSTEM PROMPT: THE EXPERT HUMANIZER AGENT
 
 ## ROLE AND CORE OBJECTIVE
@@ -56,7 +69,9 @@ let playgroundOpen   = false;
 let settingsOpen     = false;
 let historyEntries   = [];
 let pgSlots          = [];             // [{ id, langEl, outputEl }]
-let preHumanizedText = null;           // for Revert
+let preHumanizedText = null;           // stores text before humanize
+let humanizedText    = null;           // stores text after humanize
+let showingHumanized = true;           // true = showing humanized, false = showing original
 let silenceSeconds   = 0;
 let silenceTimer     = null;
 let pgSlotCounter    = 0;
@@ -82,12 +97,19 @@ const outputArea        = document.getElementById('output-area');
 const btnCopyOutput     = document.getElementById('btn-copy-output');
 const btnPaste          = document.getElementById('btn-paste-output');
 const btnHumanize       = document.getElementById('btn-humanize');
-const humanizeSpinner   = document.getElementById('humanize-spinner');
-const btnRevert         = document.getElementById('btn-revert');
+const btnToggleHumanize = document.getElementById('btn-toggle-humanize');
+const btnPlayAudio      = document.getElementById('btn-play-audio');
+const btnTtsPrev        = document.getElementById('btn-tts-prev');
+const btnTtsNext        = document.getElementById('btn-tts-next');
+const btnTtsDownload    = document.getElementById('btn-tts-download');
+const btnTtsVoice       = document.getElementById('btn-tts-voice');
+const ttsVoiceDropdown  = document.getElementById('tts-voice-dropdown');
+const ttsVoiceWrapper   = document.getElementById('tts-voice-wrapper');
 
 const btnCopyDraft      = document.getElementById('btn-copy-draft');
 const btnExpandPG       = document.getElementById('btn-expand-playground');
 const playground        = document.getElementById('playground');
+const pgDraftArea       = document.getElementById('pg-draft-area');
 const pgSlotsEl         = document.getElementById('pg-slots');
 const btnAddLang        = document.getElementById('btn-add-lang');
 const btnTranslateAll   = document.getElementById('btn-translate-all');
@@ -111,23 +133,31 @@ const micIconOff        = document.getElementById('mic-icon-off');
 const btnToggleHistory  = document.getElementById('btn-toggle-history');
 const historyChevron    = document.getElementById('history-chevron');
 
-/* Settings pane fields */
-const spProvider            = document.getElementById('sp-provider');
-const spModel               = document.getElementById('sp-model');
-const spModelField          = document.getElementById('sp-model-field');
-const spCustomUrlField      = document.getElementById('sp-custom-url-field');
-const spCustomModelField    = document.getElementById('sp-custom-model-field');
-const spCustomUrl           = document.getElementById('sp-custom-url');
-const spCustomModel         = document.getElementById('sp-custom-model');
-const spApiKey              = document.getElementById('sp-api-key');
-const spProfileName         = document.getElementById('sp-profile-name');
+/* Priority Menus */
+const btnTranslateOpt    = document.getElementById('btn-translate-opt');
+const translateMenu      = document.getElementById('translate-menu');
+const btnTranslateAllOpt = document.getElementById('btn-translate-all-opt');
+const translateAllMenu   = document.getElementById('translate-all-menu');
+
+/* Settings pane fields (removed: old CRUD form elements — now vault-driven) */
+const spProvider            = null; // removed
+const spModel               = null; // removed
+const spModelField          = null; // removed
+const spCustomUrlField      = null; // removed
+const spCustomModelField    = null; // removed
+const spCustomUrl           = null; // removed
+const spCustomModel         = null; // removed
+const spApiKey              = null; // removed
+const spProfileName         = null; // removed
 const profileList           = document.getElementById('profile-list');
-const btnAddProfile         = document.getElementById('btn-add-profile');
+const btnAddProfile         = null; // removed — profiles managed in AI & API vault
+const btnOpenVault          = document.getElementById('btn-open-vault');
 const spSystemPrompt        = document.getElementById('sp-system-prompt');
 const spSystemInstructions  = document.getElementById('sp-system-instructions');
 const btnResetPrompts       = document.getElementById('btn-reset-prompts');
 const spOpenShortcut        = document.getElementById('sp-open-shortcut');
 const spPasteShortcut       = document.getElementById('sp-paste-shortcut');
+const btnResetShortcuts     = document.getElementById('btn-reset-shortcuts');
 const presetsList           = document.getElementById('presets-list');
 const psSrc                 = document.getElementById('ps-src');
 const psTgt                 = document.getElementById('ps-tgt');
@@ -202,10 +232,59 @@ const PROVIDER_MODELS = {
 };
 
 
+/* ─── Priority Menus ────────────────────────────────────────── */
+function setupPriorityMenus() {
+  function toggleMenu(menu) {
+    if (!menu) return;
+    const isVisible = menu.classList.contains('visible');
+    document.querySelectorAll('.priority-menu').forEach(m => m.classList.remove('visible'));
+    if (!isVisible) menu.classList.add('visible');
+  }
+
+  if (btnTranslateOpt) {
+    btnTranslateOpt.addEventListener('click', (e) => { e.stopPropagation(); toggleMenu(translateMenu); });
+  }
+  if (btnTranslateAllOpt) {
+    btnTranslateAllOpt.addEventListener('click', (e) => { e.stopPropagation(); toggleMenu(translateAllMenu); });
+  }
+
+  document.addEventListener('click', (e) => {
+    if (!e.target.closest('.split-btn-group')) {
+      document.querySelectorAll('.priority-menu').forEach(m => m.classList.remove('visible'));
+    }
+  });
+
+  document.querySelectorAll('.priority-menu-item').forEach(item => {
+    item.addEventListener('click', () => {
+      const mode = item.dataset.mode;
+      cfg.translatorMode = mode;
+      isAiMode = (mode === 'ai');
+      API.saveSettings({ translatorMode: mode });
+      updatePriorityMenuUI();
+      document.querySelectorAll('.priority-menu').forEach(m => m.classList.remove('visible'));
+      
+      // Feedback toast
+      showToast(`Priority set to: ${mode === 'ai' ? 'AI First' : 'FREE First'}`);
+    });
+  });
+}
+
+function updatePriorityMenuUI() {
+  const mode = isAiMode ? 'ai' : 'regular';
+  document.querySelectorAll('.priority-menu-item').forEach(item => {
+    item.classList.toggle('active', item.dataset.mode === mode);
+  });
+}
+
 /* ─── Init ──────────────────────────────────────────────────── */
 async function init() {
+  setupPriorityMenus();
   cfg = await API.getConfig();
+  await _refreshVaultCache();   // Load vault LLM profiles for translator
+  
+  // Default to FREE if translatorMode isn't explicitly set to 'ai'
   isAiMode = cfg.translatorMode === 'ai';
+  updatePriorityMenuUI();
   historyEntries = cfg.translatorHistory || [];
 
   // ── Restore persisted language combination (default: en → bn on first launch)
@@ -235,10 +314,24 @@ async function init() {
     }
   });
 
+  // ── Restore TTS voice preferences per language
+  if (cfg.ttsVoicePrefs && typeof cfg.ttsVoicePrefs === 'object') {
+    tts.voicePrefs = cfg.ttsVoicePrefs;
+  }
+
   if (cfg.theme) applyTheme(cfg.theme);
   API.onConfigUpdate((newCfg) => {
     if (newCfg.theme) applyTheme(newCfg.theme);
   });
+
+  // Live-sync: refresh vault cache whenever profiles change in another window
+  if (API.onVaultUpdate) {
+    API.onVaultUpdate(async () => {
+      await _refreshVaultCache();
+      updateModeUI();
+      renderProfiles(); // Refresh the settings picker too if it's open
+    });
+  }
 }
 
 function applyTheme(themeVal) {
@@ -293,9 +386,11 @@ function updateModeUI() {
 }
 
 function hasActiveProfile() {
-  const profiles = cfg.translatorApiProfiles || [];
-  const activeId = cfg.translatorActiveProfileId;
-  return profiles.length > 0 && (activeId ? profiles.find(p => p.id === activeId) : true);
+  return _vaultLlmProfiles.length > 0;
+}
+
+function getActiveProfile() {
+  return _vaultDefaultProfile || _vaultLlmProfiles[0] || null;
 }
 
 /* ─── Draft ───────────────────────────────────────────────────*/
@@ -329,6 +424,7 @@ async function doTranslate() {
   if (!text) { showToast('Nothing to translate'); return; }
 
   setTranslating(true);
+  if (typeof tts !== 'undefined' && tts.isPlaying) tts.stop();
   try {
     const result = await translateWithFallback(text);
 
@@ -338,7 +434,10 @@ async function doTranslate() {
       outputArea.value = result.text;
       outputArea.classList.add('has-content');
       preHumanizedText = null;
-      btnRevert.classList.remove('visible');
+      humanizedText = null;
+      showingHumanized = true;
+      btnToggleHumanize.style.display = 'none';
+      btnToggleHumanize.classList.remove('showing-original');
       if (result.fallbackUsed) {
         showToast(`⚠ Fallback: ${result.fallbackUsed}`, 3000);
       }
@@ -367,7 +466,7 @@ async function translateWithFallback(text) {
   }
 
   const activeProfile = getActiveProfile();
-  const allProfiles = cfg.translatorApiProfiles || [];
+  const allProfiles = _vaultLlmProfiles;
   const fallbackEnabled = cfg.translatorFallbackEnabled !== false;
   const googleFallback  = cfg.translatorGoogleFallback !== false;
 
@@ -377,7 +476,7 @@ async function translateWithFallback(text) {
     if (!result.error) return result;
     console.warn(`[Translator] Active profile "${activeProfile.name}" failed:`, result.error);
 
-    // 2. If fallback enabled, cycle through other profiles
+    // 2. If fallback enabled, cycle through other profiles from the vault
     if (fallbackEnabled && allProfiles.length > 1) {
       const otherProfiles = allProfiles.filter(p => p.id !== activeProfile.id);
       for (const profile of otherProfiles) {
@@ -414,8 +513,11 @@ async function translateWithFallback(text) {
 
 function setTranslating(on) {
   btnTranslate.classList.toggle('loading', on);
-  translateSpinner.classList.toggle('visible', on);
-  btnTranslate.querySelector('svg').style.display = on ? 'none' : '';
+  if (translateSpinner) translateSpinner.classList.toggle('visible', on);
+  const svg = btnTranslate.querySelector('svg');
+  if (svg) svg.style.display = on ? 'none' : '';
+  const span = btnTranslate.querySelector('span');
+  if (span) span.textContent = on ? 'Translating...' : 'Translate';
 }
 
 /* ─── Humanize (with profile fallback chain) ──────────────────*/
@@ -428,7 +530,7 @@ btnHumanize.addEventListener('click', async () => {
   if (!activeProfile) { showToast('No API profile — configure in Settings'); return; }
 
   preHumanizedText = text;
-  humanizeSpinner.classList.add('visible');
+  btnHumanize.classList.add('loading');
   btnHumanize.style.pointerEvents = 'none';
 
   try {
@@ -438,7 +540,10 @@ btnHumanize.addEventListener('click', async () => {
       preHumanizedText = null;
     } else {
       outputArea.value = result.text;
-      btnRevert.classList.add('visible');
+      humanizedText = result.text;
+      showingHumanized = true;
+      btnToggleHumanize.style.display = '';
+      btnToggleHumanize.classList.remove('showing-original');
       if (result.fallbackUsed) {
         showToast(`⚠ Fallback: ${result.fallbackUsed}`, 3000);
       }
@@ -449,7 +554,7 @@ btnHumanize.addEventListener('click', async () => {
     console.error(e);
   }
 
-  humanizeSpinner.classList.remove('visible');
+  btnHumanize.classList.remove('loading');
   btnHumanize.style.pointerEvents = '';
 });
 
@@ -461,7 +566,7 @@ async function humanizeWithFallback(text) {
   };
 
   const activeProfile = getActiveProfile();
-  const allProfiles = cfg.translatorApiProfiles || [];
+  const allProfiles = _vaultLlmProfiles;
   const fallbackEnabled = cfg.translatorFallbackEnabled !== false;
 
   // 1. Try the active profile first
@@ -490,12 +595,22 @@ async function humanizeWithFallback(text) {
   return { error: 'No API profile configured.' };
 }
 
-btnRevert.addEventListener('click', () => {
-  if (preHumanizedText) {
+btnToggleHumanize.addEventListener('click', () => {
+  if (!preHumanizedText || !humanizedText) return;
+  if (showingHumanized) {
+    // Show original (before humanize)
     outputArea.value = preHumanizedText;
-    preHumanizedText = null;
-    btnRevert.classList.remove('visible');
-    showToast('Reverted');
+    showingHumanized = false;
+    btnToggleHumanize.classList.add('showing-original');
+    btnToggleHumanize.title = 'Show humanized version';
+    showToast('Showing original');
+  } else {
+    // Show humanized
+    outputArea.value = humanizedText;
+    showingHumanized = true;
+    btnToggleHumanize.classList.remove('showing-original');
+    btnToggleHumanize.title = 'Show original version';
+    showToast('Showing humanized');
   }
 });
 
@@ -536,7 +651,10 @@ async function doPaste() {
   outputArea.value = '';
   outputArea.classList.remove('has-content');
   preHumanizedText = null;
-  btnRevert.classList.remove('visible');
+  humanizedText = null;
+  showingHumanized = true;
+  btnToggleHumanize.style.display = 'none';
+  btnToggleHumanize.classList.remove('showing-original');
   resetSilenceTimer();
 }
 
@@ -560,6 +678,7 @@ function resetSilenceTimer() {
 
 /* ─── Swap languages ─────────────────────────────────────────*/
 swapBtn.addEventListener('click', () => {
+  if (typeof tts !== 'undefined' && tts.isPlaying) tts.stop();
   const s = srcLang.value;
   const t = tgtLang.value;
   // src can't be 'auto' after swap
@@ -610,14 +729,52 @@ function drawMiniWave(data) {
 }
 
 /* ─────────────────────────────────────────────────────────────
+   SIDEBAR NAVIGATION
+───────────────────────────────────────────────────────────────*/
+const navItems = document.querySelectorAll('.sb-nav-item');
+const viewPanels = document.querySelectorAll('.view-panel');
+
+function switchMainView(viewId) {
+  navItems.forEach(nav => {
+    if (nav.id === 'btn-settings') return;
+    if (nav.dataset.view === viewId || (viewId === 'playground' && nav.id === 'btn-expand-playground')) {
+      nav.classList.add('active');
+    } else {
+      nav.classList.remove('active');
+    }
+  });
+
+  viewPanels.forEach(panel => {
+    if (panel.id === viewId || (viewId === 'translate' && panel.id === 'translate-view') || (viewId === 'history' && panel.id === 'history-section')) {
+      panel.classList.add('active');
+      if (panel.id === 'playground') {
+        panel.style.display = 'flex';
+      } else {
+        panel.style.display = '';
+      }
+    } else {
+      panel.classList.remove('active');
+      panel.style.display = 'none';
+    }
+  });
+
+  if (viewId === 'playground' && pgSlots.length === 0) {
+    addPgSlot();
+  }
+}
+
+navItems.forEach(item => {
+  item.addEventListener('click', () => {
+    if (item.id === 'btn-settings') return;
+    let targetView = item.dataset.view;
+    if (item.id === 'btn-expand-playground') targetView = 'playground';
+    if (targetView) switchMainView(targetView);
+  });
+});
+
+/* ─────────────────────────────────────────────────────────────
    PLAYGROUND
 ───────────────────────────────────────────────────────────────*/
-btnExpandPG.addEventListener('click', () => {
-  playgroundOpen = !playgroundOpen;
-  playground.classList.toggle('open', playgroundOpen);
-  btnExpandPG.classList.toggle('active', playgroundOpen);
-  if (playgroundOpen && pgSlots.length === 0) addPgSlot();
-});
 
 btnAddLang.addEventListener('click', () => {
   if (pgSlots.length >= 6) { showToast('Maximum 6 language slots'); return; }
@@ -639,15 +796,15 @@ function addPgSlot() {
     </div>
     <textarea class="pg-slot-output" placeholder="Translation will appear here…" spellcheck="false"></textarea>
     <div class="pg-slot-actions">
-      <button class="btn-sm pg-copy" style="flex:1;" title="Copy this translation">
-        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" width="11" height="11">
+      <button class="modern-btn glass pg-copy" style="flex:1; padding: 6px; font-size: 12px; height: 30px;" title="Copy this translation">
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" width="12" height="12">
           <rect x="5" y="5" width="8" height="9" rx="1.5"/>
           <path d="M11 5V4a1 1 0 00-1-1H4a1 1 0 00-1 1v8a1 1 0 001 1h1"/>
         </svg>
         Copy
       </button>
-      <button class="btn-sm pg-paste" style="flex:1;" title="Paste this translation">
-        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" width="11" height="11">
+      <button class="modern-btn glass pg-paste" style="flex:1; padding: 6px; font-size: 12px; height: 30px;" title="Paste this translation">
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" width="12" height="12">
           <path d="M4 6h8M4 10h5M10 13l3-3-3-3"/>
         </svg>
         Paste
@@ -678,10 +835,20 @@ function addPgSlot() {
   pgSlots.push({ id, langEl, outputEl: outEl });
 }
 
-btnTranslateAll.addEventListener('click', async () => {
-  const text = draftArea.value.trim();
-  if (!text) { showToast('Add some text to the draft first'); return; }
+const translateAllSpinner = document.getElementById('translate-all-spinner');
 
+function setTranslateAllLoading(on) {
+  btnTranslateAll.classList.toggle('loading', on);
+  if (translateAllSpinner) translateAllSpinner.classList.toggle('visible', on);
+  const span = btnTranslateAll.querySelector('span');
+  if (span) span.textContent = on ? 'Translating...' : 'Translate All';
+}
+
+btnTranslateAll.addEventListener('click', async () => {
+  const text = pgDraftArea.value.trim();
+  if (!text) { showToast('Add some text to translate first'); return; }
+
+  setTranslateAllLoading(true);
   for (const slot of pgSlots) {
     slot.outputEl.value = 'Translating…';
     try {
@@ -697,7 +864,7 @@ btnTranslateAll.addEventListener('click', async () => {
         r = await API.translate({ ...basePayload, mode: 'regular', profile: null });
       } else {
         const activeProfile = getActiveProfile();
-        const allProfiles = cfg.translatorApiProfiles || [];
+        const allProfiles = _vaultLlmProfiles;
         const fallbackEnabled = cfg.translatorFallbackEnabled !== false;
         const googleFallback  = cfg.translatorGoogleFallback !== false;
 
@@ -724,6 +891,7 @@ btnTranslateAll.addEventListener('click', async () => {
       slot.outputEl.value = '⚠ Failed';
     }
   }
+  setTranslateAllLoading(false);
 });
 
 btnCopyAll.addEventListener('click', () => {
@@ -742,16 +910,7 @@ btnCopyAll.addEventListener('click', () => {
 
 let historyOpen = false;
 
-if (btnToggleHistory) {
-  btnToggleHistory.addEventListener('click', () => {
-    historyOpen = !historyOpen;
-    document.getElementById('history-section').style.display = historyOpen ? 'block' : 'none';
-    if (historyChevron) {
-      historyChevron.style.transition = 'transform 0.2s ease';
-      historyChevron.style.transform = historyOpen ? 'rotate(180deg)' : 'rotate(0deg)';
-    }
-  });
-}
+// History toggle logic replaced by sidebar navigation
 
 function saveToHistory(translated) {
   const entry = {
@@ -911,36 +1070,61 @@ if (btnToggleKeyVis && spApiKey) {
   });
 }
 
-/* ── Test Key button ── */
-const btnTestApi = document.getElementById('btn-test-api');
-if (btnTestApi) {
-  btnTestApi.addEventListener('click', async () => {
-    const key = spApiKey.value.trim();
-    if (!key) { showToast('Enter an API key first'); return; }
-    const prov = spProvider.value;
-    const model = prov === 'custom' ? spCustomModel.value : spModel.value;
-    const testProfile = { provider: prov, model, apiKey: key, baseUrl: spCustomUrl.value.trim(), modelName: model };
-    btnTestApi.disabled = true;
-    btnTestApi.textContent = 'Testing…';
-    try {
-      const res = await API.translate({ text: 'Hello', src: 'en', tgt: 'es', mode: 'ai', profile: testProfile });
-      if (res && res.text) {
-        showToast(`✓ Works! "Hello" → "${res.text}"`, 3000);
-      } else {
-        showToast(`✗ ${res?.error || 'Test failed'}`, 3000);
-      }
-    } catch (e) {
-      showToast(`✗ ${e.message || 'Request error'}`, 3000);
-    }
-    btnTestApi.disabled = false;
-    btnTestApi.innerHTML = '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.7" width="13" height="13"><path d="M5 3l8 5-8 5V3z"/></svg> Test Key';
-  });
-}
+/* ── Test Key button — removed (now in AI & API Vault) ── */
+/* Old btn-test-api handler removed — form no longer exists */
 
 function syncSilenceDurationRow() {
   spSilenceDurationRow.style.opacity       = spSilenceEnabled.checked ? '1' : '0.4';
   spSilenceDurationRow.style.pointerEvents = spSilenceEnabled.checked ? '' : 'none';
 }
+
+/* ── Shortcut Recording ── */
+function comboFromEvent(e) {
+  const parts = []; if (e.metaKey || e.ctrlKey) parts.push('CommandOrControl'); if (e.shiftKey) parts.push('Shift'); if (e.altKey) parts.push('Alt');
+  let rawKey = null; const IGNORE = ['Meta','Control','Shift','Alt','CapsLock','Tab','Escape'];
+  if (!IGNORE.includes(e.key) && !IGNORE.includes(e.code)) {
+    if (e.code && e.code.startsWith('Key')) rawKey = e.code.substring(3); else if (e.code && e.code.startsWith('Digit')) rawKey = e.code.substring(5); else if (/^F([1-9]|1[0-2])$/.test(e.code)) rawKey = e.code; else if (e.code === 'Space' || e.key === ' ') rawKey = 'Space'; else rawKey = e.key.length === 1 ? e.key.toUpperCase() : e.key;
+  }
+  if (rawKey) parts.push(rawKey); const hasMod = parts.some(p => ['CommandOrControl','Shift','Alt'].includes(p)), hasKey = !!rawKey;
+  return (hasKey && (hasMod || /^F([1-9]|1[0-2])$/.test(rawKey))) ? parts.join('+') : null;
+}
+
+function setupShortcutInput(inputEl) {
+  if (!inputEl) return;
+  inputEl.addEventListener('focus', () => {
+    inputEl.dataset.original = inputEl.value;
+    inputEl.value = 'Press shortcut...';
+    inputEl.style.color = 'var(--accent)';
+    if (window.API && window.API.suspendHotkeys) window.API.suspendHotkeys();
+  });
+  inputEl.addEventListener('blur', () => {
+    if (inputEl.value === 'Press shortcut...') {
+      inputEl.value = inputEl.dataset.original || '';
+    }
+    inputEl.style.color = '';
+    if (window.API && window.API.resumeHotkeys) window.API.resumeHotkeys();
+  });
+  inputEl.addEventListener('keydown', (e) => {
+    e.preventDefault(); e.stopPropagation();
+    if (e.key === 'Escape') {
+      inputEl.value = inputEl.dataset.original || '';
+      inputEl.blur();
+      return;
+    }
+    const combo = comboFromEvent(e);
+    if (combo) {
+      inputEl.value = combo;
+      inputEl.blur();
+      // Auto-save logic triggers via the existing btnSpSave but to be seamless, let's just mark it done.
+    }
+  });
+}
+
+// Attach to shortcut inputs
+setupShortcutInput(spOpenShortcut);
+setupShortcutInput(spPasteShortcut);
+setupShortcutInput(psShortcut);
+
 
 function loadSettingsForm() {
   spSystemPrompt.value       = cfg.translatorSystemPrompt || '';
@@ -978,6 +1162,13 @@ if (btnResetPrompts) {
   });
 }
 
+if (btnResetShortcuts) {
+  btnResetShortcuts.addEventListener('click', () => {
+    spOpenShortcut.value = 'Shift+Alt+T';
+    spPasteShortcut.value = 'Shift+Alt+P';
+  });
+}
+
 btnSpSave.addEventListener('click', async () => {
   // Compute silence timeout in seconds
   const silenceEnabled = spSilenceEnabled.checked;
@@ -1006,121 +1197,70 @@ btnSpSave.addEventListener('click', async () => {
   updateModeUI();
 });
 
-/* ── Provider / Model dynamic ── */
-spProvider.addEventListener('change', () => updateProviderUI());
+/* ── Provider / Model dynamic — removed (now in AI & API Vault) ── */
+/* Old spProvider.addEventListener removed — form elements no longer exist */
 
 function updateProviderUI() {
-  const prov = spProvider.value;
-  const isCustom = prov === 'custom';
-  spCustomUrlField.style.display   = isCustom ? '' : 'none';
-  spCustomModelField.style.display = isCustom ? '' : 'none';
-  spModelField.style.display       = isCustom ? 'none' : '';
-
-  if (!isCustom) {
-    const models = PROVIDER_MODELS[prov] || [];
-    spModel.innerHTML = models.map(m => `<option value="${m}">${m}</option>`).join('');
-  }
+  // No-op — provider UI now lives in the main settings vault panel
 }
 
-/* ── Profile management ── */
-btnAddProfile.addEventListener('click', () => {
-  const name = spProfileName.value.trim();
-  const key  = spApiKey.value.trim();
-  if (!name) { showToast('Enter a profile name'); return; }
-  if (!key)  { showToast('Enter an API key'); return; }
+/* ── Profile management — now vault-driven ── */
+/* Old btnAddProfile.addEventListener removed — profiles managed in vault */
 
-  const profile = {
-    id:        Date.now().toString(),
-    name,
-    provider:  spProvider.value,
-    model:     spProvider.value === 'custom' ? spCustomModel.value : spModel.value,
-    apiKey:    key,
-    baseUrl:   spCustomUrl.value.trim(),
-    modelName: spCustomModel.value.trim(),
-  };
-  const profiles = [...(cfg.translatorApiProfiles || []), profile];
-  cfg.translatorApiProfiles = profiles;
-  if (!cfg.translatorActiveProfileId) cfg.translatorActiveProfileId = profile.id;
-
-  API.saveSettings({ translatorApiProfiles: profiles, translatorActiveProfileId: cfg.translatorActiveProfileId });
-  spProfileName.value = '';
-  spApiKey.value = '';
-  renderProfiles();
-  showToast('✓ Profile added');
-  updateModeUI();
-});
-
-function renderProfiles() {
-  profileList.innerHTML = '';
-  const profiles = cfg.translatorApiProfiles || [];
-  if (!profiles.length) {
-    profileList.innerHTML = '<div style="font-size:12px;color:var(--muted);padding:4px 0;">No profiles yet. Add one below.</div>';
-    return;
-  }
-  profiles.forEach((p, idx) => {
-    const isActive = p.id === cfg.translatorActiveProfileId;
-    const div = document.createElement('div');
-    div.className = 'profile-chip' + (isActive ? ' active' : '');
-    div.innerHTML = `
-      <div class="profile-name">
-        ${isActive ? '<span style="color:var(--accent);font-size:10px;margin-right:4px;">●</span>' : ''}
-        ${escapeHtml(p.name)}
-      </div>
-      <div class="profile-badge">${p.provider} · ${p.model || p.modelName || ''}</div>
-      <span class="profile-fallback-order" style="font-size:9px;color:var(--muted);background:rgba(255,255,255,0.04);padding:1px 5px;border-radius:4px;">${isActive ? 'Active' : '#' + (idx + 1)}</span>
-      <button class="profile-del" title="Delete this profile">✕</button>
-    `;
-
-    // Delete button: confirm before removing
-    const delBtn = div.querySelector('.profile-del');
-    delBtn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      // Inline confirmation
-      if (delBtn.dataset.confirming) {
-        const updated = (cfg.translatorApiProfiles || []).filter(x => x.id !== p.id);
-        cfg.translatorApiProfiles = updated;
-        if (cfg.translatorActiveProfileId === p.id) {
-          cfg.translatorActiveProfileId = updated[0]?.id || '';
-        }
-        API.saveSettings({ translatorApiProfiles: updated, translatorActiveProfileId: cfg.translatorActiveProfileId });
-        renderProfiles();
-        updateModeUI();
-        showToast('✓ Profile deleted');
-      } else {
-        delBtn.dataset.confirming = '1';
-        delBtn.textContent = 'Sure?';
-        delBtn.style.color = 'var(--red)';
-        delBtn.style.fontSize = '10px';
-        delBtn.style.fontWeight = '600';
-        setTimeout(() => {
-          if (delBtn && !delBtn.isConnected) return;
-          delete delBtn.dataset.confirming;
-          delBtn.textContent = '✕';
-          delBtn.style.color = '';
-          delBtn.style.fontSize = '';
-          delBtn.style.fontWeight = '';
-        }, 2500);
-      }
-    });
-
-    // Click on chip (not on delete) -> set as active
-    div.addEventListener('click', (e) => {
-      if (e.target.closest('.profile-del')) return;
-      cfg.translatorActiveProfileId = p.id;
-      API.saveSettings({ translatorActiveProfileId: p.id });
-      renderProfiles();
-      showToast(`✓ Active: ${p.name}`);
-      updateModeUI();
-    });
-
-    profileList.appendChild(div);
+/* Open AI & API Vault button */
+if (btnOpenVault) {
+  btnOpenVault.addEventListener('click', () => {
+    // Send IPC to open the main settings window at the api-vault panel
+    if (API.openSettings) {
+      API.openSettings('api-vault');
+    } else if (window.electronAPI?.openSettings) {
+      window.electronAPI.openSettings('api-vault');
+    }
+    showToast('Opening AI & API settings…');
   });
 }
 
-function getActiveProfile() {
-  const profiles = cfg.translatorApiProfiles || [];
-  const activeId = cfg.translatorActiveProfileId;
-  return activeId ? profiles.find(p => p.id === activeId) : profiles[0];
+async function renderProfiles() {
+  if (!profileList) return;
+  profileList.innerHTML = '<div style="font-size:11px;color:var(--muted);padding:6px 12px;">Loading…</div>';
+  try {
+    const profiles = API.vaultGetLlmProfiles ? await API.vaultGetLlmProfiles() :
+                     (window.electronAPI?.vaultGetLlmProfiles ? await window.electronAPI.vaultGetLlmProfiles() : []);
+    const summary = API.vaultGetSummary ? await API.vaultGetSummary() :
+                    (window.electronAPI?.vaultGetSummary ? await window.electronAPI.vaultGetSummary() : {});
+    const defId = summary?.defaults?.['translator'] || summary?.defaults?.['ai-dictation'] || cfg.translatorActiveProfileId || profiles?.[0]?.id;
+
+    profileList.innerHTML = '';
+    if (!profiles || profiles.length === 0) {
+      profileList.innerHTML = '<div style="font-size:12px;color:var(--muted);padding:8px 14px;font-style:italic;">No LLM profiles. Open <strong>AI & API</strong> to add one.</div>';
+      return;
+    }
+    profiles.forEach(p => {
+      const isActive = p.id === defId;
+      const div = document.createElement('div');
+      div.className = 'profile-chip' + (isActive ? ' active' : '');
+      div.innerHTML = `
+        <div class="profile-name">
+          ${isActive ? '<span style="color:var(--accent);font-size:10px;margin-right:4px;">●</span>' : ''}
+          ${escapeHtml(p.name || p.provider)}
+        </div>
+        <div class="profile-badge">${escapeHtml(p.provider)} · ${escapeHtml(p.model || '')}</div>
+      `;
+      div.addEventListener('click', async () => {
+        cfg.translatorActiveProfileId = p.id;
+        API.saveSettings({ translatorActiveProfileId: p.id });
+        // Set as the translator-specific default in the vault
+        if (API.vaultSetDefault) await API.vaultSetDefault('translator', p.id);
+        renderProfiles();
+        showToast(`✓ Active: ${p.name || p.provider}`);
+        updateModeUI();
+      });
+      profileList.appendChild(div);
+    });
+  } catch(e) {
+    console.error('Failed to load vault profiles for translator:', e);
+    profileList.innerHTML = '<div style="font-size:12px;color:#f87171;padding:6px 12px;">Failed to load profiles</div>';
+  }
 }
 
 /* ── Presets ── */
@@ -1162,16 +1302,435 @@ function renderPresets() {
 }
 
 /* ─────────────────────────────────────────────────────────────
+   TEXT-TO-SPEECH (Web Speech API)
+───────────────────────────────────────────────────────────────*/
+const PLAY_ICON  = '<polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"/>';
+const PAUSE_ICON = '<rect x="6" y="4" width="4" height="16" rx="1"/><rect x="14" y="4" width="4" height="16" rx="1"/>';
+
+const tts = {
+  synth: window.speechSynthesis,
+  utterance: null,
+  audio: null,
+  isPlaying: false,
+  isPaused: false,
+  paragraphs: [],
+  currentParaIdx: 0,
+  selectedVoice: null,
+  voices: [],
+  voiceDropdownOpen: false,
+  _skipOnEnd: false, // flag to prevent onend from auto-advancing after cancel
+  voicePrefs: {},    // { langCode: voiceName } — persisted per-language voice choice
+
+  // Map our language codes to BCP-47 prefixes for voice matching
+  langMap: {
+    'en':'en', 'bn':'bn', 'es':'es', 'fr':'fr', 'de':'de', 'it':'it',
+    'pt':'pt', 'ru':'ru', 'ja':'ja', 'ko':'ko', 'zh-CN':'zh', 'zh-TW':'zh',
+    'ar':'ar', 'hi':'hi', 'tr':'tr', 'pl':'pl', 'nl':'nl', 'sv':'sv',
+    'da':'da', 'fi':'fi', 'no':'no', 'uk':'uk', 'vi':'vi', 'th':'th',
+    'id':'id', 'ms':'ms', 'fa':'fa', 'ur':'ur', 'he':'he', 'ro':'ro',
+    'hu':'hu', 'cs':'cs', 'el':'el', 'bg':'bg',
+  },
+
+  getTargetLangCode() {
+    return tgtLang.value || 'en';
+  },
+
+  async loadVoices() {
+    const webVoices = this.synth.getVoices().map(v => ({
+      name: v.name.includes('(System Voice)') ? v.name : v.name + ' (System Voice)',
+      lang: v.lang,
+      source: 'web',
+      original: v
+    }));
+
+    let edgeVoices = [];
+    try {
+      if (window.translatorAPI && window.translatorAPI.edgeTtsGetVoices) {
+        const rawEdge = await window.translatorAPI.edgeTtsGetVoices();
+        edgeVoices = rawEdge.map(v => ({
+          name: v.Name.includes('(Microsoft Edge)') ? v.Name : v.Name + ' (Microsoft Edge)',
+          lang: v.Locale,
+          source: 'edge',
+          shortName: v.ShortName,
+          original: v
+        }));
+      }
+    } catch (err) {
+      console.warn('Failed to load edge voices', err);
+    }
+
+    this.voices = [...edgeVoices, ...webVoices];
+    if (this.voiceDropdownOpen) this.renderVoiceDropdown();
+  },
+
+  getVoicesForLang(langCode) {
+    const prefix = this.langMap[langCode] || langCode;
+    const matches = this.voices.filter(v => {
+      const vl = v.lang.toLowerCase();
+      const pl = prefix.toLowerCase();
+      return vl === pl || vl.startsWith(pl + '-') || vl.startsWith(pl + '_');
+    });
+    if (matches.length === 0 && prefix.includes('-')) {
+      const base = prefix.split('-')[0];
+      return this.voices.filter(v => {
+        const vl = v.lang.toLowerCase();
+        return vl === base || vl.startsWith(base + '-') || vl.startsWith(base + '_');
+      });
+    }
+    return matches;
+  },
+
+  getBestVoice(langCode) {
+    const langVoices = this.getVoicesForLang(langCode);
+    if (this.selectedVoice && langVoices.find(v => v.name === this.selectedVoice.name)) {
+      return this.selectedVoice;
+    }
+    const savedName = this.voicePrefs[langCode];
+    if (savedName) {
+      const saved = langVoices.find(v => v.name === savedName);
+      if (saved) {
+        this.selectedVoice = saved;
+        return saved;
+      }
+    }
+    const premium = langVoices.find(v => /neural|enhanced|premium|siri/i.test(v.name));
+    return premium || langVoices[0] || null;
+  },
+
+  getTextToSpeak() {
+    const start = outputArea.selectionStart;
+    const end = outputArea.selectionEnd;
+    if (start !== end) {
+      return outputArea.value.substring(start, end);
+    }
+    return outputArea.value;
+  },
+
+  splitParagraphs(text) {
+    return text.split(/\n+/).filter(p => p.trim().length > 0);
+  },
+
+  setPlayIcon() {
+    const svg = btnPlayAudio.querySelector('svg');
+    if (svg) svg.innerHTML = PLAY_ICON;
+    btnPlayAudio.title = 'Play Audio';
+  },
+
+  setPauseIcon() {
+    const svg = btnPlayAudio.querySelector('svg');
+    if (svg) svg.innerHTML = PAUSE_ICON;
+    btnPlayAudio.title = 'Pause';
+  },
+
+  showControls() {
+    btnPlayAudio.classList.add('tts-active');
+    this.setPauseIcon();
+    btnTtsPrev.style.display = '';
+    btnTtsNext.style.display = '';
+    btnTtsDownload.style.display = '';
+  },
+
+  hideControls() {
+    btnPlayAudio.classList.remove('tts-active');
+    this.setPlayIcon();
+    btnTtsPrev.style.display = 'none';
+    btnTtsNext.style.display = 'none';
+    btnTtsDownload.style.display = 'none';
+    ttsVoiceDropdown.classList.remove('open');
+    this.voiceDropdownOpen = false;
+  },
+
+  _currentTtsId: 0,
+
+  async speakParagraph(idx) {
+    if (idx < 0 || idx >= this.paragraphs.length) {
+      this.stop();
+      return;
+    }
+    
+    this._currentTtsId++;
+    const ttsId = this._currentTtsId;
+
+    this.currentParaIdx = idx;
+    this.isPaused = false;
+
+    this._skipOnEnd = true;
+    this.synth.cancel();
+    if (this.audio) {
+      this.audio.pause();
+      this.audio = null;
+    }
+
+    const langCode = this.getTargetLangCode();
+    const voice = this.getBestVoice(langCode);
+
+    this.setPauseIcon();
+    this._skipOnEnd = false;
+
+    const text = this.paragraphs[idx];
+
+    if (voice && voice.source === 'edge') {
+      try {
+        const { filePath } = await window.translatorAPI.edgeTtsSynthesize(text, voice.shortName);
+        if (this._currentTtsId !== ttsId) return; // a new request started
+        if (!this.isPlaying || this._skipOnEnd) return; // stopped while downloading
+        
+        this.audio = new Audio('file://' + filePath);
+        this.audio.onended = () => {
+          if (this._skipOnEnd) {
+             this._skipOnEnd = false;
+             return;
+          }
+          if (this.isPlaying && this.currentParaIdx < this.paragraphs.length - 1) {
+            this.speakParagraph(this.currentParaIdx + 1);
+          } else {
+            this.stop();
+          }
+        };
+        this.audio.play();
+      } catch (err) {
+        console.error('Edge TTS Error:', err);
+        showToast('TTS network error. Falling back.');
+        this.stop();
+      }
+    } else {
+      // Fallback to Web Speech
+      const utt = new SpeechSynthesisUtterance(text);
+      utt.lang = this.langMap[langCode] || langCode;
+      if (voice) utt.voice = voice.original;
+      utt.rate = 1;
+      utt.pitch = 1;
+
+      utt.onend = () => {
+        if (this._skipOnEnd) {
+          this._skipOnEnd = false;
+          return;
+        }
+        if (this.isPlaying && this.currentParaIdx < this.paragraphs.length - 1) {
+          this.speakParagraph(this.currentParaIdx + 1);
+        } else {
+          this.stop();
+        }
+      };
+      utt.onerror = (e) => {
+        if (e.error === 'canceled' || e.error === 'interrupted') return;
+        this.stop();
+      };
+
+      this.utterance = utt;
+      setTimeout(() => {
+        if (this._currentTtsId !== ttsId) return;
+        if (!this._skipOnEnd) this.synth.speak(utt);
+      }, 50);
+    }
+  },
+
+  play() {
+    const text = this.getTextToSpeak().trim();
+    if (!text) { showToast('Nothing to speak'); return; }
+
+    this.loadVoices(); // re-init voices
+    this.selectedVoice = null; // getBestVoice will use prefs
+    this.paragraphs = this.splitParagraphs(text);
+    if (this.paragraphs.length === 0) { showToast('Nothing to speak'); return; }
+
+    this.isPlaying = true;
+    this.isPaused = false;
+    this.showControls();
+    this.renderVoiceDropdown();
+    this.speakParagraph(0);
+  },
+
+  pause() {
+    if (this.audio) {
+      this.audio.pause();
+    } else {
+      this.synth.pause();
+    }
+    this.isPaused = true;
+    this.setPlayIcon();
+    btnPlayAudio.title = 'Resume';
+  },
+
+  resume() {
+    if (this.audio) {
+      this.audio.play();
+    } else {
+      this.synth.resume();
+    }
+    this.isPaused = false;
+    this.setPauseIcon();
+    btnPlayAudio.title = 'Pause';
+  },
+
+  stop() {
+    this._skipOnEnd = true;
+    this.synth.cancel();
+    if (this.audio) {
+      this.audio.pause();
+      this.audio = null;
+    }
+    this.isPlaying = false;
+    this.isPaused = false;
+    this.utterance = null;
+    this._skipOnEnd = false;
+    this.hideControls();
+  },
+
+  prevParagraph() {
+    if (this.currentParaIdx > 0) {
+      this.speakParagraph(this.currentParaIdx - 1);
+    } else {
+      showToast('Already at first paragraph');
+    }
+  },
+
+  nextParagraph() {
+    if (this.currentParaIdx < this.paragraphs.length - 1) {
+      this.speakParagraph(this.currentParaIdx + 1);
+    } else {
+      showToast('Already at last paragraph');
+    }
+  },
+
+  changeVoice(voice) {
+    this.selectedVoice = voice;
+    const langCode = this.getTargetLangCode();
+    this.voicePrefs[langCode] = voice.name;
+    API.saveSettings({ ttsVoicePrefs: this.voicePrefs });
+    this.renderVoiceDropdown();
+    if (this.isPlaying) {
+      this.speakParagraph(0);
+    }
+  },
+
+  renderVoiceDropdown() {
+    const langCode = this.getTargetLangCode();
+    const langVoices = this.getVoicesForLang(langCode);
+    ttsVoiceDropdown.innerHTML = '';
+
+    if (langVoices.length === 0) {
+      const isMac = navigator.platform.toUpperCase().includes('MAC');
+      const tip = isMac
+        ? 'No voices found. Install more in System Settings → Accessibility → Spoken Content.'
+        : 'No voices found. Install more in Windows Settings → Time & Language → Speech.';
+      ttsVoiceDropdown.innerHTML = `<div class="voice-option" style="color:var(--muted);cursor:default;white-space:normal;line-height:1.3;">${tip}</div>`;
+      return;
+    }
+
+    const currentVoice = this.getBestVoice(langCode);
+    langVoices.forEach(v => {
+      const isActive = v === currentVoice;
+      const opt = document.createElement('div');
+      opt.className = 'voice-option' + (isActive ? ' active' : '');
+      opt.innerHTML = `
+        <span class="voice-check"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg></span>
+        <span>${v.name}</span>
+      `;
+      opt.addEventListener('click', () => {
+        this.changeVoice(v);
+        ttsVoiceDropdown.classList.remove('open');
+        this.voiceDropdownOpen = false;
+      });
+      ttsVoiceDropdown.appendChild(opt);
+    });
+  },
+
+  toggleVoiceDropdown() {
+    this.voiceDropdownOpen = !this.voiceDropdownOpen;
+    ttsVoiceDropdown.classList.toggle('open', this.voiceDropdownOpen);
+  },
+};
+
+// Load voices (they may load async)
+tts.loadVoices();
+if (tts.synth.onvoiceschanged !== undefined) {
+  tts.synth.onvoiceschanged = () => tts.loadVoices();
+}
+
+// Play / Pause / Resume toggle
+btnPlayAudio.addEventListener('click', () => {
+  if (tts.isPlaying && !tts.isPaused) {
+    tts.pause();
+  } else if (tts.isPlaying && tts.isPaused) {
+    tts.resume();
+  } else {
+    tts.play();
+  }
+});
+
+btnTtsPrev.addEventListener('click', () => tts.prevParagraph());
+btnTtsNext.addEventListener('click', () => tts.nextParagraph());
+btnTtsVoice.addEventListener('click', () => tts.toggleVoiceDropdown());
+
+btnTtsDownload.addEventListener('click', async () => {
+  const langCode = tts.getTargetLangCode();
+  const voice = tts.getBestVoice(langCode);
+  if (!voice || voice.source !== 'edge') {
+    showToast('Download is only available for Microsoft Edge voices.');
+    return;
+  }
+  
+  const text = tts.getTextToSpeak().trim();
+  if (!text) {
+    showToast('Nothing to download.');
+    return;
+  }
+  
+  const originalSvg = btnTtsDownload.innerHTML;
+  btnTtsDownload.style.opacity = '0.5';
+  btnTtsDownload.style.pointerEvents = 'none';
+  showToast('Preparing download...', 2000);
+  
+  try {
+    const savedPath = await window.translatorAPI.edgeTtsDownload(text, voice.shortName);
+    if (savedPath) {
+      showToast('✓ Voiceover downloaded successfully!', 3000);
+    }
+  } catch (err) {
+    console.error('Download error:', err);
+    showToast('Failed to download voiceover.');
+  } finally {
+    btnTtsDownload.style.opacity = '';
+    btnTtsDownload.style.pointerEvents = '';
+  }
+});
+
+// Close voice dropdown when clicking outside
+document.addEventListener('click', (e) => {
+  if (tts.voiceDropdownOpen && !e.target.closest('#tts-voice-wrapper')) {
+    ttsVoiceDropdown.classList.remove('open');
+    tts.voiceDropdownOpen = false;
+  }
+});
+
+// Stop TTS when language is swapped
+tgtLang.addEventListener('change', () => {
+  if (tts.isPlaying) tts.stop();
+});
+srcLang.addEventListener('change', () => {
+  if (tts.isPlaying) tts.stop();
+});
+
+/* ─────────────────────────────────────────────────────────────
    WINDOW CONTROLS
 ───────────────────────────────────────────────────────────────*/
 dotClose.addEventListener('click', () => API.close());
 
+const dotMinimize = document.getElementById('dot-minimize');
+const dotMaximize = document.getElementById('dot-maximize');
+if (dotMinimize) dotMinimize.addEventListener('click', () => API.minimize && API.minimize());
+if (dotMaximize) dotMaximize.addEventListener('click', () => API.maximize && API.maximize());
+
 /* Drag */
-document.getElementById('titlebar').addEventListener('mousedown', (e) => {
-  if (e.target.closest('button, select, input, textarea, .toggle-switch, #mode-toggle-wrap')) return;
-  API.drag();
-});
-document.getElementById('titlebar').addEventListener('mouseup', () => API.stopDrag());
+const topbarDrag = document.getElementById('topbar-drag');
+if (topbarDrag) {
+  topbarDrag.addEventListener('mousedown', (e) => {
+    if (e.target.closest('button, select, input, textarea, .toggle-switch')) return;
+    API.drag();
+  });
+  topbarDrag.addEventListener('mouseup', () => API.stopDrag());
+}
 
 /* ─────────────────────────────────────────────────────────────
    UTILS

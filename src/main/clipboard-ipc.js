@@ -7,7 +7,7 @@
  * ──────────────────────────────────────────────────────────────────────────
  */
 
-const { ipcMain, dialog, shell, clipboard, BrowserWindow, app } = require('electron');
+const { ipcMain, dialog, shell, clipboard, BrowserWindow, app, nativeImage } = require('electron');
 const fs       = require('fs');
 const path     = require('path');
 const store    = require('../../store/config');
@@ -15,6 +15,7 @@ const hs       = require('./clipboard-history-store');
 const cwm      = require('./clipboard-window-manager');
 const { getOverlayWindow } = require('./window-manager');
 const clipboardManager = require('./clipboard-manager'); // original inject helper
+const { showEditorFromGallery } = require('./lens-manager');
 
 function setupClipboardIpc() {
 
@@ -265,6 +266,26 @@ function setupClipboardIpc() {
   ipcMain.handle('cb-open-images-folder', () => {
     shell.openPath(hs.getImagesDirPath());
     return { ok: true };
+  });
+
+  // ── Open image in Lens Editor ──────────────────────────────────────────
+
+  ipcMain.on('cb-open-in-lens', (_, filePath) => {
+    try {
+      if (!fs.existsSync(filePath)) return;
+      const buf = fs.readFileSync(filePath);
+      const ext = path.extname(filePath).toLowerCase().slice(1) || 'png';
+      const mime = ext === 'jpg' ? 'image/jpeg' : `image/${ext}`;
+      const dataUrl = `data:${mime};base64,${buf.toString('base64')}`;
+      const { width, height } = nativeImage.createFromBuffer(buf).getSize();
+      showEditorFromGallery(dataUrl, filePath, { width, height });
+      
+      // We can also optionally minimize/hide the clipboard window here
+      // const cw = cwm.getClipboardWindow();
+      // if (cw && !cw.isDestroyed()) cw.hide();
+    } catch (err) {
+      console.error('[Clipboard→Lens] Failed to open file:', err.message);
+    }
   });
 
   // ── Config ─────────────────────────────────────────────────────────────

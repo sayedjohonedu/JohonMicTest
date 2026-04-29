@@ -20,6 +20,10 @@
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7v6h6"/><path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13"/></svg>
         Undo
       </button>
+      <button class="tb-action-btn" id="btn-redo" title="Redo (Ctrl+Shift+Z)">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 7v6h-6"/><path d="M3 17a9 9 0 0 1 9-9 9 9 0 0 1 6 2.3l3 3.7"/></svg>
+        Redo
+      </button>
       <button class="tb-action-btn" id="btn-reset" title="Reset to original">
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
         Reset
@@ -56,6 +60,9 @@
       <button class="tool-btn active" data-tool="select" title="Select / Move (V)">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4l7 19 3-8 8-3z"/></svg>
       </button>
+      <button class="tool-btn" data-tool="crop" title="Crop Image">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 2v14a2 2 0 0 0 2 2h14"/><path d="M18 22V8a2 2 0 0 0-2-2H2"/></svg>
+      </button>
       <button class="tool-btn" data-tool="rect" title="Rectangle (R)">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/></svg>
       </button>
@@ -82,6 +89,7 @@
           <button class="sub-item active" data-substyle="standard"><svg width="22" height="16" viewBox="0 0 22 16"><path d="M2 14L18 2" stroke="currentColor" stroke-width="1.5" fill="none"/><polygon points="20,2 14,1 16,6" fill="currentColor"/></svg> Standard</button>
           <button class="sub-item" data-substyle="fancy"><svg width="22" height="16" viewBox="0 0 22 16"><path d="M2 14 Q10 8 14 5" stroke="currentColor" stroke-width="1" fill="none"/><polygon points="20,2 12,2 14,7" fill="currentColor"/></svg> Fancy</button>
           <button class="sub-item" data-substyle="curved"><svg width="22" height="16" viewBox="0 0 22 16"><path d="M2 14 C8 14 14 2 20 2" stroke="currentColor" stroke-width="1.5" fill="none"/><polygon points="20,2 14,1 16,6" fill="currentColor"/></svg> Curved</button>
+          <button class="sub-item" data-substyle="double"><svg width="22" height="16" viewBox="0 0 22 16"><path d="M6 10L16 6" stroke="currentColor" stroke-width="1.5" fill="none"/><polygon points="20,4 14,3 16,8" fill="currentColor"/><polygon points="2,12 8,13 6,8" fill="currentColor"/></svg> Double</button>
         </div>
       </div>
 
@@ -190,34 +198,40 @@
             <button class="toggle-switch" id="bg-toggle"></button>
           </div>
         </div>
-        <div class="bg-thumb-grid" id="bg-thumb-grid">
-          <!-- Solid colors -->
-          <div class="bg-thumb solid active" data-bg="solid" data-color="#1a1a2e" style="background:#1a1a2e;" title="Dark Indigo"></div>
-          <div class="bg-thumb solid" data-bg="solid" data-color="#0f172a" style="background:#0f172a;" title="Slate"></div>
-          <div class="bg-thumb solid" data-bg="solid" data-color="#1c1917" style="background:#1c1917;" title="Warm Dark"></div>
-          <!-- Image backgrounds -->
-          <div class="bg-thumb" data-bg="image" data-src="../assets/backgrounds/cosmic-gradient.png" title="Cosmic"></div>
-          <div class="bg-thumb" data-bg="image" data-src="../assets/backgrounds/sunset-glow.png" title="Sunset"></div>
-          <div class="bg-thumb" data-bg="image" data-src="../assets/backgrounds/ocean-aurora.png" title="Ocean"></div>
-          <div class="bg-thumb" data-bg="image" data-src="../assets/backgrounds/forest-mist.png" title="Forest"></div>
-          <div class="bg-thumb" data-bg="image" data-src="../assets/backgrounds/rose-quartz.png" title="Rose"></div>
-          <div class="bg-thumb" data-bg="image" data-src="../assets/backgrounds/dark-mesh.png" title="Dark Mesh"></div>
-          <!-- Gradient backgrounds -->
-          <div class="bg-thumb" data-bg="gradient" data-gradient="linear-gradient(135deg, #667eea 0%, #764ba2 100%)" style="background:linear-gradient(135deg, #667eea 0%, #764ba2 100%);" title="Violet Dream"></div>
-          <div class="bg-thumb" data-bg="gradient" data-gradient="linear-gradient(135deg, #f093fb 0%, #f5576c 100%)" style="background:linear-gradient(135deg, #f093fb 0%, #f5576c 100%);" title="Pink Flame"></div>
+        
+        <div class="bg-wallpaper-grid" id="bg-wallpaper-grid"></div>
+
+        <div class="bg-action-buttons" style="display: flex; gap: 8px; margin-top: 4px; padding: 0 12px 12px 12px;">
+          <!-- Shuffle Button -->
+          <button class="bg-upload-btn" id="bg-shuffle-btn" title="Shuffle Wallpapers" style="flex:1;">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 3h5v5"/><path d="M4 20L21 3"/><path d="M21 16v5h-5"/><path d="M15 15l6 6"/><path d="M4 4l5 5"/></svg>
+            Shuffle
+          </button>
+          <!-- Random Gradient -->
+          <button class="bg-upload-btn" id="bg-random-btn" title="Generate Random Gradient" style="flex:1;">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2.5 2v6h6M21.5 22v-6h-6"/><path d="M22 11.5A10 10 0 0 0 3.2 7.2M2 12.5a10 10 0 0 0 18.8 4.2"/></svg>
+            Magic
+          </button>
           <!-- Upload -->
-          <label class="bg-upload-btn" title="Upload custom background">
+          <label class="bg-upload-btn" title="Upload custom background" style="flex:1;">
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" x2="12" y1="3" y2="15"/></svg>
             Upload
             <input type="file" id="bg-upload-input" accept="image/*">
           </label>
         </div>
-        <!-- Upload History -->
-        <div class="bg-history-section" id="bg-history-section" style="display:none;">
-          <div class="bg-history-header">
-            <span class="bg-dropdown-label" style="font-size:8px;">Your Uploads</span>
+        <!-- Recent Gradients History -->
+        <div class="bg-history-section" id="bg-gradients-section" style="display:none;">
+          <div class="bg-history-header" style="padding: 0 12px 6px 12px;">
+            <span class="bg-dropdown-label" style="font-size:10px; opacity: 0.7;">Recent Gradients</span>
           </div>
-          <div class="bg-history-grid" id="bg-history-grid"></div>
+          <div class="bg-wallpaper-grid" id="bg-gradients-grid"></div>
+        </div>
+        <!-- Recent Uploads History -->
+        <div class="bg-history-section" id="bg-uploads-section" style="display:none;">
+          <div class="bg-history-header" style="padding: 0 12px 6px 12px;">
+            <span class="bg-dropdown-label" style="font-size:10px; opacity: 0.7;">Recent Uploads</span>
+          </div>
+          <div class="bg-wallpaper-grid" id="bg-uploads-grid"></div>
         </div>
         <div class="bg-blur-row">
           <span class="slider-label">Blur</span>
@@ -264,11 +278,28 @@
               <span>21:9</span>
             </button>
           </div>
-          <!-- Padding slider -->
-          <div class="bg-blur-row" style="margin-top:6px;">
-            <span class="slider-label">Pad</span>
-            <input type="range" class="stroke-slider" id="bg-padding-slider" min="2" max="25" value="6">
-            <span class="slider-value" id="bg-padding-value">6%</span>
+          <!-- Viewport Settings -->
+          <div class="bg-viewport-section" id="bg-viewport-section" style="border-top: 1px solid var(--border); margin-top: 6px; padding-top: 8px;">
+            <div class="bg-dropdown-label" style="margin-bottom: 6px;">Viewport</div>
+            
+            <div class="bg-blur-row" id="bg-corner-row" style="margin-bottom:6px;">
+              <span class="slider-label">Corner</span>
+              <input type="range" class="stroke-slider" id="bg-corner-slider" min="0" max="48" value="12">
+              <span class="slider-value" id="bg-corner-value">12px</span>
+            </div>
+            
+            <!-- Padding slider -->
+            <div class="bg-blur-row" id="bg-padding-row" style="margin-bottom:6px; display: none;">
+              <span class="slider-label">Pad</span>
+              <input type="range" class="stroke-slider" id="bg-padding-slider" min="0" max="25" value="6">
+              <span class="slider-value" id="bg-padding-value">6%</span>
+            </div>
+            
+            <div class="bg-blur-row" id="bg-shadow-row">
+              <span class="slider-label">Shadow</span>
+              <input type="range" class="stroke-slider" id="bg-shadow-slider" min="0" max="80" value="40">
+              <span class="slider-value" id="bg-shadow-value">40px</span>
+            </div>
           </div>
         </div>
       </div>
@@ -293,6 +324,14 @@
       <span class="slider-label">Text</span>
       <input type="range" class="stroke-slider" id="text-size" min="12" max="72" value="16">
       <span class="slider-value" id="text-size-value">16pt</span>
+      
+      <span class="slider-label" style="margin-left: 8px;">Glow</span>
+      <input type="range" class="stroke-slider" id="text-glow" min="0" max="20" value="0">
+      <span class="slider-value" id="text-glow-value">0px</span>
+
+      <span class="slider-label box-opacity-label" style="margin-left: 8px; display:none;">Box</span>
+      <input type="range" class="stroke-slider box-opacity-slider" id="text-box-opacity" min="0" max="100" value="10" style="display:none; width: 60px;">
+      <span class="slider-value box-opacity-value" id="text-box-opacity-value" style="display:none;">10%</span>
     </div>
 
     <!-- Spotlight darkness (shown for spotlight/circlespotlight) -->
@@ -405,12 +444,17 @@
           <div class="panel-row" style="display:flex; gap:6px;">
             <button class="action-btn" id="btn-copy-translation" style="flex:1; justify-content:center;">
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
-              Copy Translation
+              <span>4:3</span>
             </button>
           </div>
         </div>
       </div>
     </div>
+  </div>
+
+  <div id="crop-actions" class="crop-actions" style="display:none; position:absolute; bottom: 20px; left: 50%; transform: translateX(-50%); z-index: 100; background: var(--panel-bg); backdrop-filter: blur(10px); border: 1px solid var(--border); padding: 6px; border-radius: 8px; gap: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.2);">
+    <button class="tb-action-btn" id="btn-crop-cancel">Cancel</button>
+    <button class="tb-action-btn primary" id="btn-crop-apply">Apply Crop</button>
   </div>
 
   <!-- Toast -->

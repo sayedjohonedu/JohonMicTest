@@ -65,4 +65,21 @@ contextBridge.exposeInMainWorld('electronAPI', {
   onConfigUpdate:            (cb)         => onChannel('config-updated', (_, cfg) => cb(cfg)),
   onAiModeToggled:           (cb)         => onChannel('ai-mode-toggled', (_, on) => cb(on)),
   onWhisperAiModeToggled:    (cb)         => onChannel('whisper-ai-mode-toggled', (_, on) => cb(on)),
+  // ── Central API Vault ──
+  vaultGetSummary:           ()           => ipcRenderer.invoke('vault-get-summary'),
+  vaultGetLlmProfiles:       ()           => ipcRenderer.invoke('vault-get-llm-profiles'),
+  vaultAddLlmProfile:        (p)          => ipcRenderer.invoke('vault-add-llm-profile', p),
+  vaultUpdateLlmProfile:     (id, u)      => ipcRenderer.invoke('vault-update-llm-profile', { id, updates: u }),
+  vaultRemoveLlmProfile:     (id)         => ipcRenderer.invoke('vault-remove-llm-profile', id),
+  vaultGetWhisperProfiles:   ()           => ipcRenderer.invoke('vault-get-whisper-profiles'),
+  vaultAddWhisperProfile:    (p)          => ipcRenderer.invoke('vault-add-whisper-profile', p),
+  vaultUpdateWhisperProfile: (id, u)      => ipcRenderer.invoke('vault-update-whisper-profile', { id, updates: u }),
+  vaultRemoveWhisperProfile: (id)         => ipcRenderer.invoke('vault-remove-whisper-profile', id),
+  vaultGetDefaults:          ()           => ipcRenderer.invoke('vault-get-defaults'),
+  vaultSetDefault:           (f, pid)     => ipcRenderer.invoke('vault-set-default', { feature: f, profileId: pid }),
+  vaultGetDefaultForFeature: (f)          => ipcRenderer.invoke('vault-get-default-for-feature', f),
+  vaultGetFallback:          ()           => ipcRenderer.invoke('vault-get-fallback'),
+  vaultSetFallback:          (on)         => ipcRenderer.invoke('vault-set-fallback', on),
+  // ── Cross-window navigation ──
+  onNavigateToPanel:         (cb)         => onChannel('navigate-to-panel', (_, panelId) => cb(panelId)),
 });

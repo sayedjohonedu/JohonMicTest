@@ -153,6 +153,7 @@ const PANELS = {
   general: { title: 'General', desc: 'Hotkeys, activation, and startup' },
   voice: { title: 'Voice & Language', desc: 'Speech recognition and language options' },
   replace: { title: 'Text Replacement', desc: 'Auto-replace your spoken words with custom text' },
+  'api-vault': { title: 'AI & API', desc: 'Manage your LLM and Whisper API profiles in one place' },
   ai: { title: 'AI Dictation', desc: 'Clean up speech with AI before typing' },
   whisper: { title: 'Whisper Engine', desc: 'Cloud transcription via OpenAI or Groq' },
   stats: { title: 'My Stats', desc: 'Usage statistics and time saved by voice dictation' },
@@ -168,6 +169,7 @@ window.switchPanel = function(id, el) {
   document.getElementById('panel-desc').textContent = PANELS[id].desc;
   if (id === 'stats') loadStats();
   if (id === 'whisper') loadWhisperPanel();
+  if (id === 'api-vault') loadVaultPanel();
 };
 
 function formatTimeSaved(words) {
@@ -240,9 +242,26 @@ function comboFromEvent(e) {
 
 function singleKeyFromEvent(e) {
   const IGNORE = ['Meta','CapsLock','Tab','Escape']; if (IGNORE.includes(e.key) || IGNORE.includes(e.code)) return null;
-  if (['Alt','Shift','Control'].includes(e.key)) return e.key;
+  // Return e.code for modifier keys to distinguish left/right (matches backend CODE_TO_UIOHOOK)
+  if (['Alt','Shift','Control'].includes(e.key)) return e.code; // e.g. 'ControlLeft', 'ShiftRight'
   let rawKey = null; if (e.code && e.code.startsWith('Key')) rawKey = e.code.substring(3); else if (e.code && e.code.startsWith('Digit')) rawKey = e.code.substring(5); else if (/^F([1-9]|1[0-2])$/.test(e.code)) rawKey = e.code; else if (e.code === 'Space' || e.key === ' ') rawKey = 'Space'; else rawKey = e.key.length === 1 ? e.key.toUpperCase() : e.key;
   return rawKey;
+}
+
+// Display name for hold key codes (human-readable badge text)
+const HOLDKEY_DISPLAY_NAMES = { ControlLeft:'Left ⌃ Control', ControlRight:'Right ⌃ Control', AltLeft:'Left ⌥ Alt', AltRight:'Right ⌥ Alt', ShiftLeft:'Left ⇧ Shift', ShiftRight:'Right ⇧ Shift', MetaLeft:'Left ⌘', MetaRight:'Right ⌘' };
+function holdKeyDisplayName(code) {
+  if (IS_MAC) {
+    const macNames = { ControlLeft:'⌃ Control', ControlRight:'Right ⌃ Control', AltLeft:'⌥ Alt', AltRight:'Right ⌥ Alt', ShiftLeft:'⇧ Shift', ShiftRight:'Right ⇧ Shift', MetaLeft:'⌘ Command', MetaRight:'Right ⌘ Command' };
+    if (macNames[code]) return macNames[code];
+  } else {
+    const winNames = { ControlLeft:'Left Ctrl', ControlRight:'Right Ctrl', AltLeft:'Left Alt', AltRight:'Right Alt', ShiftLeft:'Left Shift', ShiftRight:'Right Shift' };
+    if (winNames[code]) return winNames[code];
+  }
+  if (/^F\d+$/.test(code)) return code;
+  if (code.startsWith('Key')) return code.substring(3);
+  if (code.startsWith('Digit')) return code.substring(5);
+  return code;
 }
 
 // ── AI send key: uses event.code to distinguish Left/Right ──
@@ -257,7 +276,8 @@ function aiSendKeyDisplayName(code) {
 }
 let pendingAiSendKey = AI_SENDKEY_DEFAULT;
 
-let pendingHotkey = DEFAULT_HOTKEY, pendingHoldKey = '', recordingMode = null, activeBadgeNode = null;
+const DEFAULT_HOLD_KEY = IS_MAC ? 'ControlLeft' : 'F8';
+let pendingHotkey = DEFAULT_HOTKEY, pendingHoldKey = DEFAULT_HOLD_KEY, recordingMode = null, activeBadgeNode = null;
 const hotkeyBadge = document.getElementById('hotkey-display'), holdkeyBadge = document.getElementById('holdkey-display');
 const aiSendKeyBadge = document.getElementById('ai-sendkey-display');
 
@@ -283,7 +303,7 @@ document.addEventListener('keydown', (e) => {
     // Capture event.code (e.g. AltRight, F5, KeyA) for left/right distinction
     const code = e.code; if (code && code !== 'Escape') { pendingAiSendKey = code; activeBadgeNode.textContent = aiSendKeyDisplayName(code); stopRecording(false); }
   } else {
-    const key = singleKeyFromEvent(e); if (key) { pendingHoldKey = key; activeBadgeNode.textContent = key; stopRecording(false); }
+    const key = singleKeyFromEvent(e); if (key) { pendingHoldKey = key; activeBadgeNode.textContent = holdKeyDisplayName(key); stopRecording(false); }
   }
 });
 
@@ -293,17 +313,17 @@ function stopRecording(cancelled) {
     if (mode === 'combo') badge.textContent = formatCombo(pendingHotkey);
     else if (mode === 'lang-combo') badge.textContent = badge.dataset.rawCombo ? formatCombo(badge.dataset.rawCombo) : 'Not set';
     else if (mode === 'ai-send') badge.textContent = aiSendKeyDisplayName(pendingAiSendKey);
-    else badge.textContent = pendingHoldKey || 'Not set';
+    else badge.textContent = pendingHoldKey ? holdKeyDisplayName(pendingHoldKey) : 'Not set';
   }
   window.electronAPI.resumeHotkeys(); if (!cancelled) markDirty();
 }
 
 window.resetHotkey = function() { if (recordingMode === 'combo') stopRecording(true); pendingHotkey = DEFAULT_HOTKEY; hotkeyBadge.textContent = formatCombo(DEFAULT_HOTKEY); markDirty(); };
-window.clearHoldKey = function() { if (recordingMode === 'hold') stopRecording(true); pendingHoldKey = ''; holdkeyBadge.textContent = 'Not set'; markDirty(); };
+window.resetHoldKey = function() { if (recordingMode === 'hold') stopRecording(true); pendingHoldKey = DEFAULT_HOLD_KEY; holdkeyBadge.textContent = holdKeyDisplayName(DEFAULT_HOLD_KEY); markDirty(); };
 window.resetAiSendKey = function() { if (recordingMode === 'ai-send') stopRecording(true); pendingAiSendKey = AI_SENDKEY_DEFAULT; if (aiSendKeyBadge) aiSendKeyBadge.textContent = aiSendKeyDisplayName(AI_SENDKEY_DEFAULT); markDirty(); };
 
 window.syncHotkeyEnable = function() { document.getElementById('row-hotkey-combo').classList.toggle('disabled-row', !document.getElementById('toggle-hotkey').checked); };
-window.syncHoldEnable = function() { const on = document.getElementById('toggle-holdkey').checked; document.getElementById('row-hold-key').classList.toggle('disabled-row', !on); document.getElementById('row-hold-dur').classList.toggle('disabled-row', !on); };
+window.syncHoldEnable = function() { const on = document.getElementById('toggle-holdkey').checked; document.getElementById('row-hold-key').classList.toggle('disabled-row', !on); };
 window.syncSilenceEnable = function() { document.getElementById('row-silence-timeout').classList.toggle('disabled-row', !document.getElementById('toggle-silence').checked); };
 window.syncReplaceEnable = function() { const off = !document.getElementById('toggle-replace').checked; document.getElementById('row-replacements').classList.toggle('disabled-row', off); document.getElementById('row-replace-inline').classList.toggle('disabled-row', off); };
 
@@ -320,38 +340,8 @@ window.onClipboardToggle = async function() {
 
 // ── AI Dictation panel functions ──────────────────────────────────────
 
-/* Provider → model list (April 2026, synced with translator) */
-const AI_PROVIDER_MODELS = {
-  openai: [
-    'gpt-5.4', 'gpt-5.4-mini', 'gpt-5.4-nano', 'gpt-5.4-thinking',
-    'gpt-5.3-codex', 'gpt-5.3-instant',
-    'o4-mini-deep-research', 'o3-deep-research',
-    'gpt-4.1', 'gpt-4.1-mini', 'gpt-4o-mini',
-  ],
-  anthropic: [
-    'claude-sonnet-5-20260401', 'claude-opus-4-6-20260205',
-    'claude-sonnet-4-6', 'claude-3-7-sonnet-20250219',
-    'claude-3-5-sonnet-20241022', 'claude-3-opus-20240229',
-    'claude-3-haiku-20240307',
-  ],
-  gemini: [
-    'gemini-3.1-pro-preview', 'gemini-3-pro-preview', 'gemini-3-flash-preview',
-    'gemini-2.5-pro', 'gemini-2.5-flash', 'gemini-2.5-flash-lite',
-    'gemini-2.0-flash', 'gemini-2.0-flash-lite',
-  ],
-  groq: [
-    'meta-llama/llama-4-maverick-17b-128e-instruct',
-    'meta-llama/llama-4-scout-17b-16e-instruct',
-    'llama-3.3-70b-versatile', 'llama3-70b-8192', 'gemma2-9b-it',
-  ],
-  openrouter: [
-    'openai/gpt-5.4', 'anthropic/claude-4.6-sonnet',
-    'google/gemini-3.1-pro', 'deepseek/deepseek-v3.2',
-    'meta-llama/llama-4-maverick-17b', 'qwen/qwen-3.6-plus',
-    'mistralai/devstral-2-2512', 'openrouter/auto',
-  ],
-  custom: [],
-};
+/* AI_PROVIDER_MODELS is defined in model-registry.js (loaded before this script) */
+
 
 /** Populate the ai-model <select> with models for the given provider */
 function populateAiModels(provider, currentValue) {
@@ -644,9 +634,13 @@ async function loadConfig() {
   const cfg = await window.electronAPI.getConfig(), v = await window.electronAPI.getVersion(); document.getElementById('about-version').textContent = v;
   pendingHotkey = cfg.hotkey || DEFAULT_HOTKEY; hotkeyBadge.textContent = formatCombo(pendingHotkey);
   document.getElementById('toggle-hotkey').checked = cfg.hotkeyEnabled !== false; syncHotkeyEnable();
-  pendingHoldKey = cfg.holdKey || 'Alt'; holdkeyBadge.textContent = pendingHoldKey || 'Not set';
+  // Migrate old e.key format holdKey values to e.code format
+  const OLD_HOLDKEY_MAP = { 'Control':'ControlLeft', 'Alt':'AltLeft', 'Shift':'ShiftLeft' };
+  let rawHoldKey = cfg.holdKey || DEFAULT_HOLD_KEY;
+  if (OLD_HOLDKEY_MAP[rawHoldKey]) rawHoldKey = OLD_HOLDKEY_MAP[rawHoldKey];
+  pendingHoldKey = rawHoldKey; holdkeyBadge.textContent = pendingHoldKey ? holdKeyDisplayName(pendingHoldKey) : 'Not set';
   document.getElementById('toggle-holdkey').checked = cfg.holdKeyEnabled === true; syncHoldEnable();
-  const dS = document.getElementById('hold-duration'); if ([...dS.options].some(o => o.value === String(cfg.holdDuration || '2'))) dS.value = String(cfg.holdDuration || '2');
+  const dS = document.getElementById('hold-duration'); if (dS && [...dS.options].some(o => o.value === String(cfg.holdDuration || '2'))) dS.value = String(cfg.holdDuration || '2');
   const mB = document.getElementById('mouse-button'); if (mB) mB.value = String(cfg.mouseButton || '3');
   const mA = document.getElementById('mouse-action'); if (mA) mA.value = cfg.mouseAction || 'none';
   document.getElementById('toggle-autolunch').checked = cfg.autoLaunch !== false; ensureCfdBuilt(); setCfdValue(cfg.language || 'en-US');
@@ -934,7 +928,7 @@ window.saveSettings = function() {
   const silenceSecs = silenceEnabled ? (silenceVal * silenceMult) : 0;
   // Get active profile values for flat config (backend compatibility)
   const activeP = getActiveAiProfile();
-  window.electronAPI.saveConfig({ hotkey: pendingHotkey || DEFAULT_HOTKEY, hotkeyEnabled: document.getElementById('toggle-hotkey').checked, holdKey: pendingHoldKey || 'Alt', holdKeyEnabled: document.getElementById('toggle-holdkey').checked, holdDuration: parseFloat(document.getElementById('hold-duration').value), mouseButton: document.getElementById('mouse-button')?.value || '3', mouseAction: document.getElementById('mouse-action')?.value || 'none', autoLaunch: document.getElementById('toggle-autolunch').checked, language: document.getElementById('lang-select').value, preferredBrowser: document.getElementById('preferred-browser')?.value || 'auto', clipboardEnabled: document.getElementById('toggle-clipboard-enabled').checked, silenceTimeoutEnabled: silenceEnabled, silenceTimeoutVal: silenceVal, silenceTimeoutUnit: silenceUnit, silenceTimeout: silenceSecs, simulateTyping: document.getElementById('toggle-sim-typing').checked, theme: document.getElementById('theme-select').value, visualizerType: document.getElementById('visualizer-style')?.value || 'wave', soundVolume: parseInt(document.getElementById('sound-volume')?.value ?? 80, 10), micSensitivity: parseFloat(document.getElementById('mic-sensitivity')?.value || 1.0), textReplaceEnabled: document.getElementById('toggle-replace').checked, textReplaceInline: document.getElementById('toggle-replace-inline').checked, textReplacements: reps, langHotkeys: lH, aiModeEnabled: document.getElementById('toggle-ai-mode').checked, aiFallbackEnabled: document.getElementById('toggle-ai-fallback').checked, aiSilenceTimeout: parseInt(document.getElementById('ai-silence-timeout')?.value || '8', 10), aiActivationKey: pendingAiSendKey || AI_SENDKEY_DEFAULT, aiProfiles: _aiProfiles, aiActiveProfileId: _aiActiveProfileId, aiProvider: activeP?.provider || 'openai', aiModel: activeP?.model || '', aiApiKey: activeP?.apiKey || '', aiBaseUrl: activeP?.baseUrl || '', aiSystemPrompt: document.getElementById('ai-system-prompt').value, aiPersonalDictionary: document.getElementById('ai-personal-dict').value, aiTemperature: parseFloat(document.getElementById('ai-temperature')?.value || 0.3) });
+  window.electronAPI.saveConfig({ hotkey: pendingHotkey || DEFAULT_HOTKEY, hotkeyEnabled: document.getElementById('toggle-hotkey').checked, holdKey: pendingHoldKey || DEFAULT_HOLD_KEY, holdKeyEnabled: document.getElementById('toggle-holdkey').checked, holdDuration: parseFloat(document.getElementById('hold-duration')?.value || 2), mouseButton: document.getElementById('mouse-button')?.value || '3', mouseAction: document.getElementById('mouse-action')?.value || 'none', autoLaunch: document.getElementById('toggle-autolunch').checked, language: document.getElementById('lang-select').value, preferredBrowser: document.getElementById('preferred-browser')?.value || 'auto', clipboardEnabled: document.getElementById('toggle-clipboard-enabled').checked, silenceTimeoutEnabled: silenceEnabled, silenceTimeoutVal: silenceVal, silenceTimeoutUnit: silenceUnit, silenceTimeout: silenceSecs, simulateTyping: document.getElementById('toggle-sim-typing').checked, theme: document.getElementById('theme-select').value, visualizerType: document.getElementById('visualizer-style')?.value || 'wave', soundVolume: parseInt(document.getElementById('sound-volume')?.value ?? 80, 10), micSensitivity: parseFloat(document.getElementById('mic-sensitivity')?.value || 1.0), textReplaceEnabled: document.getElementById('toggle-replace').checked, textReplaceInline: document.getElementById('toggle-replace-inline').checked, textReplacements: reps, langHotkeys: lH, aiModeEnabled: document.getElementById('toggle-ai-mode').checked, aiFallbackEnabled: document.getElementById('toggle-ai-fallback').checked, aiSilenceTimeout: parseInt(document.getElementById('ai-silence-timeout')?.value || '8', 10), aiActivationKey: pendingAiSendKey || AI_SENDKEY_DEFAULT, aiProfiles: _aiProfiles, aiActiveProfileId: _aiActiveProfileId, aiProvider: activeP?.provider || 'openai', aiModel: activeP?.model || '', aiApiKey: activeP?.apiKey || '', aiBaseUrl: activeP?.baseUrl || '', aiSystemPrompt: document.getElementById('ai-system-prompt').value, aiPersonalDictionary: document.getElementById('ai-personal-dict').value, aiTemperature: parseFloat(document.getElementById('ai-temperature')?.value || 0.3) });
   b.disabled = false; clearDirty();
 };
 
@@ -1407,45 +1401,63 @@ async function loadWhisperAiSection() {
   }
 }
 
-function renderWhisperAiProfiles() {
+async function renderWhisperAiProfiles() {
   const container = document.getElementById('whisper-ai-profile-list');
   if (!container) return;
   container.innerHTML = '';
 
-  if (!_whisperAiProfiles.length) {
-    container.innerHTML = '<div class="ai-profile-empty">No profiles yet. Add one below.</div>';
+  // Read LLM profiles from the central vault (not the legacy separate store)
+  let vaultProfiles = [];
+  try {
+    vaultProfiles = await window.electronAPI.vaultGetLlmProfiles() || [];
+  } catch (e) {
+    console.warn('[WhisperAI] Failed to load vault LLM profiles:', e);
+  }
+
+  if (!vaultProfiles.length) {
+    container.innerHTML = '<div class="ai-profile-empty">No LLM profiles found. <a href="#" onclick="switchPanel(\'api-vault\', document.querySelector(\'[data-panel=api-vault]\')); return false;" style="color:var(--accent);">Add one in AI & API →</a></div>';
     return;
   }
 
-  _whisperAiProfiles.forEach(p => {
+  // Get the per-feature default for whisper-polish
+  let defaultId = '';
+  try {
+    const defProfile = await window.electronAPI.vaultGetDefaultForFeature('whisper-polish');
+    defaultId = defProfile?.id || '';
+  } catch (e) { /* ignore */ }
+  // Fallback: if no whisper-polish default, use the global ai-dictation default
+  if (!defaultId) {
+    try {
+      const summary = await window.electronAPI.vaultGetSummary();
+      defaultId = summary?.defaults?.['whisper-polish'] || summary?.defaults?.['ai-dictation'] || vaultProfiles[0]?.id || '';
+    } catch (e) { /* ignore */ }
+  }
+
+  vaultProfiles.forEach(p => {
+    const isActive = p.id === defaultId;
     const div = document.createElement('div');
-    div.className = 'ai-profile-chip' + (p.id === _whisperAiActiveProfileId ? ' active' : '');
+    div.className = 'ai-profile-chip' + (isActive ? ' active' : '');
     div.innerHTML = `
+      ${isActive ? '<span style="color:var(--accent);font-size:10px;margin-right:4px;">●</span>' : ''}
       <div class="ai-profile-name">${escWhisperHtml(p.name)}</div>
       <div class="ai-profile-badge">${escWhisperHtml(p.provider)} · ${escWhisperHtml(p.model || '')}</div>
-      <button class="ai-profile-del" title="Delete">✕</button>
     `;
-    div.addEventListener('click', (e) => {
-      if (e.target.classList.contains('ai-profile-del')) {
-        // Delete profile
-        _whisperAiProfiles = _whisperAiProfiles.filter(x => x.id !== p.id);
-        if (_whisperAiActiveProfileId === p.id) {
-          _whisperAiActiveProfileId = _whisperAiProfiles[0]?.id || '';
-        }
-        saveWhisperAiProfiles();
-        renderWhisperAiProfiles();
-      } else {
-        // Set as active
-        _whisperAiActiveProfileId = p.id;
-        saveWhisperAiProfiles();
-        renderWhisperAiProfiles();
-        showWhisperAiStatus('✓ Default: ' + p.name);
+    div.style.cursor = 'pointer';
+    div.addEventListener('click', async () => {
+      // Set as the whisper-polish default in the vault (independent from other features)
+      try {
+        await window.electronAPI.vaultSetDefault('whisper-polish', p.id);
+      } catch (e) {
+        console.error('[WhisperAI] Failed to set vault default:', e);
       }
+      renderWhisperAiProfiles();
+      showWhisperAiStatus('✓ Default: ' + p.name);
     });
     container.appendChild(div);
   });
 }
 
+/* Legacy save kept for backwards compat with system prompt / temperature */
 function saveWhisperAiProfiles() {
   window.electronAPI.whisperApiAiSetConfig({
     profiles: _whisperAiProfiles,
@@ -1615,4 +1627,463 @@ window.refreshWhisperAiOllamaModels = async function() {
     statusDiv.innerHTML = `<span style="color:#f87171">✕ Error: ${e.message}</span>`;
   }
 };
+
+/* ═══════════════════════════════════════════════════════════════════════
+   ██  API VAULT — Central Profile Manager (LLM + Whisper STT)
+   ═══════════════════════════════════════════════════════════════════════ */
+
+let _vaultLlmProfiles = [];
+let _vaultWhisperProfiles = [];
+let _vaultDefaults = {};
+let _vaultFallbackEnabled = true;
+
+function escVaultHtml(str = '') {
+  return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+const VAULT_PROVIDER_LABELS = {
+  openai: 'OpenAI', anthropic: 'Anthropic', gemini: 'Google Gemini',
+  groq: 'Groq', openrouter: 'OpenRouter', nvidia: 'NVIDIA NIM',
+  custom: 'Custom / Ollama',
+};
+
+async function loadVaultPanel() {
+  try {
+    _vaultLlmProfiles = await window.electronAPI.vaultGetLlmProfiles() || [];
+    _vaultWhisperProfiles = await window.electronAPI.vaultGetWhisperProfiles() || [];
+    _vaultDefaults = await window.electronAPI.vaultGetDefaults() || {};
+    _vaultFallbackEnabled = await window.electronAPI.vaultGetFallback();
+  } catch (e) {
+    console.error('[Vault] Failed to load vault data:', e);
+  }
+
+  // Fallback toggle
+  const fbChk = document.getElementById('vault-fallback-toggle');
+  if (fbChk) {
+    fbChk.checked = _vaultFallbackEnabled !== false;
+    fbChk.onchange = async () => {
+      await window.electronAPI.vaultSetFallback(fbChk.checked);
+      _vaultFallbackEnabled = fbChk.checked;
+    };
+  }
+
+  renderVaultLlmProfiles();
+  renderVaultWhisperProfiles();
+
+  // Set form defaults
+  const prov = document.getElementById('vault-llm-provider');
+  if (prov) { prov.value = 'openai'; onVaultLlmProviderChange(); }
+}
+
+// ── LLM Profile Rendering ─────────────────────────────────────────
+function renderVaultLlmProfiles() {
+  const container = document.getElementById('vault-llm-profile-list');
+  if (!container) return;
+  container.innerHTML = '';
+
+  if (!_vaultLlmProfiles.length) {
+    container.innerHTML = '<div class="ai-profile-empty">No LLM profiles yet. Add one below.</div>';
+    return;
+  }
+
+  // Determine which profile IDs are used as defaults for any LLM feature
+  const llmDefaultIds = new Set();
+  for (const [feature, pid] of Object.entries(_vaultDefaults)) {
+    if (['ai-dictation','translator','whisper-polish'].includes(feature) && pid) llmDefaultIds.add(pid);
+  }
+
+  _vaultLlmProfiles.forEach(p => {
+    const div = document.createElement('div');
+    const isDefault = llmDefaultIds.has(p.id);
+    div.className = 'ai-profile-chip' + (isDefault ? ' active' : '');
+    const provLabel = VAULT_PROVIDER_LABELS[p.provider] || p.provider;
+
+    // Build the model dropdown for this profile's provider
+    const models = (typeof AI_PROVIDER_MODELS !== 'undefined' ? AI_PROVIDER_MODELS[p.provider] : null) || [];
+    let modelSelectHtml;
+    if (models.length > 0) {
+      const options = models.map(m =>
+        `<option value="${escVaultHtml(m)}"${m === p.model ? ' selected' : ''}>${escVaultHtml(m)}</option>`
+      ).join('');
+      // Add current model as option if it's not in the list (custom/old model)
+      const currentInList = models.includes(p.model);
+      const extraOpt = (!currentInList && p.model)
+        ? `<option value="${escVaultHtml(p.model)}" selected>${escVaultHtml(p.model)}</option>`
+        : '';
+      modelSelectHtml = `<select class="vault-model-select" data-profile-id="${p.id}" title="Change model">${extraOpt}${options}</select>`;
+    } else {
+      // No predefined models (custom/ollama) — show editable text
+      modelSelectHtml = `<span class="ai-profile-badge" style="cursor:default;">${escVaultHtml(p.model || 'custom')}</span>`;
+    }
+
+    div.innerHTML = `
+      <div class="ai-profile-name">${escVaultHtml(p.name)}</div>
+      <div class="ai-profile-badge">${escVaultHtml(provLabel)}</div>
+      ${modelSelectHtml}
+      <div class="ai-profile-actions">
+        <button class="ai-profile-dup" title="Duplicate profile">⧉</button>
+        <button class="ai-profile-del" title="Delete">✕</button>
+      </div>
+    `;
+
+    // Model dropdown change handler
+    const sel = div.querySelector('.vault-model-select');
+    if (sel) {
+      sel.addEventListener('click', (e) => e.stopPropagation()); // Don't trigger default-set
+      sel.addEventListener('change', async (e) => {
+        e.stopPropagation();
+        const newModel = sel.value;
+        try {
+          await window.electronAPI.vaultUpdateLlmProfile(p.id, { model: newModel });
+          p.model = newModel; // Update local cache
+          showVaultLlmStatus(`✓ Model → ${newModel}`);
+        } catch (err) {
+          console.error('[Vault] Failed to update model:', err);
+          showVaultLlmStatus('⚠ Failed to update model', '#f87171');
+        }
+      });
+    }
+
+    div.addEventListener('click', async (e) => {
+      if (e.target.classList.contains('ai-profile-del')) {
+        await window.electronAPI.vaultRemoveLlmProfile(p.id);
+        _vaultLlmProfiles = _vaultLlmProfiles.filter(x => x.id !== p.id);
+        _vaultDefaults = await window.electronAPI.vaultGetDefaults();
+        renderVaultLlmProfiles();
+        showVaultLlmStatus('✓ Profile deleted');
+      } else if (e.target.classList.contains('ai-profile-dup')) {
+        // Duplicate this profile
+        const clone = {
+          id: Date.now().toString(),
+          name: p.name + ' (Copy)',
+          provider: p.provider,
+          model: p.model,
+          apiKey: p.apiKey || '',
+          baseUrl: p.baseUrl || '',
+        };
+        try {
+          await window.electronAPI.vaultAddLlmProfile(clone);
+          _vaultLlmProfiles.push(clone);
+          renderVaultLlmProfiles();
+          showVaultLlmStatus('✓ Duplicated: ' + clone.name);
+        } catch (err) {
+          console.error('[Vault] Failed to duplicate profile:', err);
+          showVaultLlmStatus('⚠ Failed to duplicate', '#f87171');
+        }
+      } else {
+        // Set as default for ALL LLM features (ai-dictation, translator, whisper-polish)
+        await window.electronAPI.vaultSetDefault('ai-dictation', p.id);
+        await window.electronAPI.vaultSetDefault('translator', p.id);
+        await window.electronAPI.vaultSetDefault('whisper-polish', p.id);
+        _vaultDefaults = await window.electronAPI.vaultGetDefaults();
+        renderVaultLlmProfiles();
+        showVaultLlmStatus('✓ Default: ' + p.name);
+      }
+    });
+    container.appendChild(div);
+  });
+}
+
+// ── Whisper STT Profile Rendering ─────────────────────────────────
+function renderVaultWhisperProfiles() {
+  const container = document.getElementById('vault-whisper-profile-list');
+  if (!container) return;
+  container.innerHTML = '';
+
+  if (!_vaultWhisperProfiles.length) {
+    container.innerHTML = '<div class="ai-profile-empty">No Whisper profiles yet. Add one below.</div>';
+    return;
+  }
+
+  const defaultId = _vaultDefaults['whisper-stt'] || '';
+
+  _vaultWhisperProfiles.forEach(p => {
+    const div = document.createElement('div');
+    div.className = 'ai-profile-chip' + (p.id === defaultId ? ' active' : '');
+    const provLabel = p.provider === 'groq' ? '⚡ Groq' : '🟢 OpenAI';
+    div.innerHTML = `
+      <div class="ai-profile-name">${escVaultHtml(p.name)}</div>
+      <div class="ai-profile-badge">${provLabel} · ${escVaultHtml(p.model || '')}</div>
+      <button class="ai-profile-del" title="Delete">✕</button>
+    `;
+    div.addEventListener('click', async (e) => {
+      if (e.target.classList.contains('ai-profile-del')) {
+        await window.electronAPI.vaultRemoveWhisperProfile(p.id);
+        _vaultWhisperProfiles = _vaultWhisperProfiles.filter(x => x.id !== p.id);
+        _vaultDefaults = await window.electronAPI.vaultGetDefaults();
+        renderVaultWhisperProfiles();
+        showVaultWhisperStatus('✓ Profile deleted');
+      } else {
+        await window.electronAPI.vaultSetDefault('whisper-stt', p.id);
+        _vaultDefaults = await window.electronAPI.vaultGetDefaults();
+        renderVaultWhisperProfiles();
+        showVaultWhisperStatus('✓ Default: ' + p.name);
+      }
+    });
+    container.appendChild(div);
+  });
+}
+
+// ── LLM Provider Change ───────────────────────────────────────────
+window.onVaultLlmProviderChange = function() {
+  const prov = document.getElementById('vault-llm-provider')?.value || 'openai';
+  const isCustom = prov === 'custom';
+
+  // Show/hide custom-specific fields
+  const baseUrlRow = document.getElementById('row-vault-llm-baseurl');
+  const customModelRow = document.getElementById('row-vault-llm-custom-model');
+  const ollamaBtn = document.getElementById('btn-vault-ollama-refresh');
+  const ollamaStatus = document.getElementById('vault-ollama-status-row');
+  const apiKeyRow = document.getElementById('row-vault-llm-apikey');
+
+  if (baseUrlRow) baseUrlRow.style.display = isCustom ? 'flex' : 'none';
+  if (customModelRow) customModelRow.style.display = isCustom ? 'flex' : 'none';
+  if (ollamaBtn) ollamaBtn.style.display = isCustom ? 'inline-block' : 'none';
+  if (apiKeyRow) apiKeyRow.style.display = 'flex'; // Always show API key
+
+  if (isCustom) {
+    refreshVaultOllamaModels();
+  } else if (ollamaStatus) {
+    ollamaStatus.style.display = 'none';
+  }
+
+  populateVaultLlmModels(prov, '');
+};
+
+function populateVaultLlmModels(provider, currentValue) {
+  const sel = document.getElementById('vault-llm-model');
+  if (!sel) return;
+  sel.innerHTML = '';
+
+  const models = (typeof AI_PROVIDER_MODELS !== 'undefined' ? AI_PROVIDER_MODELS[provider] : null) || [];
+  models.forEach(m => {
+    const opt = document.createElement('option');
+    opt.value = m;
+    opt.textContent = m;
+    sel.appendChild(opt);
+  });
+
+  if (currentValue && [...sel.options].some(o => o.value === currentValue)) {
+    sel.value = currentValue;
+  } else if (models.length > 0) {
+    sel.value = models[0];
+  }
+}
+
+// ── Add LLM Profile ───────────────────────────────────────────────
+window.vaultAddLlmProfile = async function() {
+  const name = document.getElementById('vault-llm-name')?.value.trim();
+  if (!name) { showVaultLlmStatus('⚠ Enter a profile name', '#fb923c'); return; }
+
+  const provider = document.getElementById('vault-llm-provider')?.value || 'openai';
+  const apiKey = document.getElementById('vault-llm-apikey')?.value.trim();
+  if (!apiKey && provider !== 'custom') { showVaultLlmStatus('⚠ Enter an API key', '#fb923c'); return; }
+
+  let model = '';
+  if (provider === 'custom') {
+    model = document.getElementById('vault-llm-model-custom')?.value.trim() || document.getElementById('vault-llm-model')?.value || '';
+  } else {
+    model = document.getElementById('vault-llm-model')?.value || '';
+  }
+
+  const baseUrl = document.getElementById('vault-llm-baseurl')?.value.trim() || '';
+
+  const profile = { name, provider, model, apiKey: apiKey || '', baseUrl };
+
+  try {
+    const saved = await window.electronAPI.vaultAddLlmProfile(profile);
+    _vaultLlmProfiles.push(saved);
+
+    // If this is the first profile, auto-set as default for all LLM features
+    if (_vaultLlmProfiles.length === 1) {
+      await window.electronAPI.vaultSetDefault('ai-dictation', saved.id);
+      await window.electronAPI.vaultSetDefault('translator', saved.id);
+      await window.electronAPI.vaultSetDefault('whisper-polish', saved.id);
+    }
+    _vaultDefaults = await window.electronAPI.vaultGetDefaults();
+
+    // Clear form
+    document.getElementById('vault-llm-name').value = '';
+    document.getElementById('vault-llm-apikey').value = '';
+    if (document.getElementById('vault-llm-baseurl')) document.getElementById('vault-llm-baseurl').value = '';
+    if (document.getElementById('vault-llm-model-custom')) document.getElementById('vault-llm-model-custom').value = '';
+
+    renderVaultLlmProfiles();
+    showVaultLlmStatus('✓ Profile saved!', '#4ade80');
+  } catch (e) {
+    showVaultLlmStatus('✕ ' + (e.message || 'Save failed'), '#f87171');
+  }
+};
+
+// ── Test LLM Connection ───────────────────────────────────────────
+window.vaultTestLlmConnection = async function() {
+  const btn = document.getElementById('btn-vault-llm-test');
+  const provider = document.getElementById('vault-llm-provider')?.value || 'openai';
+  const apiKey = document.getElementById('vault-llm-apikey')?.value.trim();
+  let model = '';
+  if (provider === 'custom') {
+    model = document.getElementById('vault-llm-model-custom')?.value.trim() || document.getElementById('vault-llm-model')?.value || '';
+  } else {
+    model = document.getElementById('vault-llm-model')?.value || '';
+  }
+  const baseUrl = document.getElementById('vault-llm-baseurl')?.value.trim() || '';
+
+  if (!apiKey && provider !== 'custom') {
+    showVaultLlmStatus('⚠ Enter an API key first', '#fb923c');
+    return;
+  }
+
+  if (btn) btn.disabled = true;
+  showVaultLlmStatus('Testing connection…');
+
+  try {
+    const result = await window.electronAPI.aiTestConnection({ provider, model, modelName: model, apiKey, baseUrl });
+    if (result.text) {
+      showVaultLlmStatus('✓ Connected! Response: ' + result.text.substring(0, 80), '#4ade80');
+    } else if (result.error) {
+      showVaultLlmStatus('✕ ' + result.error, '#f87171');
+    } else {
+      showVaultLlmStatus('✕ No response', '#f87171');
+    }
+  } catch (e) {
+    showVaultLlmStatus('✕ ' + (e.message || 'Test failed'), '#f87171');
+  } finally {
+    if (btn) btn.disabled = false;
+  }
+};
+
+// ── Refresh Ollama models (vault) ─────────────────────────────────
+window.refreshVaultOllamaModels = async function() {
+  const statusDiv = document.getElementById('vault-ollama-status-row');
+  if (!statusDiv) return;
+
+  statusDiv.style.display = 'block';
+  statusDiv.innerHTML = '<span style="color:var(--muted)">🔍 Checking Ollama...</span>';
+
+  try {
+    const result = await window.electronAPI.aiGetOllamaModels();
+    if (result.running) {
+      const modelList = result.models.map(m => m.name).join(', ') || 'No models installed';
+      statusDiv.innerHTML = `<span style="color:#4ade80">✓ Ollama running</span> — Models: <strong>${modelList}</strong>`;
+
+      const sel = document.getElementById('vault-llm-model');
+      if (sel) {
+        sel.innerHTML = '';
+        result.models.forEach(m => {
+          const opt = document.createElement('option');
+          opt.value = m.name;
+          opt.textContent = m.name;
+          sel.appendChild(opt);
+        });
+        if (result.models.length > 0) sel.value = result.models[0].name;
+      }
+    } else {
+      statusDiv.innerHTML = '<span style="color:#fb923c">⚠ Ollama not running</span> — Start Ollama first, then click ↺';
+    }
+  } catch (e) {
+    statusDiv.innerHTML = `<span style="color:#f87171">✕ Error: ${e.message}</span>`;
+  }
+};
+
+// ── Whisper Provider Change ───────────────────────────────────────
+window.onVaultWhisperProviderChange = function(providerVal) {
+  const provider = providerVal || document.getElementById('vault-whisper-provider')?.value || 'openai';
+  const modelSel = document.getElementById('vault-whisper-model');
+  if (!modelSel) return;
+
+  modelSel.innerHTML = '';
+  if (provider === 'groq') {
+    ['whisper-large-v3-turbo', 'whisper-large-v3', 'distil-whisper-large-v3-en'].forEach(m => {
+      const opt = document.createElement('option');
+      opt.value = m; opt.textContent = m;
+      modelSel.appendChild(opt);
+    });
+  } else {
+    const opt = document.createElement('option');
+    opt.value = 'whisper-1'; opt.textContent = 'whisper-1';
+    modelSel.appendChild(opt);
+  }
+};
+
+// ── Add Whisper Profile ───────────────────────────────────────────
+window.vaultAddWhisperProfile = async function() {
+  const name = document.getElementById('vault-whisper-name')?.value.trim();
+  if (!name) { showVaultWhisperStatus('⚠ Enter a profile name', '#fb923c'); return; }
+
+  const provider = document.getElementById('vault-whisper-provider')?.value || 'openai';
+  const apiKey = document.getElementById('vault-whisper-apikey')?.value.trim();
+  if (!apiKey) { showVaultWhisperStatus('⚠ Enter an API key', '#fb923c'); return; }
+
+  const model = document.getElementById('vault-whisper-model')?.value || 'whisper-1';
+
+  const profile = { name, provider, model, apiKey };
+
+  try {
+    const saved = await window.electronAPI.vaultAddWhisperProfile(profile);
+    _vaultWhisperProfiles.push(saved);
+
+    // If first profile, auto-set as default
+    if (_vaultWhisperProfiles.length === 1) {
+      await window.electronAPI.vaultSetDefault('whisper-stt', saved.id);
+    }
+    _vaultDefaults = await window.electronAPI.vaultGetDefaults();
+
+    // Clear form
+    document.getElementById('vault-whisper-name').value = '';
+    document.getElementById('vault-whisper-apikey').value = '';
+
+    renderVaultWhisperProfiles();
+    showVaultWhisperStatus('✓ Profile saved!', '#4ade80');
+  } catch (e) {
+    showVaultWhisperStatus('✕ ' + (e.message || 'Save failed'), '#f87171');
+  }
+};
+
+// ── Test Whisper Connection ───────────────────────────────────────
+window.vaultTestWhisperConnection = async function() {
+  const btn = document.getElementById('btn-vault-whisper-test');
+  const provider = document.getElementById('vault-whisper-provider')?.value || 'openai';
+  const apiKey = document.getElementById('vault-whisper-apikey')?.value.trim();
+  const model = document.getElementById('vault-whisper-model')?.value || 'whisper-1';
+
+  if (!apiKey) {
+    showVaultWhisperStatus('⚠ Enter an API key first', '#fb923c');
+    return;
+  }
+
+  if (btn) btn.disabled = true;
+  showVaultWhisperStatus('Testing connection…');
+
+  try {
+    const result = await window.electronAPI.whisperApiTestKey({ provider, model, apiKey });
+    if (result && !result.error) {
+      showVaultWhisperStatus('✓ Connected!', '#4ade80');
+    } else {
+      showVaultWhisperStatus('✕ ' + (result?.error || 'No response'), '#f87171');
+    }
+  } catch (e) {
+    showVaultWhisperStatus('✕ ' + (e.message || 'Test failed'), '#f87171');
+  } finally {
+    if (btn) btn.disabled = false;
+  }
+};
+
+// ── Status Helpers ────────────────────────────────────────────────
+function showVaultLlmStatus(msg, color) {
+  const s = document.getElementById('vault-llm-status');
+  if (s) {
+    s.textContent = msg;
+    s.style.color = color || 'var(--muted)';
+    if (color) setTimeout(() => { if (s) s.textContent = ''; }, 4000);
+  }
+}
+
+function showVaultWhisperStatus(msg, color) {
+  const s = document.getElementById('vault-whisper-status');
+  if (s) {
+    s.textContent = msg;
+    s.style.color = color || 'var(--muted)';
+    if (color) setTimeout(() => { if (s) s.textContent = ''; }, 4000);
+  }
+}
 

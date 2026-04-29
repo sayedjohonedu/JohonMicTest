@@ -18,6 +18,42 @@
   --radius:   10px;
 }
 
+[data-theme="light"] {
+  --bg: #f0f0f8; --surface: #ffffff; --surface2: #e8e8f0;
+  --border: rgba(0,0,0,0.08); --text: #1a1a2e; --muted: rgba(30,30,60,0.5);
+  --accent: #6366F1; --accent2: #4F46E5;
+}
+[data-theme="bumble"] {
+  --bg: #080c0f; --surface: #0f171a; --surface2: #16202a;
+  --border: rgba(245,158,11,0.15); --text: #F8FAFC; --muted: rgba(255,255,255,0.45);
+  --accent: #F59E0B; --accent2: #D97706;
+}
+[data-theme="ocean"] {
+  --bg: #040912; --surface: #081224; --surface2: #0c1a30;
+  --border: rgba(6,182,212,0.15); --text: #E0F7FA; --muted: rgba(224,247,250,0.45);
+  --accent: #06B6D4; --accent2: #0891B2;
+}
+[data-theme="sage"] {
+  --bg: #040a08; --surface: #081410; --surface2: #0c1e18;
+  --border: rgba(16,185,129,0.15); --text: #ECFDF5; --muted: rgba(236,253,245,0.45);
+  --accent: #10B981; --accent2: #059669;
+}
+[data-theme="rose"] {
+  --bg: #090407; --surface: #12080e; --surface2: #1c0c16;
+  --border: rgba(244,63,94,0.15); --text: #FFF1F2; --muted: rgba(255,241,242,0.45);
+  --accent: #F43F5E; --accent2: #E11D48;
+}
+[data-theme="ember"] {
+  --bg: #070401; --surface: #0e0802; --surface2: #180e04;
+  --border: rgba(249,115,22,0.15); --text: #FFF7ED; --muted: rgba(255,247,237,0.45);
+  --accent: #F97316; --accent2: #EA580C;
+}
+[data-theme="arctic"] {
+  --bg: #f0f2f8; --surface: #ffffff; --surface2: #e8eaf2;
+  --border: rgba(99,102,241,0.15); --text: #0F172A; --muted: rgba(15,23,42,0.5);
+  --accent: #6366F1; --accent2: #4F46E5;
+}
+
 * { margin: 0; padding: 0; box-sizing: border-box; }
 
 html, body {
@@ -306,6 +342,9 @@ html, body {
 .bg-thumb-grid {
   display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px;
 }
+.bg-wallpaper-grid {
+  display: grid; grid-template-columns: repeat(6, 1fr); gap: 4px; padding: 0 12px 6px 12px;
+}
 .bg-thumb {
   width: 100%; aspect-ratio: 16/10; border-radius: 8px; cursor: pointer;
   border: 2px solid transparent; transition: all 0.15s;
@@ -350,13 +389,13 @@ html, body {
 .bg-history-thumb:hover { border-color: rgba(255,255,255,0.25); transform: scale(1.04); }
 .bg-history-thumb.active { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
 .bg-history-remove {
-  position: absolute; top: 2px; right: 2px;
-  width: 14px; height: 14px; border-radius: 50%;
-  background: rgba(0,0,0,0.7); border: none; color: #fff;
-  font-size: 9px; cursor: pointer;
+  position: absolute; top: 1px; right: 1px;
+  width: 10px; height: 10px; border-radius: 50%;
+  background: rgba(0,0,0,0.8); border: none; color: #fff;
+  font-size: 6px; cursor: pointer;
   display: flex; align-items: center; justify-content: center;
   opacity: 0; transition: opacity 0.12s;
-  line-height: 1;
+  line-height: 1; padding: 0;
 }
 .bg-history-thumb:hover .bg-history-remove { opacity: 1; }
 .bg-history-remove:hover { background: rgba(248,113,113,0.8); }

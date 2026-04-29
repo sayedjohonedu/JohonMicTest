@@ -1,6 +1,6 @@
 {
   "name": "mictab",
-  "version": "1.2.10",
+  "version": "0.0.1",
   "description": "MicTab - Voice Dictation App",
   "main": "main.js",
   "scripts": {
@@ -76,10 +76,12 @@
     "electron-store": "^8.1.0",
     "electron-updater": "^6.8.3",
     "google-translate-api-x": "^10.7.2",
+    "msedge-tts": "^2.0.5",
     "puppeteer-core": "^24.40.0",
     "robotjs": "^0.7.0",
     "tesseract.js": "^7.0.0",
     "uiohook-napi": "^1.5.5",
+    "uuid": "^14.0.0",
     "ws": "^8.20.0"
   },
   "optionalDependencies": {

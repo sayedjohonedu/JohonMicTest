@@ -4,6 +4,11 @@
    MicTab Gallery — Renderer
    ═══════════════════════════════════════════════════════════ */
 
+/* ── Theme synchronisation ── */
+function applyTheme(t) { if (t) document.documentElement.setAttribute('data-theme', t); }
+window.gallery.getConfig().then(c => { if (c && c.theme) applyTheme(c.theme); }).catch(() => {});
+window.gallery.onConfigUpdate(c => { if (c && c.theme) applyTheme(c.theme); });
+
 let allFiles = [];
 let filteredFiles = [];
 let currentFilter = 'all';

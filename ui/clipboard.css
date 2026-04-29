@@ -799,6 +799,25 @@ html, body {
 }
 .image-modal-close:hover { color: var(--text); }
 
+.image-modal-edit {
+  position: absolute;
+  top: -12px;
+  right: 24px;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--surface);
+  border: 1px solid var(--border2);
+  color: var(--muted2);
+  cursor: pointer;
+  font-size: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s;
+}
+.image-modal-edit:hover { color: var(--accent2); border-color: rgba(124,111,255,0.4); background: rgba(124,111,255,0.08); }
+
 /* Upgrade link */
 .upgrade-link {
   font-size: 12px;

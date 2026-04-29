@@ -77,7 +77,14 @@ async function launchChromeBridge(url, forceVisible = false) {
       executablePath: browserInfo.executablePath,
       headless: useHeadless ? 'new' : false,
       args: chromeArgs,
-      userDataDir: path.join(app.getPath('userData'), 'chrome-bridge-data')
+      userDataDir: (() => {
+        const fs = require('fs');
+        const dir = path.join(app.getPath('userData'), 'chrome-bridge-data');
+        try {
+          fs.rmSync(dir, { recursive: true, force: true });
+        } catch (e) {}
+        return dir;
+      })()
     });
 
     page = await browser.newPage();

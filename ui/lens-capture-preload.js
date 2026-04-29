@@ -9,4 +9,5 @@ contextBridge.exposeInMainWorld('lensCapture', {
   openScreenRecorderFullScreen: (settings) => ipcRenderer.send('srec-fullscreen-from-capture', settings),
   openGallery:                  ()         => ipcRenderer.send('gallery-open'),
   getConfig:                    ()         => ipcRenderer.invoke('get-config'),
+  onConfigUpdate:               (cb)       => ipcRenderer.on('config-updated', (_, data) => cb(data)),
 });

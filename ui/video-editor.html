@@ -16,6 +16,9 @@
     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M18 6 6 18M6 6l12 12"/></svg>
   </button>
   <span class="tb-title">MicTab Editor</span>
+  <button class="tb-btn" id="btn-style" title="Style Settings">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
+  </button>
   <button class="tb-btn" id="btn-minimize" title="Minimize">
     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14"/></svg>
   </button>
@@ -26,44 +29,6 @@
 
 <!-- ═══ MAIN LAYOUT ═══ -->
 <div id="editor-root">
-
-  <!-- ═══ ICON SIDEBAR ═══ -->
-  <div id="sidebar">
-    <button class="sidebar-btn active" id="sb-select" title="Select (V)">
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m3 3 7.07 16.97 2.51-7.39 7.39-2.51L3 3z"/></svg>
-      <span>Select</span>
-    </button>
-    <button class="sidebar-btn" id="sb-cut" title="Split (S)">
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><line x1="20" y1="4" x2="8.12" y2="15.88"/><line x1="14.47" y1="14.48" x2="20" y2="20"/><line x1="8.12" y1="8.12" x2="12" y2="12"/></svg>
-      <span>Split</span>
-    </button>
-    <button class="sidebar-btn" id="sb-silence" title="Detect Silence">
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><line x1="23" y1="9" x2="17" y2="15"/><line x1="17" y1="9" x2="23" y2="15"/></svg>
-      <span>Silence</span>
-    </button>
-
-    <div class="sidebar-spacer"></div>
-
-    <button class="sidebar-btn" id="sb-undo" title="Undo (⌘Z)">
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7v6h6"/><path d="M3 13a9 9 0 0 1 15.36-6.36"/></svg>
-      <span>Undo</span>
-    </button>
-    <button class="sidebar-btn" id="sb-redo" title="Redo (⌘⇧Z)">
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 7v6h-6"/><path d="M21 13A9 9 0 0 0 5.64 6.64"/></svg>
-      <span>Redo</span>
-    </button>
-    <button class="sidebar-btn" id="sb-reset" title="Reset to Original">
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 1 0 9-9"/><polyline points="3 3 3 9 9 9"/><path d="M3 3l6 6"/></svg>
-      <span>Reset</span>
-    </button>
-
-    <div style="height:4px"></div>
-
-    <button class="sidebar-btn" id="sb-settings" title="Style Settings">
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
-      <span>Style</span>
-    </button>
-  </div>
 
   <!-- ═══ MAIN CONTENT ═══ -->
   <div id="main-content">
@@ -112,6 +77,43 @@
           <span> / </span>
           <span id="tc-total">00:00</span>
         </span>
+
+        <div class="tl-sep"></div>
+
+        <button class="tl-toolbar-btn" id="tl-btn-undo" title="Undo (⌘Z)">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7v6h6"/><path d="M21 17a9 9 0 00-9-9 9 9 0 00-6 2.3L3 13"/></svg>
+          <span>Undo</span>
+        </button>
+        <button class="tl-toolbar-btn" id="tl-btn-redo" title="Redo (⌘⇧Z)">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 7v6h-6"/><path d="M3 17a9 9 0 019-9 9 9 0 016 2.3l3 2.7"/></svg>
+          <span>Redo</span>
+        </button>
+        <div class="tl-sep"></div>
+        <button class="tl-toolbar-btn active" id="tl-btn-select" title="Select (V)">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3l7.07 16.97 2.51-7.39 7.39-2.51L3 3z"/><path d="M13 13l6 6"/></svg>
+          <span>Select</span>
+        </button>
+        <button class="tl-toolbar-btn" id="tl-btn-split" title="Split (C)">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 4L8.12 15.88M14.47 14.48L20 20M8.12 8.12L12 12"/><circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/></svg>
+          <span>Split (C)</span>
+        </button>
+        <button class="tl-toolbar-btn" id="tl-btn-erase-left" title="Erase Left (Q)">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="3" x2="12" y2="21"/><path d="M8 12l-4-4v8z"/></svg>
+          <span>Erase L (Q)</span>
+        </button>
+        <button class="tl-toolbar-btn" id="tl-btn-erase-right" title="Erase Right (E)">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="3" x2="12" y2="21"/><path d="M16 12l4-4v8z"/></svg>
+          <span>Erase R (E)</span>
+        </button>
+        <button class="tl-toolbar-btn" id="tl-btn-delete" title="Delete (Del)">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>
+          <span>Delete (Del)</span>
+        </button>
+        <div class="tl-sep"></div>
+        <button class="tl-toolbar-btn" id="tl-btn-silence" title="Silence Remover">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 5L6 9H2v6h4l5 4V5z"/><line x1="23" y1="9" x2="17" y2="15"/><line x1="17" y1="9" x2="23" y2="15"/></svg>
+          <span>Auto-Trim</span>
+        </button>
 
         <div class="tl-sep"></div>
 

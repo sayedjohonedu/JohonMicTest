@@ -16,7 +16,7 @@ const aiDictationManager = new AiDictationManager();
 function setupIpcHandlers(toggleListening, registerHotkeys, getWsClient, resetSilenceTimer, showSettings, robustKeyTap, injectCharDirect, injectText, switchTrayLanguage, resetModifiers, _resetSilenceTimerForBrowser, translatorCtx) {
   
   setupFloatingBrowserIpc(_resetSilenceTimerForBrowser || resetSilenceTimer);
-  if (translatorCtx) setupTranslatorIpc(translatorCtx, robustKeyTap);
+  if (translatorCtx) setupTranslatorIpc(translatorCtx, robustKeyTap, registerHotkeys, toggleListening);
 
   ipcMain.on('save-config', (event, config) => {
     // ── AI Trial enforcement: stamp first-enable date + block expired trials ──
@@ -124,6 +124,26 @@ function setupIpcHandlers(toggleListening, registerHotkeys, getWsClient, resetSi
     if (sw) {
       sw.show();
       sw.focus();
+    }
+  });
+
+  // Opens settings AND navigates to a specific panel (e.g. 'api-vault')
+  ipcMain.on('open-settings-panel', (event, panelId) => {
+    resetSilenceTimer();
+    const sw = showSettings();
+    if (sw) {
+      sw.show();
+      sw.focus();
+      // Wait for the window to be ready before sending the navigate event
+      const send = () => {
+        if (!sw.isDestroyed()) sw.webContents.send('navigate-to-panel', panelId);
+      };
+      if (sw.webContents.isLoading()) {
+        sw.webContents.once('did-finish-load', send);
+      } else {
+        // Already loaded — small delay to let JS settle
+        setTimeout(send, 80);
+      }
     }
   });
   ipcMain.on('close-license-popup', () => {
@@ -669,6 +689,94 @@ function setupIpcHandlers(toggleListening, registerHotkeys, getWsClient, resetSi
       return { error: e.message || 'Connection failed' };
     }
   });
+
+  /* ═══════════════════════════════════════════════════════════════
+     ██  CENTRAL API VAULT — IPC HANDLERS
+     ═══════════════════════════════════════════════════════════════ */
+  const apiVault = require('./api-vault');
+
+  // Broadcast vault changes to ALL open windows so renderers can refresh their caches
+  function broadcastVaultUpdate() {
+    BrowserWindow.getAllWindows().forEach((win) => {
+      if (!win.isDestroyed()) win.webContents.send('vault-updated');
+    });
+  }
+
+  // Get the full vault summary (counts, defaults, feature info)
+  ipcMain.handle('vault-get-summary', () => apiVault.getSummary());
+
+  // ── LLM Profiles ──────────────────────────────────────────────
+  ipcMain.handle('vault-get-llm-profiles', () => apiVault.getLlmProfiles());
+
+  ipcMain.handle('vault-add-llm-profile', (event, profile) => {
+    const p = apiVault.addLlmProfile(profile);
+    broadcastVaultUpdate();
+    return { ok: true, profile: p };
+  });
+
+  ipcMain.handle('vault-update-llm-profile', (event, { id, updates }) => {
+    const p = apiVault.updateLlmProfile(id, updates);
+    broadcastVaultUpdate();
+    return p ? { ok: true, profile: p } : { ok: false, error: 'Profile not found' };
+  });
+
+  ipcMain.handle('vault-remove-llm-profile', (event, id) => {
+    apiVault.removeLlmProfile(id);
+    broadcastVaultUpdate();
+    return { ok: true };
+  });
+
+  // ── Whisper Profiles ──────────────────────────────────────────
+  ipcMain.handle('vault-get-whisper-profiles', () => apiVault.getWhisperProfiles());
+
+  ipcMain.handle('vault-add-whisper-profile', (event, profile) => {
+    const p = apiVault.addWhisperProfile(profile);
+    broadcastVaultUpdate();
+    return { ok: true, profile: p };
+  });
+
+  ipcMain.handle('vault-update-whisper-profile', (event, { id, updates }) => {
+    const p = apiVault.updateWhisperProfile(id, updates);
+    broadcastVaultUpdate();
+    return p ? { ok: true, profile: p } : { ok: false, error: 'Profile not found' };
+  });
+
+  ipcMain.handle('vault-remove-whisper-profile', (event, id) => {
+    apiVault.removeWhisperProfile(id);
+    broadcastVaultUpdate();
+    return { ok: true };
+  });
+
+  // ── Feature Defaults ──────────────────────────────────────────
+  ipcMain.handle('vault-get-defaults', () => apiVault.getAllDefaults());
+
+  ipcMain.handle('vault-set-default', (event, { feature, profileId }) => {
+    apiVault.setDefaultForFeature(feature, profileId);
+    broadcastVaultUpdate();
+    return { ok: true };
+  });
+
+  ipcMain.handle('vault-get-default-for-feature', (event, feature) => {
+    return apiVault.getDefaultForFeature(feature);
+  });
+
+  // ── Fallback Toggle ───────────────────────────────────────────
+  ipcMain.handle('vault-get-fallback', () => apiVault.fallbackEnabled);
+
+  ipcMain.handle('vault-set-fallback', (event, enabled) => {
+    apiVault.fallbackEnabled = enabled;
+    broadcastVaultUpdate();
+    return { ok: true };
+  });
+
+  // ── Legacy-compat: also update whisper profile storage on vault changes ──
+  // (The Settings UI Whisper panel still reads whisperApiProfiles for status/key)
+  ipcMain.handle('vault-sync-whisper-config', (event, config) => {
+    if (config.profiles !== undefined) store.set('whisperApiProfiles', config.profiles);
+    if (config.activeProfileId !== undefined) store.set('whisperApiActiveProfileId', config.activeProfileId);
+    if (config.fallbackEnabled !== undefined) store.set('whisperApiFallbackEnabled', config.fallbackEnabled);
+    return { ok: true };
+  });
 }
 
 function handleMicListMessage(devices) {
@@ -679,7 +787,7 @@ function handleMicListMessage(devices) {
 }
 
 /* ─── Translator IPC ──────────────────────────────────────────── */
-function setupTranslatorIpc({ openTranslator, closeTranslatorAndRestoreOverlay, toggleListening: tglListen }, robustKeyTap) {
+function setupTranslatorIpc({ openTranslator, closeTranslatorAndRestoreOverlay, toggleListening: tglListen }, robustKeyTap, registerHotkeys, mainToggleListening) {
   const KBD_MOD = process.platform === 'darwin' ? 'command' : 'control';
 
   // Translate — Regular (google-translate-api-x) or AI (LLM)
@@ -743,6 +851,25 @@ function setupTranslatorIpc({ openTranslator, closeTranslatorAndRestoreOverlay, 
   // Close translator
   ipcMain.on('translator-close', () => closeTranslatorAndRestoreOverlay());
 
+  // Minimize and maximize
+  ipcMain.on('translator-minimize', () => {
+    const translatorManager = require('./translator-manager');
+    const tw = translatorManager.getTranslatorWindow();
+    if (tw && !tw.isDestroyed()) tw.minimize();
+  });
+  
+  ipcMain.on('translator-maximize', () => {
+    const translatorManager = require('./translator-manager');
+    const tw = translatorManager.getTranslatorWindow();
+    if (tw && !tw.isDestroyed()) {
+      if (tw.isMaximized()) {
+        tw.unmaximize();
+      } else {
+        tw.maximize();
+      }
+    }
+  });
+
   // Open translator from overlay button
   ipcMain.on('open-translator', () => openTranslator());
 
@@ -750,6 +877,12 @@ function setupTranslatorIpc({ openTranslator, closeTranslatorAndRestoreOverlay, 
   ipcMain.handle('translator-save-settings', (event, updates) => {
     if (updates && typeof updates === 'object') {
       Object.keys(updates).forEach(k => store.set(k, updates[k]));
+
+      if (updates.translatorOpenShortcut !== undefined || updates.translatorPasteShortcut !== undefined) {
+        if (registerHotkeys && mainToggleListening) {
+          registerHotkeys(mainToggleListening);
+        }
+      }
     }
     return true;
   });

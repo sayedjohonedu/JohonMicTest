@@ -7,6 +7,19 @@ let holdKeyPressed  = false;
 let uiohookRunning  = false;
 let middleMouseTimer = null;
 let middleMousePressed = false;
+let pttStartedSession = false;
+
+const registeredHotkeys = { keydown: [], keyup: [], mousedown: [], mouseup: [] };
+function clearHotkeys() {
+  for (const evt of Object.keys(registeredHotkeys)) {
+    registeredHotkeys[evt].forEach(fn => uIOhook.removeListener(evt, fn));
+    registeredHotkeys[evt] = [];
+  }
+}
+function addHotkey(evt, fn) {
+  uIOhook.on(evt, fn);
+  if (registeredHotkeys[evt]) registeredHotkeys[evt].push(fn);
+}
 
 // Stored translator context so shortcuts survive re-registration
 let _translatorCtx = null;
@@ -26,8 +39,16 @@ let _whisperApiCallbacks = null; // { onKeyDown, onKeyUp }
 // Lens capture callback (Alt+Shift+S)
 let _lensCaptureCallback = null;
 
+// App Store callback (Alt+Shift+A)
+let _appStoreCallback = null;
+
 function setTranslatorCtx(ctx) {
   _translatorCtx = ctx;
+}
+
+let _getIsListening = null;
+function setGetIsListening(fn) {
+  _getIsListening = fn;
 }
 
 function setAiSendNow(fn) {
@@ -48,6 +69,10 @@ function setWhisperAiModeToggle(fn) {
 
 function setLensCaptureCallback(fn) {
   _lensCaptureCallback = fn;
+}
+
+function setAppStoreCallback(fn) {
+  _appStoreCallback = fn;
 }
 
 function uiohookKeyName(keycode) {
@@ -129,6 +154,16 @@ function registerHotkeys(toggleListening) {
     } catch (e) { console.log('Lens capture shortcut failed:', e.message); }
   }
 
+  // ── App Store shortcut (configurable, default Alt+Shift+A) ──
+  if (_appStoreCallback) {
+    const appStoreShortcut = store.get('appStoreShortcut') || 'Shift+Alt+A';
+    try {
+      globalShortcut.register(appStoreShortcut, () => {
+        _appStoreCallback();
+      });
+    } catch (e) { console.log('App Store shortcut failed:', e.message); }
+  }
+
   // 1b) Language-specific Combo Hotkeys
   const langHotkeys = store.get('langHotkeys') || [];
   langHotkeys.forEach((lh) => {
@@ -146,32 +181,35 @@ function registerHotkeys(toggleListening) {
   const holdEnabled  = store.get('holdKeyEnabled') === true;
   let holdKeyName    = store.get('holdKey');
   if (holdKeyName === undefined || holdKeyName === '') {
-    holdKeyName = 'Alt';
+    holdKeyName = process.platform === 'darwin' ? 'ControlLeft' : 'F8';
   }
   const holdDuration = (store.get('holdDuration') || 2) * 1000;
 
-  uIOhook.removeAllListeners('keydown');
-  uIOhook.removeAllListeners('keyup');
-  uIOhook.removeAllListeners('mousedown');
-  uIOhook.removeAllListeners('mouseup');
+  clearHotkeys();
 
   // ── AI Instant Send: configurable key trigger ──
   // Map DOM event.code → UiohookKey name for common modifiers/keys
   const CODE_TO_UIOHOOK = { AltRight:'AltRight', AltLeft:'Alt', ShiftRight:'ShiftRight', ShiftLeft:'Shift', ControlRight:'CtrlRight', ControlLeft:'Ctrl', MetaRight:'MetaRight', MetaLeft:'Meta', Space:'Space', F1:'F1', F2:'F2', F3:'F3', F4:'F4', F5:'F5', F6:'F6', F7:'F7', F8:'F8', F9:'F9', F10:'F10', F11:'F11', F12:'F12' };
+  function getUioName(code) {
+    if (CODE_TO_UIOHOOK[code]) return CODE_TO_UIOHOOK[code];
+    if (code.startsWith('Key')) return code.substring(3);
+    if (code.startsWith('Digit')) return code.substring(5);
+    return code;
+  }
   const aiDefaultKey = 'ShiftRight';
   const aiKeyCode = store.get('aiActivationKey') || aiDefaultKey;
-  const uiohookName = CODE_TO_UIOHOOK[aiKeyCode] || aiKeyCode;
+  const uiohookName = getUioName(aiKeyCode);
   const aiDefaultUiohook = UiohookKey.ShiftRight;
   const aiKeyCodeValue = UiohookKey[uiohookName] || aiDefaultUiohook;
 
   let aiSendNowLock = false;
-  uIOhook.on('keydown', (e) => {
+  addHotkey('keydown', (e) => {
     if (e.keycode === aiKeyCodeValue && _aiSendNow && !aiSendNowLock) {
       aiSendNowLock = true;
       _aiSendNow();
     }
   });
-  uIOhook.on('keyup', (e) => {
+  addHotkey('keyup', (e) => {
     if (e.keycode === aiKeyCodeValue) {
       aiSendNowLock = false;
     }
@@ -194,7 +232,7 @@ function registerHotkeys(toggleListening) {
   };
 
   if (mouseAction !== 'none') {
-    uIOhook.on('mousedown', (e) => {
+    addHotkey('mousedown', (e) => {
       if (e.button !== mouseButton) return;
 
       const now = Date.now();
@@ -242,7 +280,7 @@ function registerHotkeys(toggleListening) {
       }
     });
 
-    uIOhook.on('mouseup', (e) => {
+    addHotkey('mouseup', (e) => {
       if (e.button !== mouseButton) return;
       if (mouseAction === 'double_click') return; // Handled purely via mousedown
 
@@ -257,25 +295,60 @@ function registerHotkeys(toggleListening) {
   }
 
   if (holdEnabled && holdKeyName) {
-    uIOhook.on('keydown', (e) => {
-      const pressed = uiohookKeyName(e.keycode);
-      if (pressed !== holdKeyName) return;
-      if (holdKeyPressed) return;
-      holdKeyPressed = true;
-      holdKeyTimer = setTimeout(() => {
-        toggleListening();
-      }, holdDuration);
-    });
+    const uioName = getUioName(holdKeyName);
+    const holdKeyCodeValue = UiohookKey[uioName];
 
-    uIOhook.on('keyup', (e) => {
-      const released = uiohookKeyName(e.keycode);
-      if (released !== holdKeyName) return;
-      holdKeyPressed = false;
-      if (holdKeyTimer) {
-        clearTimeout(holdKeyTimer);
-        holdKeyTimer = null;
-      }
-    });
+    if (holdKeyCodeValue) {
+      addHotkey('keydown', (e) => {
+        if (e.keycode === holdKeyCodeValue && !holdKeyPressed) {
+          holdKeyPressed = true;
+          const isCurrentlyListening = _getIsListening ? _getIsListening() : false;
+          if (!isCurrentlyListening) {
+            pttStartedSession = true;
+            toggleListening();
+          } else {
+            pttStartedSession = false;
+          }
+        }
+      });
+
+      addHotkey('keyup', (e) => {
+        if (e.keycode === holdKeyCodeValue && holdKeyPressed) {
+          holdKeyPressed = false;
+          const isCurrentlyListening = _getIsListening ? _getIsListening() : true;
+          if (isCurrentlyListening && pttStartedSession) {
+            toggleListening();
+          }
+          pttStartedSession = false;
+        }
+      });
+    } else {
+      // Fallback if keycode isn't directly mapped
+      addHotkey('keydown', (e) => {
+        const pressed = uiohookKeyName(e.keycode);
+        if (pressed !== holdKeyName) return;
+        if (holdKeyPressed) return;
+        holdKeyPressed = true;
+        const isCurrentlyListening = _getIsListening ? _getIsListening() : false;
+        if (!isCurrentlyListening) {
+          pttStartedSession = true;
+          toggleListening();
+        } else {
+          pttStartedSession = false;
+        }
+      });
+
+      addHotkey('keyup', (e) => {
+        const released = uiohookKeyName(e.keycode);
+        if (released !== holdKeyName) return;
+        if (holdKeyPressed) {
+          holdKeyPressed = false;
+          const isCurrentlyListening = _getIsListening ? _getIsListening() : true;
+          if (isCurrentlyListening && pttStartedSession) toggleListening();
+          pttStartedSession = false;
+        }
+      });
+    }
   }
 
 
@@ -289,14 +362,14 @@ function registerHotkeys(toggleListening) {
   const SLASH_KEYCODE = process.platform === 'darwin' ? SLASH_KEYCODE_MAC : SLASH_KEYCODE_WIN;
 
   if (_whisperAiModeToggle) {
-    uIOhook.on('keydown', (e) => {
+    addHotkey('keydown', (e) => {
       if (e.keycode === UiohookKey.AltRight)   rightAltHeldForAi   = true;
       if (e.keycode === UiohookKey.ShiftRight) rightShiftHeldForAi = true;
       if (e.keycode === SLASH_KEYCODE && rightAltHeldForAi && rightShiftHeldForAi) {
         _whisperAiModeToggle();
       }
     });
-    uIOhook.on('keyup', (e) => {
+    addHotkey('keyup', (e) => {
       if (e.keycode === UiohookKey.AltRight)   rightAltHeldForAi   = false;
       if (e.keycode === UiohookKey.ShiftRight) rightShiftHeldForAi = false;
     });
@@ -312,13 +385,13 @@ function registerHotkeys(toggleListening) {
     const whisperKeyCodeValue = UiohookKey[whisperUiohookName] || whisperDefaultUiohook;
 
     let whisperHeld = false;
-    uIOhook.on('keydown', (e) => {
+    addHotkey('keydown', (e) => {
       if (e.keycode === whisperKeyCodeValue && !whisperHeld) {
         whisperHeld = true;
         _whisperApiCallbacks.onKeyDown();
       }
     });
-    uIOhook.on('keyup', (e) => {
+    addHotkey('keyup', (e) => {
       if (e.keycode === whisperKeyCodeValue && whisperHeld) {
         whisperHeld = false;
         _whisperApiCallbacks.onKeyUp();
@@ -355,4 +428,7 @@ module.exports = {
   setWhisperApiCallbacks,
   setWhisperAiModeToggle,
   setLensCaptureCallback,
+  setAppStoreCallback,
+  setGetIsListening,
+  isPttSessionActive: () => pttStartedSession
 };

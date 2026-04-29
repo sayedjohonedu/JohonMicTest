@@ -30,7 +30,12 @@ async function callLlmRaw({ text, profile, systemPrompt, systemInstructions, mes
         'x-api-key': apiKey,
         'anthropic-version': '2023-06-01',
       });
-      const parsed = JSON.parse(result);
+      let parsed;
+      try {
+        parsed = JSON.parse(result);
+      } catch (err) {
+        return { error: `Invalid JSON response from Anthropic: ${result.substring(0, 100)}` };
+      }
       if (parsed.error) return { error: parsed.error.message };
       return { text: parsed.content[0].text.trim() };
     }
@@ -43,25 +48,55 @@ async function callLlmRaw({ text, profile, systemPrompt, systemInstructions, mes
       const body = JSON.stringify({ contents: [{ parts: [{ text: fullText }] }] });
       const url = `https://generativelanguage.googleapis.com/v1beta/models/${model || modelName}:generateContent?key=${apiKey}`;
       const result = await httpPost(url, body, {});
-      const parsed = JSON.parse(result);
+      let parsed;
+      try {
+        parsed = JSON.parse(result);
+      } catch (err) {
+        return { error: `Invalid JSON response from Gemini: ${result.substring(0, 100)}` };
+      }
       if (parsed.error) return { error: parsed.error.message };
       return { text: parsed.candidates[0].content.parts[0].text.trim() };
     }
 
-    // OpenAI-compatible (openai, mistral, groq, openrouter, custom/ollama)
+    // OpenAI-compatible (openai, mistral, groq, openrouter, nvidia, custom/ollama)
     const ENDPOINTS = {
       openai:     'https://api.openai.com/v1/chat/completions',
       mistral:    'https://api.mistral.ai/v1/chat/completions',
       groq:       'https://api.groq.com/openai/v1/chat/completions',
       openrouter: 'https://openrouter.ai/api/v1/chat/completions',
+      nvidia:     'https://integrate.api.nvidia.com/v1/chat/completions',
       custom:     (baseUrl || '').replace(/\/$/, '') + '/chat/completions',
     };
     const endpoint = ENDPOINTS[provider] || ENDPOINTS.custom;
     const body = JSON.stringify({ model: model || modelName, messages, max_tokens: 4096, temperature: temp });
     const result = await httpPost(endpoint, body, { Authorization: `Bearer ${apiKey}` });
-    const parsed = JSON.parse(result);
-    if (parsed.error) return { error: parsed.error.message };
-    return { text: parsed.choices[0].message.content.trim() };
+    
+    let parsed;
+    try {
+      parsed = JSON.parse(result);
+    } catch (err) {
+      // Handle cases where the endpoint returns non-JSON (like "404 page not found")
+      return { error: `Invalid JSON response from provider: ${result.substring(0, 100)}` };
+    }
+
+    if (parsed.error) return { error: parsed.error.message || JSON.stringify(parsed.error) };
+    
+    // Nvidia NIM and some others might return standard HTTP errors with a detail field
+    if (parsed.detail || parsed.status) {
+      let errorMsg = parsed.detail || parsed.title || `API Error: ${parsed.status}`;
+      if (parsed.status === 404 && parsed.detail && parsed.detail.includes('Not found for account')) {
+        errorMsg = `NVIDIA NIM: This model is not available for your account. Please try a different model (e.g., Llama 3.3).`;
+      }
+      return { error: errorMsg };
+    }
+
+    if (!parsed.choices || !parsed.choices[0]) {
+      return { error: `Unexpected API response: ${result.substring(0, 200)}` };
+    }
+    
+    const msg = parsed.choices[0].message;
+    const content = msg.content || msg.reasoning_content || '';
+    return { text: content.trim() };
 
   } catch (e) {
     console.error('LLM call error:', e);
@@ -90,7 +125,7 @@ function httpPost(url, body, extraHeaders = {}) {
       res.on('end', () => resolve(raw));
     });
     req.on('error', reject);
-    req.setTimeout(30000, () => { req.destroy(); reject(new Error('Request timeout')); });
+    req.setTimeout(120000, () => { req.destroy(); reject(new Error('Request timeout')); });
     req.write(data);
     req.end();
   });

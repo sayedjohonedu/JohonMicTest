@@ -10,6 +10,12 @@ contextBridge.exposeInMainWorld('veditor', {
   checkFFmpeg:      ()                      => ipcRenderer.invoke('gallery-check-ffmpeg'),
   downloadFFmpeg:   ()                      => ipcRenderer.invoke('gallery-download-ffmpeg'),
   exportVideo:      (opts)                  => ipcRenderer.invoke('veditor-export', opts),
+  cancelExport:     ()                      => ipcRenderer.send('veditor-cancel-export'),
+
+  // Canvas frame-by-frame export (for dynamic zoom)
+  startFrameExport: (opts)                  => ipcRenderer.invoke('veditor-start-frame-export', opts),
+  sendExportFrame:  (frameData)             => ipcRenderer.invoke('veditor-send-frame', frameData),
+  finishFrameExport:()                      => ipcRenderer.invoke('veditor-finish-frame-export'),
 
   // Project sidecar
   saveProject:      (filePath, data)        => ipcRenderer.invoke('veditor-save-project', { filePath, data }),
@@ -19,4 +25,8 @@ contextBridge.exposeInMainWorld('veditor', {
   // Events from main process
   onExportProgress: (cb) => ipcRenderer.on('veditor-export-progress', (_, data) => cb(data)),
   onExportDone:     (cb) => ipcRenderer.on('veditor-export-done', (_, data) => cb(data)),
+
+  // Theme / config
+  getConfig:        ()   => ipcRenderer.invoke('get-config'),
+  onConfigUpdate:   (cb) => ipcRenderer.on('config-updated', (_, data) => cb(data)),
 });

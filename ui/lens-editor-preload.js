@@ -13,5 +13,9 @@ contextBridge.exposeInMainWorld('lensEditor', {
   markDirty:        ()            => ipcRenderer.send('lens-mark-dirty'),
   markClean:        ()            => ipcRenderer.send('lens-mark-clean'),
   openScreenRecorder: ()          => ipcRenderer.send('srec-open-from-editor'),
+
+  // Theme / config
+  getConfig:          ()           => ipcRenderer.invoke('get-config'),
+  onConfigUpdate:     (cb)         => ipcRenderer.on('config-updated', (_, data) => cb(data)),
 });
 

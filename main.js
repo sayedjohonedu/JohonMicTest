@@ -16,7 +16,7 @@ const { setupClipboardIpc } = require('./src/main/clipboard-ipc');
 // Import modules
 const { createOverlay, showSettings, showLicensePopup, showWordLimitPopup, showTranslatorLockedPopup, showAiTrialExpiredPopup, applyOverlaySize, getOverlayWindow, getSettingsWindow, showUpdateReminderPopup, getUpdateReminderPopupWindow, createOfflinePill } = require('./src/main/window-manager');
 const { onOverlayShow, onOverlayHide } = require('./src/main/floating-browser-manager');
-const { registerHotkeys, stopUiohook, setTranslatorCtx, setAiSendNow, setAiModeToggle, setWhisperApiCallbacks, setWhisperAiModeToggle, setLensCaptureCallback } = require('./src/main/hotkey-manager');
+const { registerHotkeys, stopUiohook, setTranslatorCtx, setAiSendNow, setAiModeToggle, setWhisperApiCallbacks, setWhisperAiModeToggle, setLensCaptureCallback, setAppStoreCallback, setGetIsListening, isPttSessionActive } = require('./src/main/hotkey-manager');
 const { checkAuthStatus, checkAndResetDailyWords, checkAiTrialExpiry } = require('./src/main/licensing');
 const { setupUpdater } = require('./src/main/updater');
 const { setupIpcHandlers, aiDictationManager } = require('./src/main/ipc-handlers');
@@ -26,6 +26,10 @@ const { showCaptureOverlay, setupLensIpc, isCaptureOverlayOpen, closeCaptureOver
 const { setupScreenRecorderIpc } = require('./src/main/screen-recorder-manager');
 const { setupGalleryIpc, openGallery } = require('./src/main/gallery-manager');
 const { setupEditorIpc } = require('./src/main/video-editor-manager');
+const appStoreManager = require('./src/main/appstore-manager');
+const MsEdgeTTSManager = require('./src/main/msedge-tts-manager');
+const edgeTTSManager = new MsEdgeTTSManager();
+edgeTTSManager.init();
 
 
 
@@ -41,10 +45,15 @@ if (store.get('aiActivationKey') === 'MetaRight' || store.get('aiActivationKey')
 let wss = null;
 let wsClient = null;
 let isListening = false;
+let updateReminderPopupTimer = null;
+let silenceTimeoutResetTimer = null;
 let httpPort = 9123;
 let sessionWordCount = 0;
 let currentSessionLang = 'en-US';
+let pttBuffer = '';
 let lastPhraseTimestamp = 0;
+let latestInterimText = '';
+let flushedInterimText = '';
 
 // ── STT routing: 'overlay' | 'translator' ───────────────
 // Controls where STT transcripts are routed. The two panels are mutually exclusive.
@@ -69,6 +78,15 @@ function clearAiSilenceTimer() {
 function processAiBufferAndContinue() {
   if (!isAiModeActive()) return;
   clearAiSilenceTimer();
+
+  // Flush any pending interim text instantly
+  if (latestInterimText && latestInterimText.trim()) {
+    const replacedText = applyTextReplacements(latestInterimText);
+    aiDictationManager.bufferTranscript(replacedText);
+    flushedInterimText = latestInterimText;
+    latestInterimText = '';
+  }
+
   const buffered = aiDictationManager.getBufferedText().trim();
   if (!buffered) return;
   // Process buffer + paste, but keep the session alive
@@ -296,10 +314,12 @@ function toggleListening(forceLang = null, fromTranslator = false, forceStart = 
     lastPhraseTimestamp = 0;
     const lang = forceLang || store.get('language') || 'en-US';
     currentSessionLang = lang;
-    // For AI mode: set bridge silence timeout to 0 (infinite) so it never fires
-    // silence-timeout — the AI silence timer in main.js handles processing independently.
+    // For AI mode and PTT mode: set bridge silence timeout to 0 (infinite) so it never fires
+    // silence-timeout — the AI silence timer in main.js handles processing independently,
+    // and PTT handles closing on key up.
     // For regular mode: use the normal silence timeout.
-    const silenceTimeout = isAiModeActive() ? 0 : (store.get('silenceTimeout') ?? 10);
+    const silenceTimeout = (isAiModeActive() || (isPttSessionActive && isPttSessionActive())) ? 0 : (store.get('silenceTimeout') ?? 10);
+    pttBuffer = '';
     // Clear AI buffer at session start
     if (isAiModeActive()) {
       aiDictationManager.clearBuffer();
@@ -307,7 +327,7 @@ function toggleListening(forceLang = null, fromTranslator = false, forceStart = 
     }
 
     if (overlayWindow) {
-      overlayWindow.webContents.send('session-start', { lang });
+      overlayWindow.webContents.send('session-start', { lang, isPtt: isPttSessionActive && isPttSessionActive() });
       if (store.get('overlayMini')) {
         overlayWindow.setMinimumSize(280, 38);
         overlayWindow.setSize(280, 38);
@@ -327,6 +347,34 @@ function toggleListening(forceLang = null, fromTranslator = false, forceStart = 
     clearAiSilenceTimer();
     try { wsClient.send(JSON.stringify({ command: 'stop' })); } catch (e) {
       console.error('Failed to send stop command:', e);
+    }
+
+    // Flush any pending interim text instantly
+    if (latestInterimText && latestInterimText.trim()) {
+      const replacedText = applyTextReplacements(latestInterimText);
+      if (sttMode === 'translator') {
+        const tw = translatorManager.getTranslatorWindow();
+        if (tw && !tw.isDestroyed()) {
+          tw.webContents.send('translator-transcript', replacedText);
+        }
+      } else if (isAiModeActive()) {
+        aiDictationManager.bufferTranscript(replacedText);
+      } else {
+        const textToInject = (lastPhraseTimestamp > 0 && !(isPttSessionActive && isPttSessionActive())) ? ' ' + replacedText : replacedText;
+        lastPhraseTimestamp = Date.now();
+        if (isPttSessionActive && isPttSessionActive()) {
+          pttBuffer += (pttBuffer ? ' ' : '') + textToInject.trimStart();
+        } else {
+          clipboardManager.injectText(textToInject);
+        }
+      }
+      flushedInterimText = latestInterimText;
+      latestInterimText = '';
+    }
+
+    if (pttBuffer) {
+      clipboardManager.injectText(pttBuffer);
+      pttBuffer = '';
     }
 
     // ── AI Dictation: handle buffer on stop ──
@@ -541,6 +589,17 @@ function setupWebSocketServer(server) {
       const data = JSON.parse(message.toString());
       if (data.type === 'final-text') {
         let rawText = data.text;
+        latestInterimText = '';
+
+        if (flushedInterimText) {
+          if (rawText.toLowerCase().startsWith(flushedInterimText.toLowerCase())) {
+            rawText = rawText.substring(flushedInterimText.length).trim();
+          }
+          flushedInterimText = '';
+        }
+
+        if (!rawText) return;
+
         const wordCount = rawText.trim().split(/\s+/).filter(Boolean).length;
         sessionWordCount += wordCount;
         store.set('statsWords', (store.get('statsWords') || 0) + wordCount);
@@ -590,11 +649,16 @@ function setupWebSocketServer(server) {
             overlayWindow.webContents.send('session-word-count', sessionWordCount);
             overlayWindow.webContents.send('transcript', { text: replacedText });
           }
-          const textToInject = (lastPhraseTimestamp > 0) ? ' ' + replacedText : replacedText;
+          const textToInject = (lastPhraseTimestamp > 0 && !(isPttSessionActive && isPttSessionActive())) ? ' ' + replacedText : replacedText;
           lastPhraseTimestamp = Date.now();
-          clipboardManager.injectText(textToInject);
+          if (isPttSessionActive && isPttSessionActive()) {
+            pttBuffer += (pttBuffer ? ' ' : '') + textToInject.trimStart();
+          } else {
+            clipboardManager.injectText(textToInject);
+          }
         }
       } else if (data.type === 'interim-text') {
+        latestInterimText = data.text;
         if (sttMode === 'translator') {
           const tw = translatorManager.getTranslatorWindow();
           if (tw && !tw.isDestroyed()) tw.webContents.send('translator-interim', data.text);
@@ -618,6 +682,10 @@ function setupWebSocketServer(server) {
             isListening = false; // reset so toggleListening can turn it on again
             if (tw && !tw.isDestroyed()) tw.webContents.send('translator-stt-state', false);
             setTimeout(() => toggleListening(null, true, false), 200);
+          } else if (isPttSessionActive && isPttSessionActive()) {
+            // Push-to-Talk mode: ignore silence-timeout and re-arm bridge to keep listening
+            const lang = currentSessionLang || store.get('language') || 'en-US';
+            try { wsClient.send(JSON.stringify({ command: 'start', language: lang, timeout: 0 })); } catch (e) {}
           } else if (isAiModeActive()) {
             // AI mode: bridge silence-timeout should NOT fire (timeout=0 in AI mode),
             // but handle gracefully as a safety net. Do NOT process buffer here —
@@ -691,6 +759,10 @@ app.whenReady().then(() => {
   checkAuthStatus();
   checkAndResetDailyWords(); // Reset daily word counter if it's a new day
   checkAiTrialExpiry();       // Auto-disable AI mode if 15-day free trial expired
+
+  // ── Central API Vault: migrate legacy profile pools on first launch ──
+  const apiVault = require('./src/main/api-vault');
+  apiVault.migrateIfNeeded();
   
   // Apply the unified login item setting
   app.setLoginItemSettings({
@@ -709,6 +781,7 @@ app.whenReady().then(() => {
   setAiModeToggle(toggleAiMode);
   // Wire Whisper AI Polish mode toggle (Right Alt+Right Shift+/) into hotkey-manager
   setWhisperAiModeToggle(toggleWhisperAiMode);
+  setGetIsListening(() => isListening);
   registerHotkeys(toggleListening);
 
   // ── Wire translator shortcuts into hotkey-manager so they survive unregisterAll()
@@ -760,6 +833,16 @@ app.whenReady().then(() => {
 
   // ── Video Editor ──────────────────────────────────────────────────
   setupEditorIpc();
+
+  // ── App Store / Toolbox (Alt+Shift+A) ─────────────────────────────
+  appStoreManager.setupAppStoreIpc();
+  const appStoreAction = () => {
+    if (appStoreManager.isAppStoreVisible()) appStoreManager.closeAppStore();
+    else appStoreManager.showAppStore();
+  };
+  setAppStoreCallback(appStoreAction);
+  ipcMain.on('open-appstore', appStoreAction);
+  registerHotkeys(toggleListening);
 
   // ── Whisper API (Cloud) init ──────────────────────────────────────
   const whisperApiManager = require('./src/main/whisper-api-manager');

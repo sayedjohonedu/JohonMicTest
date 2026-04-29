@@ -31,10 +31,10 @@ function createTranslatorWindow() {
   const savedPos = store.get('translatorWindowPosition') || {};
 
   translatorWindow = new BrowserWindow({
-    width: 520,
-    height: 700,
-    minWidth: 400,
-    minHeight: 500,
+    width: 850,
+    height: 480,
+    minWidth: 700,
+    minHeight: 400,
     x: savedPos.x,
     y: savedPos.y,
     show: false,
@@ -44,8 +44,8 @@ function createTranslatorWindow() {
     visualEffectState: 'active',
     hasShadow: true,
     resizable: true,
-    maximizable: false,
-    fullscreenable: false,
+    maximizable: true,
+    fullscreenable: true,
     alwaysOnTop: true,
     skipTaskbar: true,
     webPreferences: {

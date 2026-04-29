@@ -507,7 +507,7 @@ function applyMiniMode(mini, notify = true) {
 
 document.body.addEventListener('mousedown', (e) => {
   if (window.junoAPI && window.junoAPI.resetSilence) window.junoAPI.resetSilence();
-  const target = e.target.closest('.punct-btn, .kb-key, .emoji-btn, .kbd-btn, #mini-btn, #expand-btn, #settings-btn, #browser-btn, #mini-browser-btn, #translator-btn, #clipboard-btn, #mini-clipboard-btn, #screen-rec-btn, #mini-screen-rec-btn, #dot-close');
+  const target = e.target.closest('.punct-btn, .kb-key, .emoji-btn, .kbd-btn, #mini-btn, #expand-btn, #settings-btn, #browser-btn, #mini-browser-btn, #translator-btn, #clipboard-btn, #mini-clipboard-btn, #screen-rec-btn, #mini-screen-rec-btn, #appstore-btn, #mini-appstore-btn, #dot-close');
   if (target) {
     e.preventDefault(); flash(target);
     if (target.id === 'dot-close') window.junoAPI.stopListening();
@@ -516,6 +516,7 @@ document.body.addEventListener('mousedown', (e) => {
     else if (target.id === 'translator-btn') { e.stopPropagation(); window.junoAPI.openTranslator(); }
     else if (target.id === 'clipboard-btn' || target.id === 'mini-clipboard-btn') { e.stopPropagation(); window.junoAPI.openClipboardManager(); }
     else if (target.id === 'screen-rec-btn' || target.id === 'mini-screen-rec-btn') { e.stopPropagation(); window.junoAPI.openLensCapture(); }
+    else if (target.id === 'appstore-btn' || target.id === 'mini-appstore-btn') { e.stopPropagation(); window.junoAPI.openAppStore(); }
     else if (target.id === 'mini-btn') { e.stopPropagation(); applyMiniMode(true); }
     else if (target.id === 'expand-btn') { e.stopPropagation(); applyMiniMode(false); }
     else if (target.classList.contains('punct-btn')) {
@@ -588,6 +589,7 @@ window.junoAPI.onConfigUpdate && window.junoAPI.onConfigUpdate((cfg) => { if (cf
 
 // ── AI Mode state tracking ──
 let isAiMode = false;
+let isPttMode = false;
 const miniAiSendBtn = document.getElementById('mini-ai-send-btn');
 const miniAiBadge = document.getElementById('mini-ai-badge');
 
@@ -606,6 +608,7 @@ function showAiSendButtons(show) {
 // });
 
 window.junoAPI.onSessionStart((data) => {
+  isPttMode = !!(data && data.isPtt);
   window.junoAPI.getConfig().then(cfg => {
     applyOverlayTheme(cfg.theme);
     // Track AI mode and show/hide Send button
@@ -629,8 +632,8 @@ window.junoAPI.onTranscript((data) => {
   clearTimer && clearTimeout(clearTimer);
   phraseEl.classList.remove('fading'); interimEl.textContent = ''; isSpeaking = false;
 
-  if (isAiMode) {
-    // AI mode: accumulate text, don't auto-fade
+  if (isAiMode || isPttMode) {
+    // AI mode or PTT mode: accumulate text, don't auto-fade
     const prev = phraseEl.textContent;
     phraseEl.textContent = prev ? prev + ' ' + text : text;
   } else {

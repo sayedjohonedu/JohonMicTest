@@ -27,4 +27,8 @@ contextBridge.exposeInMainWorld('gallery', {
   // Events from main process
   onFileList:       (cb) => ipcRenderer.on('gallery-file-list', (_, files) => cb(files)),
   onNavigateToFile: (cb) => ipcRenderer.on('gallery-navigate-to-file', (_, filePath) => cb(filePath)),
+
+  // Theme / config
+  getConfig:        ()   => ipcRenderer.invoke('get-config'),
+  onConfigUpdate:   (cb) => ipcRenderer.on('config-updated', (_, data) => cb(data)),
 });

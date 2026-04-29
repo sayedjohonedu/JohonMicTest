@@ -4,6 +4,11 @@
    Wires veditor-core.js to the DOM
    ═══════════════════════════════════════════════════════════ */
 
+/* ── Theme synchronisation ── */
+function applyTheme(t) { if (t) document.documentElement.setAttribute('data-theme', t); }
+window.veditor.getConfig().then(c => { if (c && c.theme) applyTheme(c.theme); }).catch(() => {});
+window.veditor.onConfigUpdate(c => { if (c && c.theme) applyTheme(c.theme); });
+
 /* ── DOM refs ── */
 const $ = id => document.getElementById(id);
 const canvas = $('preview-canvas');
@@ -63,33 +68,40 @@ function onDurationReady() {
   resolvedDuration = true;
   const dur = video.duration;
   S.videoW = video.videoWidth; S.videoH = video.videoHeight;
+  // Canvas dimensions are now set dynamically by renderFrame based on AR
   canvas.width = Math.min(S.videoW, 1920); canvas.height = Math.min(S.videoH, 1080);
-  $('res-label').textContent = S.videoW + '×' + S.videoH;
+  updateResLabel();
   $('tc-total').textContent = fmtTime(dur);
   initSegments(dur);
   video.currentTime = 0;
   buildTimeline();
   renderCurrentFrame();
 
-  // Load sidecar project
-  if (window.veditor && window.veditor.loadProject) {
-    window.veditor.loadProject(S.filePath).then(proj => {
+  // Load sidecar project and cursor track
+  if (window.veditor && window.veditor.loadProject && window.veditor.loadCursorTrack) {
+    Promise.all([
+      window.veditor.loadProject(S.filePath),
+      window.veditor.loadCursorTrack(S.filePath)
+    ]).then(([proj, data]) => {
       if (proj) {
+        S.autoZoomApplied = proj.autoZoomApplied || false;
         if (proj.segments) S.segments = proj.segments;
         if (proj.zoomKeyframes) S.zoomKeyframes = proj.zoomKeyframes;
         if (proj.viewport) Object.assign(S.viewport, proj.viewport);
-        syncSettingsUI(); buildTimeline(); snapshot();
+      } else {
+        S.autoZoomApplied = false;
       }
-    });
-  }
 
-  // Load cursor track data for position-aware zoom
-  if (window.veditor && window.veditor.loadCursorTrack) {
-    window.veditor.loadCursorTrack(S.filePath).then(data => {
       if (data) {
         setCursorData(data);
-        console.log('[Editor] Cursor track loaded:', data.track.length, 'points');
+        console.log('[Editor] Cursor track loaded:', data.track ? data.track.length : 0, 'points');
+        if (data.clicks && data.clicks.length && !S.autoZoomApplied) {
+          processClicksToZooms(data.clicks, data.displayBounds);
+          S.autoZoomApplied = true;
+        }
       }
+
+      syncSettingsUI(); buildTimeline(); snapshot();
     });
   }
 
@@ -97,6 +109,29 @@ function onDurationReady() {
   generateWaveform(S.filePath, 50).then(peaks => {
     waveformPeaks = peaks; drawTimelineWaveform();
   });
+}
+
+/* ── Resolution label helper ── */
+function updateResLabel() {
+  const ar = S.viewport.aspectRatio || 'original';
+  const resLabel = $('res-label');
+  if (!resLabel || !S.videoW) return;
+  if (ar === 'original') {
+    resLabel.textContent = S.videoW + '×' + S.videoH;
+  } else {
+    // Compute effective canvas dims same way renderFrame does
+    const sourceAR = S.videoW / S.videoH;
+    const arMap = { '16:9': 16/9, '9:16': 9/16, '1:1': 1, '4:3': 4/3, '3:4': 3/4, '4:5': 4/5, '21:9': 21/9 };
+    const targetAR = arMap[ar] || sourceAR;
+    const maxW = Math.min(S.videoW, 1920), maxH = Math.min(S.videoH, 1080);
+    let cw, ch;
+    if (Math.abs(targetAR - sourceAR) < 0.01) { cw = maxW; ch = maxH; }
+    else if (targetAR > sourceAR) { ch = maxH; cw = Math.round(ch * targetAR); }
+    else { cw = maxW; ch = Math.round(cw / targetAR); }
+    cw = cw % 2 === 0 ? cw : cw + 1;
+    ch = ch % 2 === 0 ? ch : ch + 1;
+    resLabel.textContent = cw + '×' + ch + ' (' + ar + ')';
+  }
 }
 
 /* ═══ RENDER LOOP ═══ */
@@ -199,13 +234,13 @@ function buildTimeline() {
         const icon = document.createElement('div');
         icon.className = 'cut-marker-icon';
         icon.innerHTML = '<svg viewBox="0 0 24 24"><path d="M3 7v6h6"/><path d="M3 13a9 9 0 0 1 15.36-6.36"/></svg>';
-        marker.appendChild(icon);
-        marker.addEventListener('click', e => {
+        icon.addEventListener('click', e => {
           e.stopPropagation();
           toggleDeleteSegment(seg.id);
           buildTimeline();
           showToast('Segment restored');
         });
+        marker.appendChild(icon);
         trackActive.appendChild(marker);
       }
       return; // Don't advance visual offset for deleted segments
@@ -271,21 +306,33 @@ function buildTimeline() {
     btns.appendChild(action);
     el.appendChild(btns);
 
-    // Resize handle between this and next segment
+    // Left Resize handle (only if previous segment is deleted)
+    const prev = S.segments[i - 1];
+    if (prev && prev.isDeleted) {
+      const handleLeft = document.createElement('div');
+      handleLeft.className = 'seg-resize-left';
+      handleLeft.addEventListener('mousedown', e => {
+        e.stopPropagation(); e.preventDefault();
+        resizeDrag = { leftId: prev.id, rightId: seg.id, initialCut: prev.endSec, startX: e.clientX };
+      });
+      el.appendChild(handleLeft);
+    }
+
+    // Right Resize handle (between this and next segment)
     const next = S.segments[i + 1];
     if (next && Math.abs(next.startSec - seg.endSec) < 0.01) {
       const handle = document.createElement('div');
       handle.className = 'seg-resize';
       handle.addEventListener('mousedown', e => {
         e.stopPropagation(); e.preventDefault();
-        resizeDrag = { leftId: seg.id, rightId: next.id };
+        resizeDrag = { leftId: seg.id, rightId: next.id, initialCut: seg.endSec, startX: e.clientX };
       });
       el.appendChild(handle);
     }
 
     // Click on segment: select it (deselect zoom)
     el.addEventListener('mousedown', e => {
-      if (e.target.closest('.seg-action') || e.target.closest('.seg-resize')) return;
+      if (e.target.closest('.seg-action') || e.target.closest('.seg-resize') || e.target.closest('.seg-resize-left')) return;
       S.selectedSegId = seg.id;
       selectedZoomId = null; // mutual exclusion
       highlightSelected();
@@ -349,14 +396,7 @@ function buildTimeline() {
       zoomDrag = { id: region.id, side: 'move', grabOffset };
     });
 
-    // Scroll wheel to adjust scale
-    el.addEventListener('wheel', e => {
-      e.preventDefault(); e.stopPropagation();
-      const delta = e.deltaY > 0 ? -0.25 : 0.25;
-      region.scale = clamp(region.scale + delta, 1.25, 5);
-      snapshot(); buildTimeline();
-      showToast('Zoom: ' + region.scale.toFixed(2) + '×');
-    });
+
 
     trackZoom.appendChild(el);
   });
@@ -489,6 +529,7 @@ function updateInspector() {
 function renderClipInspector(seg, body, title) {
   const dur = (seg.endSec - seg.startSec).toFixed(2);
   const isDeleted = seg.isDeleted;
+  const speedEnabled = S.speed !== 1;
   title.textContent = isDeleted ? 'Deleted Clip' : 'Clip Properties';
   body.innerHTML = `
     <div class="inspector-clip-header ${isDeleted ? 'deleted-header' : ''}">
@@ -503,28 +544,38 @@ function renderClipInspector(seg, body, title) {
     ${!isDeleted ? `
     <!-- Speed -->
     <div class="panel-section">
-      <div class="panel-section-title">Speed</div>
-      <div class="speed-presets" id="speed-presets">
-        <button class="speed-preset${S.speed===0.25?' active':''}" data-speed="0.25">0.25×</button>
-        <button class="speed-preset${S.speed===0.5?' active':''}" data-speed="0.5">0.5×</button>
-        <button class="speed-preset${S.speed===0.75?' active':''}" data-speed="0.75">0.75×</button>
-        <button class="speed-preset${S.speed===1?' active':''}" data-speed="1">1×</button>
-        <button class="speed-preset${S.speed===1.5?' active':''}" data-speed="1.5">1.5×</button>
-        <button class="speed-preset${S.speed===2?' active':''}" data-speed="2">2×</button>
-        <button class="speed-preset${S.speed===4?' active':''}" data-speed="4">4×</button>
+      <div class="panel-row" style="margin-bottom:0">
+        <span class="panel-section-title" style="margin:0">Speed</span>
+        <label class="switch" id="speed-toggle">
+          <div class="switch-track ${speedEnabled ? 'on' : ''}">
+            <div class="switch-thumb"></div>
+          </div>
+          <span class="panel-value" id="speed-val" style="min-width:32px;text-align:right">${S.speed.toFixed(2)}×</span>
+        </label>
+      </div>
+      <div id="speed-slider-wrap" style="margin-top:8px;${speedEnabled ? '' : 'display:none;'}">
+        <input type="range" class="panel-slider" id="slider-speed" min="0.25" max="4" value="${S.speed}" step="0.05">
+        <div style="display:flex;justify-content:space-between;margin-top:2px">
+          <span style="font:500 8px/1 'Inter',sans-serif;color:rgba(255,255,255,0.25)">0.25×</span>
+          <span style="font:500 8px/1 'Inter',sans-serif;color:rgba(255,255,255,0.35)">1×</span>
+          <span style="font:500 8px/1 'Inter',sans-serif;color:rgba(255,255,255,0.25)">4×</span>
+        </div>
       </div>
     </div>
     <div class="inspector-divider"></div>
-    <!-- Volume -->
+    <!-- Audio -->
     <div class="panel-section">
-      <div class="panel-section-title">Audio</div>
-      <div class="panel-row">
-        <span class="panel-label">${seg.isMuted ? '🔇 Muted' : '🔊 Audible'}</span>
+      <div class="panel-row" style="margin-bottom:0">
+        <span class="panel-section-title" style="margin:0">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:-2px;margin-right:4px"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/>${seg.isMuted ? '<line x1="23" y1="9" x2="17" y2="15"/><line x1="17" y1="9" x2="23" y2="15"/>' : '<path d="M19.07 4.93a10 10 0 0 1 0 14.14"/>'}</svg>Audio
+        </span>
+        <label class="switch" id="mute-toggle">
+          <div class="switch-track ${!seg.isMuted ? 'on' : ''}">
+            <div class="switch-thumb"></div>
+          </div>
+          <span class="panel-value" style="min-width:32px;text-align:right">${seg.isMuted ? 'Off' : 'On'}</span>
+        </label>
       </div>
-      <button class="inspector-action-btn mute" id="btn-toggle-mute">
-        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/>${seg.isMuted ? '<line x1="23" y1="9" x2="17" y2="15"/><line x1="17" y1="9" x2="23" y2="15"/>' : '<path d="M19.07 4.93a10 10 0 0 1 0 14.14"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/>'}</svg>
-        ${seg.isMuted ? 'Unmute' : 'Mute'}
-      </button>
     </div>
     ` : ''}
     <div class="inspector-divider"></div>
@@ -545,22 +596,48 @@ function renderClipInspector(seg, body, title) {
           </button>
         `}
       </div>
-    </div>`;
+    </div>
+    ${getGlobalSettingsHTML()}`;
   wireClipInspectorEvents(seg);
+  wireGlobalSettingsEvents();
 }
 
 function wireClipInspectorEvents(seg) {
-  // Speed presets
-  document.querySelectorAll('#speed-presets .speed-preset').forEach(btn => {
-    btn.addEventListener('click', () => {
-      S.speed = +btn.dataset.speed;
-      video.playbackRate = S.speed;
-      updateInspector();
-    });
+  // Speed toggle
+  const speedToggle = $('speed-toggle');
+  if (speedToggle) speedToggle.addEventListener('click', () => {
+    const track = speedToggle.querySelector('.switch-track');
+    const isOn = track.classList.contains('on');
+    if (isOn) {
+      // Turn off → reset to 1x
+      S.speed = 1; video.playbackRate = 1;
+      track.classList.remove('on');
+      $('speed-val').textContent = '1.00×';
+      const wrap = $('speed-slider-wrap');
+      if (wrap) wrap.style.display = 'none';
+      const sl = $('slider-speed');
+      if (sl) sl.value = 1;
+    } else {
+      // Turn on → show slider
+      track.classList.add('on');
+      const wrap = $('speed-slider-wrap');
+      if (wrap) wrap.style.display = '';
+    }
+    snapshot();
   });
+  // Speed slider
+  const speedSlider = $('slider-speed');
+  if (speedSlider) {
+    speedSlider.addEventListener('input', e => {
+      S.speed = +parseFloat(e.target.value).toFixed(2);
+      video.playbackRate = S.speed;
+      $('speed-val').textContent = S.speed.toFixed(2) + '×';
+    });
+    speedSlider.addEventListener('change', snapshot);
+  }
   // Mute toggle
-  const muteBtn = $('btn-toggle-mute');
-  if (muteBtn) muteBtn.addEventListener('click', () => {
+  const muteToggle = $('mute-toggle');
+  if (muteToggle) muteToggle.addEventListener('click', () => {
     seg.isMuted = !seg.isMuted; snapshot(); buildTimeline(); updateInspector();
     showToast(seg.isMuted ? 'Segment muted' : 'Segment unmuted');
   });
@@ -629,8 +706,10 @@ function renderZoomInspector(zr, body, title) {
           <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg> Remove
         </button>
       </div>
-    </div>`;
+    </div>
+    ${getGlobalSettingsHTML()}`;
   wireZoomInspectorEvents(zr);
+  wireGlobalSettingsEvents();
 }
 
 function wireZoomInspectorEvents(zr) {
@@ -638,7 +717,6 @@ function wireZoomInspectorEvents(zr) {
   document.querySelectorAll('#zoom-scale-presets .zoom-preset').forEach(btn => {
     btn.addEventListener('click', () => {
       zr.scale = +btn.dataset.scale;
-      lastZoomScale = zr.scale;
       snapshot(); buildTimeline(); updateInspector();
       showToast('Zoom: ' + zr.scale.toFixed(1) + '×');
     });
@@ -648,7 +726,6 @@ function wireZoomInspectorEvents(zr) {
   if (scaleSlider) {
     scaleSlider.addEventListener('input', e => {
       zr.scale = +e.target.value;
-      lastZoomScale = zr.scale;
       $('val-zoom-scale').textContent = zr.scale.toFixed(2) + '×';
       buildTimeline(); renderCurrentFrame();
     });
@@ -687,11 +764,127 @@ function wireZoomInspectorEvents(zr) {
   });
 }
 
-/* ── Default Inspector (viewport/background settings) ── */
-function renderDefaultInspector(body, title) {
-  title.textContent = 'Inspector';
-  body.innerHTML = `
-    <!-- Viewport section -->
+/* ── Global Settings HTML (shared across all inspector views) ── */
+let _savedCustomGradients = [];
+try { _savedCustomGradients = JSON.parse(localStorage.getItem('veditor_custom_gradients') || '[]'); } catch(e) {}
+
+const _PRESET_BGS = [
+  { val:'none', css:'repeating-conic-gradient(#1a1a28 0% 25%,#0f0f18 0% 50%) 50%/8px 8px', label:'None' },
+  { val:'#f5f5f5', css:'#f5f5f5', label:'White' },
+  { val:'linear-gradient(135deg,#2d1b69,#11998e)', css:'linear-gradient(135deg,#2d1b69,#11998e)', label:'Ocean' },
+  { val:'linear-gradient(135deg,#667eea,#764ba2)', css:'linear-gradient(135deg,#667eea,#764ba2)', label:'Purple' },
+  { val:'linear-gradient(135deg,#f093fb,#f5576c)', css:'linear-gradient(135deg,#f093fb,#f5576c)', label:'Pink' },
+  { val:'linear-gradient(135deg,#4facfe,#00f2fe)', css:'linear-gradient(135deg,#4facfe,#00f2fe)', label:'Sky' },
+  { val:'linear-gradient(135deg,#43e97b,#38f9d7)', css:'linear-gradient(135deg,#43e97b,#38f9d7)', label:'Mint' },
+  { val:'linear-gradient(135deg,#fa709a,#fee140)', css:'linear-gradient(135deg,#fa709a,#fee140)', label:'Sunset' },
+];
+
+const ALL_WALLPAPERS = [
+  "6ffdbef4-5949-42e1-bef0-826ed3a080dd.jpg", "Abstract Shapes 2.jpg", "Abstract Shapes.jpg", 
+  "Chroma 1.jpg", "Chroma 2.jpg", "El Capitan.jpg", "High Sierra.jpg", "Milky Way.jpg", 
+  "Mojave Day.jpg", "Mojave Night.jpg", "Poppies.jpg", "Sierra 2.jpg", "Sierra.jpg", 
+  "Snow.jpg", "Yosemite.jpg", "adam-kool-ndN00KmbJ1c-unsplash.jpg", 
+  "andreas-gucklhorn-mawU2PoJWfU-unsplash.jpg", "armennano-gerbera-4712871_1920.jpg", 
+  "aszak-sunrise-9750192_1920.jpg", "e54c05da-7844-47cf-9581-2f56f4378f4e.jpg", 
+  "himmelstraeume-flower-7543035_1920.jpg", "inspiredimages-pencils-452238_1920.jpg", 
+  "macos-big-sur-abstract-grey-colour-5k-bx (1).jpg", "medienservice-texture-2917553_1920.jpg", 
+  "milad-fakurian-E8Ufcyxz514-unsplash.jpg", "milad-fakurian-seA-FPPXL-M-unsplash.jpg", 
+  "pexels-simon73-1323550.jpg", "richard-horvath-_nWaeTF6qo0-unsplash.jpg", 
+  "waldrebell-trees-5899195_1920.jpg"
+];
+
+let _CURRENT_WALLPAPERS = [...ALL_WALLPAPERS].sort(() => 0.5 - Math.random()).slice(0, 11);
+
+function getGlobalSettingsHTML() {
+  const AR_PRESETS = [
+    { key:'original', label:'Original', w:0, h:0 },
+    { key:'16:9', label:'16:9', w:16, h:9 },
+    { key:'9:16', label:'9:16', w:9, h:16 },
+    { key:'1:1', label:'1:1', w:1, h:1 },
+    { key:'4:3', label:'4:3', w:4, h:3 },
+    { key:'4:5', label:'4:5', w:4, h:5 },
+    { key:'21:9', label:'21:9', w:21, h:9 },
+  ];
+  const currentAR = S.viewport.aspectRatio || 'original';
+  const m = S.viewport.bgMode || 'color';
+  const bv = S.viewport.blurIntensity ?? 30;
+
+  return `
+    <div class="inspector-divider"></div>
+    <div class="panel-section">
+      <div class="panel-section-title">Aspect Ratio</div>
+      <div class="ar-presets" id="ar-presets">
+        ${AR_PRESETS.map(p => {
+          let iW, iH;
+          if (p.key === 'original') {
+            iW = S.videoW > S.videoH ? 18 : Math.round(18*(S.videoW/S.videoH));
+            iH = S.videoW > S.videoH ? Math.round(18*(S.videoH/S.videoW)) : 18;
+          } else {
+            if (p.w >= p.h) { iW = 18; iH = Math.round(18*(p.h/p.w)); }
+            else { iH = 18; iW = Math.round(18*(p.w/p.h)); }
+          }
+          iW = Math.max(iW,4); iH = Math.max(iH,4);
+          return `<button class="ar-preset${currentAR===p.key?' active':''}" data-ar="${p.key}" title="${p.label}"><span class="ar-icon" style="width:${iW}px;height:${iH}px"></span><span class="ar-label">${p.label}</span></button>`;
+        }).join('')}
+      </div>
+    </div>
+    <div class="inspector-divider"></div>
+    <div class="panel-section">
+      <div class="panel-section-title">Background Fill</div>
+      <div class="bgmode-selector" id="bgmode-selector">
+        <button class="bgmode-btn${m==='color'?' active':''}" data-mode="color"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/></svg> Color</button>
+        <button class="bgmode-btn${m==='image'?' active':''}" data-mode="image"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg> Image</button>
+        <button class="bgmode-btn${m==='blur'?' active':''}" data-mode="blur"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6" opacity=".5"/><circle cx="12" cy="12" r="2"/></svg> Blur</button>
+      </div>
+    </div>
+    <div id="bg-panel-color" style="${m!=='color'?'display:none':''}">
+      <div class="panel-section">
+        <div class="color-swatches" id="bg-swatches">
+          ${_PRESET_BGS.map(p=>`<div class="color-swatch${S.viewport.bgMode==='color'&&S.viewport.bg===p.val?' active':''}" data-bg="${p.val}" style="background:${p.css}" title="${p.label}"></div>`).join('')}
+          ${_savedCustomGradients.map((g,i)=>{
+            const isDataUrl = g.startsWith('data:image/');
+            const isActive = isDataUrl ? (S.viewport.bgMode==='image' && S.viewport.bgImageSrc===g) : (S.viewport.bgMode==='color' && S.viewport.bg===g);
+            return `<div class="color-swatch${isActive?' active':''}" data-bg="${g}" style="${isDataUrl ? `background-image:url('${g}');background-size:cover` : `background:${g}`}" title="Custom ${i+1}"><span class="swatch-delete" data-cidx="${i}">×</span></div>`;
+          }).join('')}
+        </div>
+      </div>
+      <div class="panel-section">
+        <div style="display:flex;gap:6px;align-items:center">
+          <button id="btn-random-grad" style="padding:4px 8px;border-radius:6px;border:1px solid rgba(124,111,255,0.3);background:rgba(124,111,255,0.1);color:#b4a8ff;cursor:pointer;display:flex;align-items:center;justify-content:center" title="Generate Random Gradient">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 3h5v5"/><path d="M4 20L21 3"/><path d="M21 16v5h-5"/><path d="M15 15l6 6"/><path d="M4 4l5 5"/></svg>
+          </button>
+          <div id="grad-preview" style="flex:1;height:22px;border-radius:4px;border:1px solid rgba(255,255,255,0.08);${S.viewport.bgMode==='image' && S.viewport.bgImageSrc && S.viewport.isCustomGradient ? `background-image:url('${S.viewport.bgImageSrc}');background-size:cover` : `background:${(S.viewport.bgMode==='color' && S.viewport.bg && S.viewport.bg.includes('gradient')) ? S.viewport.bg : 'linear-gradient(135deg,#667eea,#764ba2)'}`}"></div>
+        </div>
+      </div>
+    </div>
+    <div id="bg-panel-image" style="${m!=='image'?'display:none':''}">
+      <div class="panel-section">
+        <div style="display:flex;gap:6px;margin-bottom:8px">
+          <button id="btn-shuffle-images" style="flex:1;padding:4px 8px;border-radius:6px;border:1px solid rgba(255,255,255,0.1);background:rgba(255,255,255,0.05);color:var(--text);cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px" title="Shuffle Wallpapers">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 3h5v5"/><path d="M4 20L21 3"/><path d="M21 16v5h-5"/><path d="M15 15l6 6"/><path d="M4 4l5 5"/></svg>
+            Shuffle
+          </button>
+        </div>
+        <div class="bg-image-grid" id="bg-image-grid" style="display:grid;grid-template-columns:repeat(6,1fr);gap:4px">
+          ${_CURRENT_WALLPAPERS.map(p=>`<div class="bg-image-thumb preset${S.viewport.bgMode==='image'&&S.viewport.bgImageSrc==='../assets/walpaper/'+p?' active':''}" data-src="../assets/walpaper/${p}" title="${p}"><img src="../assets/walpaper/${p}" alt="${p}" style="pointer-events:none;"></div>`).join('')}
+          <label class="bg-image-thumb upload" title="Upload image">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+            <input type="file" id="bg-image-file" accept="image/*" style="display:none">
+          </label>
+        </div>
+      </div>
+      <div class="panel-section">
+        <div class="panel-row"><span class="panel-label">Blur</span><span class="panel-value" id="val-img-blur">${bv}</span></div>
+        <input type="range" class="panel-slider" id="slider-img-blur" min="0" max="60" value="${bv}" step="1">
+      </div>
+    </div>
+    <div id="bg-panel-blur" style="${m!=='blur'?'display:none':''}">
+      <div class="panel-section">
+        <div class="panel-row"><span class="panel-label">Intensity</span><span class="panel-value" id="val-blur-intensity">${bv}</span></div>
+        <input type="range" class="panel-slider" id="slider-blur-intensity" min="5" max="60" value="${bv}" step="1">
+      </div>
+    </div>
+    <div class="inspector-divider"></div>
     <div class="panel-section">
       <div class="panel-section-title">Viewport</div>
       <div class="panel-row"><span class="panel-label">Corner Radius</span><span class="panel-value" id="val-radius">${S.viewport.radius}px</span></div>
@@ -700,26 +893,214 @@ function renderDefaultInspector(body, title) {
       <input type="range" class="panel-slider" id="slider-padding" min="0" max="120" value="${S.viewport.padding}" step="2">
       <div class="panel-row" style="margin-top:8px"><span class="panel-label">Shadow</span><span class="panel-value" id="val-shadow">${S.viewport.shadow}px</span></div>
       <input type="range" class="panel-slider" id="slider-shadow" min="0" max="80" value="${S.viewport.shadow}" step="1">
-    </div>
-    <div class="inspector-divider"></div>
-    <!-- Background section -->
-    <div class="panel-section">
-      <div class="panel-section-title">Background</div>
-      <div class="color-swatches" id="bg-swatches">
-        <div class="color-swatch${S.viewport.bg==='none'?' active':''}" data-bg="none" style="background:repeating-conic-gradient(#1a1a28 0% 25%, #0f0f18 0% 50%) 50%/8px 8px" title="None"></div>
-        <div class="color-swatch${S.viewport.bg==='#0f0f1a'?' active':''}" data-bg="#0f0f1a" style="background:#0f0f1a" title="Dark"></div>
-        <div class="color-swatch${S.viewport.bg==='linear-gradient(135deg,#1a1a2e,#16213e)'?' active':''}" data-bg="linear-gradient(135deg,#1a1a2e,#16213e)" style="background:linear-gradient(135deg,#1a1a2e,#16213e)" title="Deep Blue"></div>
-        <div class="color-swatch${S.viewport.bg==='linear-gradient(135deg,#2d1b69,#11998e)'?' active':''}" data-bg="linear-gradient(135deg,#2d1b69,#11998e)" style="background:linear-gradient(135deg,#2d1b69,#11998e)" title="Ocean"></div>
-        <div class="color-swatch${S.viewport.bg==='linear-gradient(135deg,#667eea,#764ba2)'?' active':''}" data-bg="linear-gradient(135deg,#667eea,#764ba2)" style="background:linear-gradient(135deg,#667eea,#764ba2)" title="Purple"></div>
-        <div class="color-swatch${S.viewport.bg==='linear-gradient(135deg,#f093fb,#f5576c)'?' active':''}" data-bg="linear-gradient(135deg,#f093fb,#f5576c)" style="background:linear-gradient(135deg,#f093fb,#f5576c)" title="Pink"></div>
-        <div class="color-swatch${S.viewport.bg==='linear-gradient(135deg,#4facfe,#00f2fe)'?' active':''}" data-bg="linear-gradient(135deg,#4facfe,#00f2fe)" style="background:linear-gradient(135deg,#4facfe,#00f2fe)" title="Sky"></div>
-        <div class="color-swatch${S.viewport.bg==='linear-gradient(135deg,#43e97b,#38f9d7)'?' active':''}" data-bg="linear-gradient(135deg,#43e97b,#38f9d7)" style="background:linear-gradient(135deg,#43e97b,#38f9d7)" title="Mint"></div>
-        <div class="color-swatch${S.viewport.bg==='linear-gradient(135deg,#fa709a,#fee140)'?' active':''}" data-bg="linear-gradient(135deg,#fa709a,#fee140)" style="background:linear-gradient(135deg,#fa709a,#fee140)" title="Sunset"></div>
-        <div class="color-swatch${S.viewport.bg==='#f5f5f5'?' active':''}" data-bg="#f5f5f5" style="background:#f5f5f5" title="White"></div>
-      </div>
-    </div>
-    <div class="inspector-divider"></div>
-    <!-- Zoom default level -->
+    </div>`;
+}
+
+function generateRandomGradientString() {
+  const isDark = Math.random() > 0.5;
+  const h1 = Math.floor(Math.random() * 360);
+  const h2 = (h1 + 30 + Math.random() * 60) % 360; 
+  
+  let s1, s2, l1, l2;
+  if (isDark) {
+    s1 = 50 + Math.random() * 30;
+    s2 = 50 + Math.random() * 30;
+    l1 = 15 + Math.random() * 15;
+    l2 = 15 + Math.random() * 15;
+  } else {
+    s1 = 70 + Math.random() * 30;
+    s2 = 70 + Math.random() * 30;
+    l1 = 60 + Math.random() * 20;
+    l2 = 60 + Math.random() * 20;
+  }
+  
+  function hslToHex(h, s, l) {
+    l /= 100;
+    const a = s * Math.min(l, 1 - l) / 100;
+    const f = n => {
+      const k = (n + h / 30) % 12;
+      const color = l - a * Math.max(Math.min(k - 3, 9 - k, 1), -1);
+      return Math.round(255 * color).toString(16).padStart(2, '0');
+    };
+    return `#${f(0)}${f(8)}${f(4)}`;
+  }
+
+  const hex1 = hslToHex(h1, s1, l1);
+  const hex2 = hslToHex(h2, s2, l2);
+  const angle = Math.floor(Math.random() * 360);
+  return `linear-gradient(${angle}deg,${hex1},${hex2})`;
+}
+
+function wireGlobalSettingsEvents() {
+  // AR presets
+  document.querySelectorAll('#ar-presets .ar-preset').forEach(btn => {
+    btn.addEventListener('click', () => {
+      S.viewport.aspectRatio = btn.dataset.ar;
+      document.querySelectorAll('#ar-presets .ar-preset').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      updateResLabel(); renderCurrentFrame(); snapshot();
+    });
+  });
+  // BG mode tabs
+  document.querySelectorAll('#bgmode-selector .bgmode-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      S.viewport.bgMode = btn.dataset.mode;
+      document.querySelectorAll('#bgmode-selector .bgmode-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      ['color','image','blur'].forEach(m => {
+        const p = document.getElementById('bg-panel-' + m);
+        if (p) p.style.display = m === btn.dataset.mode ? '' : 'none';
+      });
+      renderCurrentFrame(); snapshot();
+    });
+  });
+  // Color swatches
+  document.querySelectorAll('#bg-swatches .color-swatch').forEach(sw => {
+    sw.addEventListener('click', e => {
+      if (e.target.classList.contains('swatch-delete')) return;
+      const val = sw.dataset.bg;
+      if (val.startsWith('data:image/')) {
+        S.viewport.bgMode = 'image';
+        S.viewport.bgImageSrc = val;
+        S.viewport.isCustomGradient = true;
+        const img = new Image();
+        img.onload = () => { bgImageObj = img; renderCurrentFrame(); snapshot(); };
+        img.src = val;
+      } else {
+        S.viewport.bgMode = 'color';
+        S.viewport.bg = val;
+        S.viewport.isCustomGradient = false;
+        renderCurrentFrame();
+        snapshot();
+      }
+      document.querySelectorAll('#bg-swatches .color-swatch').forEach(s => s.classList.remove('active'));
+      sw.classList.add('active');
+    });
+  });
+  // Custom gradient delete
+  document.querySelectorAll('.swatch-delete').forEach(del => {
+    del.addEventListener('click', e => {
+      e.stopPropagation();
+      _savedCustomGradients.splice(+del.dataset.cidx, 1);
+      localStorage.setItem('veditor_custom_gradients', JSON.stringify(_savedCustomGradients));
+      updateInspector();
+    });
+  });
+  // Gradient generator
+  const btnRand = $('btn-random-grad');
+  const gP = $('grad-preview');
+  if (btnRand) {
+    btnRand.addEventListener('click', () => {
+      const gradStr = generateRandomGradientString();
+      S.viewport.bgMode = 'color';
+      S.viewport.bg = gradStr;
+      S.viewport.isCustomGradient = true;
+      
+      if (gP) {
+        gP.style.backgroundImage = 'none';
+        gP.style.background = gradStr;
+      }
+      
+      document.querySelectorAll('#bg-swatches .color-swatch').forEach(s => s.classList.remove('active'));
+      
+      renderCurrentFrame();
+      snapshot();
+    });
+  }
+  // Image upload
+  const fIn = $('bg-image-file');
+  if (fIn) fIn.addEventListener('change', e => {
+    const f = e.target.files[0]; if (!f) return;
+    const r = new FileReader();
+    r.onload = ev => {
+      S.viewport.bgImageSrc = ev.target.result;
+      S.viewport.isCustomGradient = false;
+      document.querySelectorAll('#bg-image-grid .bg-image-thumb').forEach(t => t.classList.remove('active'));
+      const img = new Image();
+      img.onload = () => { bgImageObj = img; renderCurrentFrame(); snapshot(); };
+      img.src = ev.target.result;
+    };
+    r.readAsDataURL(f);
+  });
+  function bindImageThumbEvents() {
+    document.querySelectorAll('#bg-image-grid .bg-image-thumb.preset').forEach(thumb => {
+      thumb.addEventListener('click', () => {
+        const src = thumb.dataset.src;
+        S.viewport.bgMode = 'image';
+        S.viewport.bgImageSrc = src;
+        S.viewport.isCustomGradient = false;
+        document.querySelectorAll('#bg-image-grid .bg-image-thumb').forEach(t => t.classList.remove('active'));
+        thumb.classList.add('active');
+        const img = new Image();
+        img.onload = () => { bgImageObj = img; renderCurrentFrame(); snapshot(); };
+        img.src = src;
+      });
+    });
+  }
+  
+  bindImageThumbEvents();
+  
+  const btnShuffle = $('btn-shuffle-images');
+  if (btnShuffle) {
+    btnShuffle.addEventListener('click', () => {
+      _CURRENT_WALLPAPERS = [...ALL_WALLPAPERS].sort(() => 0.5 - Math.random()).slice(0, 11);
+      const grid = $('bg-image-grid');
+      if (grid) {
+        const uploadHtml = `
+          <label class="bg-image-thumb upload" title="Upload image">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+            <input type="file" id="bg-image-file" accept="image/*" style="display:none">
+          </label>`;
+        const thumbsHtml = _CURRENT_WALLPAPERS.map(p=>`<div class="bg-image-thumb preset${S.viewport.bgMode==='image'&&S.viewport.bgImageSrc==='../assets/walpaper/'+p?' active':''}" data-src="../assets/walpaper/${p}" title="${p}"><img src="../assets/walpaper/${p}" alt="${p}" style="pointer-events:none;"></div>`).join('');
+        grid.innerHTML = thumbsHtml + uploadHtml;
+        
+        // Re-bind file upload
+        const newFIn = $('bg-image-file');
+        if (newFIn) {
+          newFIn.addEventListener('change', e => {
+            const f = e.target.files[0]; if (!f) return;
+            const r = new FileReader();
+            r.onload = ev => {
+              S.viewport.bgImageSrc = ev.target.result;
+              S.viewport.isCustomGradient = false;
+              document.querySelectorAll('#bg-image-grid .bg-image-thumb').forEach(t => t.classList.remove('active'));
+              const img = new Image();
+              img.onload = () => { bgImageObj = img; renderCurrentFrame(); snapshot(); };
+              img.src = ev.target.result;
+            };
+            r.readAsDataURL(f);
+          });
+        }
+        
+        bindImageThumbEvents();
+      }
+    });
+  }
+  // Image blur slider
+  const ibSlider = $('slider-img-blur');
+  if (ibSlider) {
+    ibSlider.addEventListener('input', e => { S.viewport.blurIntensity = +e.target.value; $('val-img-blur').textContent = e.target.value; renderCurrentFrame(); });
+    ibSlider.addEventListener('change', snapshot);
+  }
+  // Blur intensity slider
+  const blSlider = $('slider-blur-intensity');
+  if (blSlider) {
+    blSlider.addEventListener('input', e => { S.viewport.blurIntensity = +e.target.value; $('val-blur-intensity').textContent = e.target.value; renderCurrentFrame(); });
+    blSlider.addEventListener('change', snapshot);
+  }
+  // Viewport sliders
+  const rS = $('slider-radius');
+  if (rS) { rS.addEventListener('input', e => { S.viewport.radius = +e.target.value; $('val-radius').textContent = S.viewport.radius+'px'; renderCurrentFrame(); }); rS.addEventListener('change', snapshot); }
+  const pS = $('slider-padding');
+  if (pS) { pS.addEventListener('input', e => { S.viewport.padding = +e.target.value; $('val-padding').textContent = S.viewport.padding+'px'; renderCurrentFrame(); }); pS.addEventListener('change', snapshot); }
+  const sS = $('slider-shadow');
+  if (sS) { sS.addEventListener('input', e => { S.viewport.shadow = +e.target.value; $('val-shadow').textContent = S.viewport.shadow+'px'; renderCurrentFrame(); }); sS.addEventListener('change', snapshot); }
+}
+
+/* ── Default Inspector ── */
+function renderDefaultInspector(body, title) {
+  title.textContent = 'Inspector';
+  body.innerHTML = `
     <div class="panel-section">
       <div class="panel-section-title">Default Zoom Level</div>
       <div class="panel-row" style="margin-bottom:6px"><span class="panel-label">New zoom regions will use:</span><span class="panel-value" id="val-default-zoom">${lastZoomScale.toFixed(1)}×</span></div>
@@ -727,41 +1108,12 @@ function renderDefaultInspector(body, title) {
         ${[1.25,1.5,2,2.5,3,4,5].map(s => `<button class="zoom-preset${Math.abs(lastZoomScale-s)<0.01?' active':''}" data-scale="${s}">${s}×</button>`).join('')}
       </div>
     </div>
+    ${getGlobalSettingsHTML()}
     <div class="inspector-divider"></div>
-    <!-- Empty state hint -->
     <div class="inspector-empty" style="height:auto; padding:16px 0">
       <div class="inspector-empty-sub">Select a clip or zoom region on the timeline to see its properties</div>
     </div>`;
-  wireDefaultInspectorEvents();
-}
-
-function wireDefaultInspectorEvents() {
-  // Viewport sliders
-  const rSlider = $('slider-radius');
-  if (rSlider) {
-    rSlider.addEventListener('input', e => { S.viewport.radius = +e.target.value; $('val-radius').textContent = S.viewport.radius+'px'; renderCurrentFrame(); });
-    rSlider.addEventListener('change', snapshot);
-  }
-  const pSlider = $('slider-padding');
-  if (pSlider) {
-    pSlider.addEventListener('input', e => { S.viewport.padding = +e.target.value; $('val-padding').textContent = S.viewport.padding+'px'; renderCurrentFrame(); });
-    pSlider.addEventListener('change', snapshot);
-  }
-  const sSlider = $('slider-shadow');
-  if (sSlider) {
-    sSlider.addEventListener('input', e => { S.viewport.shadow = +e.target.value; $('val-shadow').textContent = S.viewport.shadow+'px'; renderCurrentFrame(); });
-    sSlider.addEventListener('change', snapshot);
-  }
-  // Background swatches
-  document.querySelectorAll('#bg-swatches .color-swatch').forEach(sw => {
-    sw.addEventListener('click', () => {
-      S.viewport.bg = sw.dataset.bg;
-      document.querySelectorAll('#bg-swatches .color-swatch').forEach(s => s.classList.remove('active'));
-      sw.classList.add('active');
-      renderCurrentFrame(); snapshot();
-    });
-  });
-  // Default zoom presets
+  // Wire zoom presets
   document.querySelectorAll('#default-zoom-presets .zoom-preset').forEach(btn => {
     btn.addEventListener('click', () => {
       lastZoomScale = +btn.dataset.scale;
@@ -771,6 +1123,7 @@ function wireDefaultInspectorEvents() {
       showToast('Default zoom set to ' + lastZoomScale.toFixed(1) + '×');
     });
   });
+  wireGlobalSettingsEvents();
 }
 
 /* ═══ SILENCE INSPECTOR ═══ */
@@ -982,7 +1335,7 @@ trackZoom.addEventListener('mousedown', e => {
     selectedZoomId = result.id;
     S.selectedSegId = null;
     highlightSelected();
-    showToast('Zoom added (3s, ' + lastZoomScale.toFixed(1) + '×)');
+    showToast(`Zoom added (${result.durationSec.toFixed(1)}s, ${lastZoomScale.toFixed(1)}×)`);
   } else {
     showToast('⚠ Overlaps existing zoom region');
   }
@@ -997,8 +1350,9 @@ document.addEventListener('mousemove', e => {
   }
   // Segment boundary resize
   if (resizeDrag) {
-    const t = getTimeFromMouseEvent(e);
-    resizeBoundary(resizeDrag.leftId, resizeDrag.rightId, t);
+    const deltaX = e.clientX - resizeDrag.startX;
+    const t = resizeDrag.initialCut + (deltaX / S.tlZoom);
+    resizeBoundary(resizeDrag.leftId, resizeDrag.rightId, t, resizeDrag.initialCut);
     buildTimeline();
     return;
   }
@@ -1079,48 +1433,94 @@ $('tl-zoom-slider').addEventListener('input', e => {
 });
 
 // Sidebar tools (zoom removed — zoom regions created by clicking zoom track directly)
-['select','cut'].forEach(tool => {
-  const btnId = tool === 'cut' ? 'sb-cut' : 'sb-select';
-  $(btnId).addEventListener('click', () => {
-    S.tool = tool === 'cut' ? 'split' : tool;
-    document.querySelectorAll('#sidebar .sidebar-btn').forEach(b => b.classList.remove('active'));
-    $(btnId).classList.add('active');
-    // Exit silence mode when switching tools
-    if (silenceMode) { silenceMode = false; clearSilenceOverlays(); silenceRegions = []; }
-    updateInspector();
-  });
+$('tl-btn-select').addEventListener('click', () => {
+  S.tool = 'select';
+  ['tl-btn-select', 'tl-btn-silence'].forEach(id => $(id).classList.remove('active'));
+  $('tl-btn-select').classList.add('active');
+  // Exit silence mode when switching tools
+  if (silenceMode) { silenceMode = false; clearSilenceOverlays(); silenceRegions = []; }
+  updateInspector();
 });
+
+$('tl-btn-split').addEventListener('click', () => {
+  if (selectedZoomId) {
+    if (splitZoomRegion(selectedZoomId, S.currentTime)) {
+      selectedZoomId = null;
+      buildTimeline(); showToast('Zoom split at ' + fmtTime(S.currentTime));
+    } else {
+      showToast('Playhead outside selected zoom');
+    }
+  } else {
+    if (splitAtTime(S.currentTime)) {
+      buildTimeline(); showToast('Cut at ' + fmtTime(S.currentTime));
+    }
+  }
+});
+
 // Silence detection tool (toggles mode, not a timeline tool)
-$('sb-silence').addEventListener('click', () => {
+$('tl-btn-silence').addEventListener('click', () => {
   silenceMode = !silenceMode;
-  document.querySelectorAll('#sidebar .sidebar-btn').forEach(b => b.classList.remove('active'));
+  ['tl-btn-select', 'tl-btn-silence'].forEach(id => $(id).classList.remove('active'));
   if (silenceMode) {
-    $('sb-silence').classList.add('active');
+    $('tl-btn-silence').classList.add('active');
     // Make sure the panel is visible
     $('tools-panel').classList.remove('collapsed');
   } else {
-    // Restore previous tool highlight
-    const curBtn = S.tool === 'split' ? 'sb-cut' : 'sb-select';
-    $(curBtn).classList.add('active');
+    // Restore select tool highlight
+    $('tl-btn-select').classList.add('active');
     clearSilenceOverlays();
     silenceRegions = [];
   }
   updateInspector();
 });
-$('sb-undo').addEventListener('click', () => { if(undo()) { buildTimeline(); syncSettingsUI(); renderCurrentFrame(); showToast('Undo'); }});
-$('sb-redo').addEventListener('click', () => { if(redo()) { buildTimeline(); syncSettingsUI(); renderCurrentFrame(); showToast('Redo'); }});
-$('sb-reset').addEventListener('click', () => {
-  if (!confirm('Reset all edits? This will remove all cuts, deletions, and zoom regions.')) return;
-  initSegments(S.duration);
-  S.selectedSegId = null;
-  selectedZoomId = null;
-  seekTo(0);
-  buildTimeline();
-  syncSettingsUI();
-  renderCurrentFrame();
-  showToast('All edits reset');
+$('tl-btn-undo').addEventListener('click', () => { if(undo()) { buildTimeline(); syncSettingsUI(); renderCurrentFrame(); showToast('Undo'); }});
+$('tl-btn-redo').addEventListener('click', () => { if(redo()) { buildTimeline(); syncSettingsUI(); renderCurrentFrame(); showToast('Redo'); }});
+
+$('tl-btn-erase-left').addEventListener('click', () => {
+  if (splitAtTime(S.currentTime)) {
+    // splitAtTime replaces the old segment with left (idx) and right (idx+1).
+    // The playhead is now exactly between them. 
+    // We want to delete the one immediately to the left of the playhead.
+    const idx = S.segments.findIndex(s => s.endSec === S.currentTime);
+    if (idx >= 0 && !S.segments[idx].isDeleted) {
+      S.segments[idx].isDeleted = true;
+      snapshot();
+      buildTimeline();
+      renderCurrentFrame();
+      showToast('Erased Left');
+    }
+  }
 });
-$('sb-settings').addEventListener('click', () => { $('tools-panel').classList.toggle('collapsed'); });
+
+$('tl-btn-erase-right').addEventListener('click', () => {
+  if (splitAtTime(S.currentTime)) {
+    // Delete the one immediately to the right of the playhead.
+    const idx = S.segments.findIndex(s => s.startSec === S.currentTime);
+    if (idx >= 0 && !S.segments[idx].isDeleted) {
+      S.segments[idx].isDeleted = true;
+      snapshot();
+      buildTimeline();
+      renderCurrentFrame();
+      showToast('Erased Right');
+    }
+  }
+});
+
+$('tl-btn-delete').addEventListener('click', () => {
+  if (selectedZoomId) {
+    removeZoomRegion(selectedZoomId);
+    selectedZoomId = null;
+    buildTimeline(); showToast('Zoom region removed');
+  } else if (S.selectedSegId) {
+    const seg = S.segments.find(s => s.id === S.selectedSegId);
+    if (seg) {
+      if (seg.isDeleted) { restoreSegment(seg.id); showToast('Restored'); }
+      else { deleteSegment(seg.id); showToast('Deleted segment'); }
+      buildTimeline();
+    }
+  }
+});
+$('btn-style').addEventListener('click', () => { $('tools-panel').classList.toggle('collapsed'); });
 
 // Initial inspector render
 setTimeout(updateInspector, 100);
@@ -1153,7 +1553,7 @@ function showExportDialog() {
   overlay.innerHTML = `
     <div class="dialog-box">
       <div class="dialog-title">Export Video</div>
-      <div class="dialog-sub">Choose a name and format. WebM exports instantly. Other formats require FFmpeg.</div>
+      <div class="dialog-sub">Choose a name, format, and hardware acceleration mode.</div>
       <div style="margin-bottom:14px">
         <label style="font:500 10px/1 'Inter',sans-serif; color:#6b7280; display:block; margin-bottom:6px">Filename</label>
         <input type="text" id="export-filename" value="${defaultName}" style="
@@ -1162,15 +1562,42 @@ function showExportDialog() {
           outline:none;
         " />
       </div>
+      <label style="font:500 10px/1 'Inter',sans-serif; color:#6b7280; display:block; margin-bottom:6px">Hardware Acceleration</label>
+      <div class="hw-selector" id="hw-selector">
+        <div class="hw-option active" data-hw="auto">
+          <span class="hw-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg></span>
+          <span class="hw-label">Auto</span>
+        </div>
+        <div class="hw-option" data-hw="cpu">
+          <span class="hw-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="4" width="16" height="16" rx="2"/><rect x="9" y="9" width="6" height="6"/><path d="M15 2v2M9 2v2M15 20v2M9 20v2M2 15h2M2 9h2M20 15h2M20 9h2"/></svg></span>
+          <span class="hw-label">CPU</span>
+        </div>
+        <div class="hw-option" data-hw="gpu">
+          <span class="hw-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="6" width="20" height="12" rx="2"/><path d="M6 12h.01M10 12h.01M14 12h4"/></svg></span>
+          <span class="hw-label">GPU</span>
+        </div>
+      </div>
+      <label style="font:500 10px/1 'Inter',sans-serif; color:#6b7280; display:block; margin-bottom:6px; margin-top:12px">Frame Rate</label>
+      <div style="display:flex; gap:6px; margin-bottom:14px;" id="fps-selector">
+        ${['source','24','30','60'].map((f, i) => `
+          <div data-fps="${f}" style="
+            flex:1; text-align:center; padding:6px 4px; border-radius:7px; cursor:pointer;
+            border:1px solid ${i === 0 ? 'rgba(99,102,241,0.5)' : 'rgba(255,255,255,0.07)'};
+            background:${i === 0 ? 'rgba(99,102,241,0.12)' : 'rgba(255,255,255,0.02)'};
+            font:${i === 0 ? '600' : '500'} 10px/1 'Inter',sans-serif;
+            color:${i === 0 ? '#818cf8' : '#6b7280'};
+            transition:all .15s;
+          ">${f === 'source' ? 'Source' : f + ' fps'}</div>`).join('')}
+      </div>
       ${hasZoom ? `
-      <div style="margin-bottom:14px; padding:10px 12px; border-radius:8px; border:1px solid rgba(245,158,11,0.12); background:rgba(245,158,11,0.03);">
-        <div style="display:flex; align-items:center; gap:6px; margin-bottom:4px;">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/><line x1="11" y1="8" x2="11" y2="14"/><line x1="8" y1="11" x2="14" y2="11"/></svg>
-          <span style="font:600 10px/1 'Inter',sans-serif; color:rgba(245,158,11,0.6);">${S.zoomKeyframes.length} Zoom Region${S.zoomKeyframes.length > 1 ? 's' : ''} — Preview Only</span>
-        </div>
-        <div style="font:400 9px/1.3 'Inter',sans-serif; color:rgba(245,158,11,0.4); padding-left:20px;">
-          Zoom effects with cursor tracking are visible during preview playback. Export with zoom is coming in a future update.
-        </div>
+      <div style="margin-bottom:14px; padding:10px 12px; border-radius:8px; border:1px solid rgba(139,92,246,0.2); background:rgba(139,92,246,0.05);">
+        <label style="display:flex; align-items:center; gap:8px; cursor:pointer;">
+          <input type="checkbox" id="export-zoom" checked style="accent-color:#8b5cf6; width:14px; height:14px;">
+          <div>
+            <div style="font:600 10px/1 'Inter',sans-serif; color:rgba(139,92,246,0.9);">Include ${S.zoomKeyframes.length} Zoom Region${S.zoomKeyframes.length > 1 ? 's' : ''}</div>
+            <div style="font:400 9px/1.3 'Inter',sans-serif; color:rgba(139,92,246,0.4); margin-top:3px;">Uses canvas rendering for pixel-perfect zoom with cursor tracking. Lower FPS = faster export.</div>
+          </div>
+        </label>
       </div>
       ` : ''}
       <div style="display:flex; gap:6px; flex-wrap:wrap; margin-bottom:16px;">
@@ -1188,49 +1615,335 @@ function showExportDialog() {
   const nameInput = overlay.querySelector('#export-filename');
   nameInput.focus(); nameInput.select();
 
+  // HW selector
+  let selectedHw = 'auto';
+  overlay.querySelectorAll('.hw-option').forEach(opt => {
+    opt.addEventListener('click', () => {
+      overlay.querySelectorAll('.hw-option').forEach(o => o.classList.remove('active'));
+      opt.classList.add('active');
+      selectedHw = opt.dataset.hw;
+    });
+  });
+
+  // FPS selector
+  let selectedFps = 'source';
+  overlay.querySelectorAll('#fps-selector [data-fps]').forEach(opt => {
+    opt.addEventListener('click', () => {
+      selectedFps = opt.dataset.fps;
+      overlay.querySelectorAll('#fps-selector [data-fps]').forEach(o => {
+        const active = o.dataset.fps === selectedFps;
+        o.style.border = active ? '1px solid rgba(99,102,241,0.5)' : '1px solid rgba(255,255,255,0.07)';
+        o.style.background = active ? 'rgba(99,102,241,0.12)' : 'rgba(255,255,255,0.02)';
+        o.style.color = active ? '#818cf8' : '#6b7280';
+        o.style.fontWeight = active ? '600' : '500';
+      });
+    });
+  });
+
   overlay.querySelector('#export-cancel').addEventListener('click', () => overlay.remove());
   overlay.querySelectorAll('[data-fmt]').forEach(btn => {
     btn.addEventListener('click', () => {
       const name = nameInput.value.trim() || defaultName;
+      const zoomCheckbox = overlay.querySelector('#export-zoom');
+      const includeZoom = zoomCheckbox ? zoomCheckbox.checked : false;
       overlay.remove();
-      doExport(btn.dataset.fmt, name);
+
+      // Save custom gradient to history on export
+      let valToSave = null;
+      if (S.viewport.bgMode === 'image' && S.viewport.bgImageSrc && S.viewport.isCustomGradient) {
+        valToSave = S.viewport.bgImageSrc;
+      } else if (S.viewport.bgMode === 'color' && S.viewport.bg && S.viewport.bg.includes('gradient')) {
+        const isPreset = _PRESET_BGS.some(p => p.val === S.viewport.bg);
+        if (!isPreset) valToSave = S.viewport.bg;
+      }
+
+      if (valToSave && !_savedCustomGradients.includes(valToSave)) {
+        _savedCustomGradients.unshift(valToSave);
+        if (_savedCustomGradients.length > 5) {
+          _savedCustomGradients = _savedCustomGradients.slice(0, 5);
+        }
+        localStorage.setItem('veditor_custom_gradients', JSON.stringify(_savedCustomGradients));
+        updateInspector();
+      }
+
+      doExport(btn.dataset.fmt, name, selectedHw, includeZoom, selectedFps);
     });
   });
 }
 
-async function doExport(format, filename) {
+/* ── Export progress overlay ── */
+let exportProgressOverlay = null;
+
+function showExportProgress(format) {
+  removeExportProgress();
+  const ov = document.createElement('div');
+  ov.className = 'export-progress-overlay';
+  ov.innerHTML = `
+    <div class="export-progress-box">
+      <div class="export-progress-icon">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#b4a8ff" stroke-width="2">
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
+        </svg>
+      </div>
+      <div class="export-progress-title">Rendering ${format.toUpperCase()}…</div>
+      <div class="export-progress-sub">Please wait — do not close the editor</div>
+      <div class="export-progress-track"><div class="export-progress-fill" id="ep-fill" style="width:2%"></div></div>
+      <div class="export-progress-stats">
+        <span class="export-progress-pct" id="ep-pct">2%</span>
+        <span class="export-progress-eta" id="ep-eta">Estimating…</span>
+      </div>
+      <button class="export-cancel-btn" id="ep-cancel">Cancel Export</button>
+    </div>`;
+  document.body.appendChild(ov);
+  exportProgressOverlay = ov;
+
+  ov.querySelector('#ep-cancel').addEventListener('click', () => {
+    if (window.veditor && window.veditor.cancelExport) {
+      window.veditor.cancelExport();
+    }
+  });
+}
+
+function updateExportProgress(pct, eta) {
+  const fill = document.getElementById('ep-fill');
+  const pctEl = document.getElementById('ep-pct');
+  const etaEl = document.getElementById('ep-eta');
+  if (fill) fill.style.width = pct + '%';
+  if (pctEl) pctEl.textContent = pct + '%';
+  if (etaEl) {
+    if (eta && eta > 0) {
+      const m = Math.floor(eta / 60);
+      const s = eta % 60;
+      etaEl.textContent = m > 0 ? `~${m}m ${s}s remaining` : `~${s}s remaining`;
+    } else if (pct >= 95) {
+      etaEl.textContent = 'Finalizing…';
+    } else {
+      etaEl.textContent = 'Estimating…';
+    }
+  }
+}
+
+function removeExportProgress() {
+  if (exportProgressOverlay) { exportProgressOverlay.remove(); exportProgressOverlay = null; }
+}
+
+async function doExport(format, filename, hwaccel, includeZoom, fpsChoice) {
   saveProject();
-  showToast('Starting export (' + format.toUpperCase() + ')…');
+
+  // Route to canvas frame pipeline if zoom regions exist and user wants them
+  const hasZoom = includeZoom && S.zoomKeyframes.length > 0;
+  if (hasZoom) {
+    return canvasFrameExport(format, filename, hwaccel, fpsChoice);
+  }
+
+  // Standard FFmpeg-only pipeline (no zoom)
+  showExportProgress(format);
   if (window.veditor && window.veditor.exportVideo) {
     try {
       const result = await window.veditor.exportVideo({
         filePath: S.filePath, format, filename,
-        segments: S.segments, // send all — backend filters active ones
+        segments: S.segments,
         mutedSegments: S.segments.filter(s => s.isMuted).map(s => ({ startSec: s.startSec, endSec: s.endSec })),
         viewport: S.viewport,
-        zoomRegions: [], // zoom export disabled — preview only for now
+        zoomRegions: [],
+        hwaccel: hwaccel || 'auto',
+        fps: fpsChoice || 'source',
       });
+      removeExportProgress();
       if (result && result.ok) {
         showToast('✅ Exported: ' + (result.path || '').split('/').pop());
+      } else if (result && result.cancelled) {
+        showToast('Export cancelled');
       } else {
         showToast('⚠ Export failed: ' + (result ? result.error : 'Unknown error'));
       }
     } catch (err) {
+      removeExportProgress();
       showToast('⚠ Export error: ' + err.message);
     }
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════
+   CANVAS FRAME-BY-FRAME EXPORT — Dynamic Zoom Pipeline
+   ───────────────────────────────────────────────────────────
+   Renders every frame through the Canvas (with cursor tracking,
+   spring physics, easing) and pipes JPEG frames to FFmpeg.
+   This produces pixel-perfect WYSIWYG zoom export.
+   ═══════════════════════════════════════════════════════════ */
+async function canvasFrameExport(format, filename, hwaccel, fpsChoice) {
+  // Resolve actual fps number: 'source' = use native video fps, else parse the number
+  let fps;
+  if (!fpsChoice || fpsChoice === 'source') {
+    // Default to 60fps for "Source" to preserve smooth 60fps captures.
+    // If the original video is 30fps, FFmpeg handles the duplicated frame times well, 
+    // but a 60fps video downsampled to 30fps causes noticeable stutter.
+    fps = 60;
+  } else {
+    fps = parseInt(fpsChoice, 10) || 30;
+  }
+
+  const wasPlaying = S.playing;
+  if (wasPlaying) pauseVideo();
+
+  // Build frame list from active segments
+  const activeSegs = S.segments.filter(s => !s.isDeleted);
+  const frameTimes = [];
+  for (const seg of activeSegs) {
+    for (let t = seg.startSec; t < seg.endSec; t += 1 / fps) {
+      frameTimes.push(t);
+    }
+  }
+  const totalFrames = frameTimes.length;
+  if (!totalFrames) { showToast('⚠ No active segments'); return; }
+
+  // Determine export canvas dimensions (same logic as renderFrame)
+  const vw = video.videoWidth, vh = video.videoHeight;
+  const ar = S.viewport.aspectRatio || 'original';
+  const sourceAR = vw / vh;
+  const arMap = { '16:9': 16/9, '9:16': 9/16, '1:1': 1, '4:3': 4/3, '3:4': 3/4, '4:5': 4/5, '21:9': 21/9 };
+  const targetAR = arMap[ar] || sourceAR;
+  const maxW = Math.min(vw, 1920), maxH = Math.min(vh, 1080);
+  let cw, ch;
+  if (Math.abs(targetAR - sourceAR) < 0.01) { cw = maxW; ch = maxH; }
+  else if (targetAR > sourceAR) { ch = maxH; cw = Math.round(ch * targetAR); }
+  else { cw = maxW; ch = Math.round(cw / targetAR); }
+  cw = cw % 2 === 0 ? cw : cw + 1;
+  ch = ch % 2 === 0 ? ch : ch + 1;
+
+  // Create offscreen export canvas
+  const exportCanvas = document.createElement('canvas');
+  exportCanvas.width = cw;
+  exportCanvas.height = ch;
+
+  console.log(`[Export] Canvas pipeline: ${cw}x${ch} @ ${fps}fps, ${totalFrames} frames, format=${format}`);
+
+  showExportProgress(format);
+
+  // Build muted segment info for audio
+  const mutedSegments = S.segments.filter(s => s.isMuted).map(s => ({ startSec: s.startSec, endSec: s.endSec }));
+
+  try {
+    // Start FFmpeg process in main via IPC
+    const startResult = await window.veditor.startFrameExport({
+      filePath: S.filePath,
+      format,
+      filename,
+      width: cw,
+      height: ch,
+      fps,
+      totalFrames,
+      segments: activeSegs,
+      mutedSegments,
+      hwaccel: hwaccel || 'auto',
+    });
+
+    if (!startResult || !startResult.ok) {
+      removeExportProgress();
+      showToast('⚠ Failed to start export: ' + (startResult ? startResult.error : 'Unknown'));
+      return;
+    }
+
+    // Reset camera state for clean export starting position
+    resetCameraState();
+
+    const startTime = Date.now();
+    let cancelled = false;
+
+    // Wire cancel button to abort the export
+    const cancelBtn = document.getElementById('ep-cancel');
+    if (cancelBtn) {
+      cancelBtn.addEventListener('click', () => {
+        cancelled = true;
+        window.veditor.cancelExport();
+      });
+    }
+
+    // Render frames one by one
+    for (let i = 0; i < totalFrames; i++) {
+      if (cancelled) break;
+
+      const t = frameTimes[i];
+      S.currentTime = t;
+
+      // Seek video to this frame
+      await new Promise(resolve => {
+        let finished = false;
+        const complete = () => {
+          if (finished) return;
+          finished = true;
+          video.removeEventListener('seeked', onSeeked);
+          resolve();
+        };
+        const onSeeked = () => {
+          if ('requestVideoFrameCallback' in video) {
+            video.requestVideoFrameCallback(complete);
+          } else {
+            // fallback
+            requestAnimationFrame(() => requestAnimationFrame(complete));
+          }
+        };
+        video.addEventListener('seeked', onSeeked);
+        video.currentTime = t;
+        // Safety timeout in case seeked never fires (corrupt frame)
+        setTimeout(complete, 500);
+      });
+
+      // Render through the full pipeline (zoom, cursor, spring physics, bg, etc.)
+      renderFrameForExport(exportCanvas, video, fps);
+
+      // Extract as JPEG blob
+      const blob = await new Promise(resolve =>
+        exportCanvas.toBlob(resolve, 'image/jpeg', 0.95)
+      );
+      if (!blob) continue;
+
+      // Convert to ArrayBuffer and send to main process
+      const buffer = await blob.arrayBuffer();
+      await window.veditor.sendExportFrame(new Uint8Array(buffer));
+
+      // Update progress
+      const pct = Math.min(99, Math.round(((i + 1) / totalFrames) * 100));
+      const elapsed = (Date.now() - startTime) / 1000;
+      const eta = pct > 2 ? Math.round((elapsed / pct) * (100 - pct)) : null;
+      updateExportProgress(pct, eta);
+    }
+
+    if (cancelled) {
+      removeExportProgress();
+      showToast('Export cancelled');
+      return;
+    }
+
+    // Signal FFmpeg to finish (closes stdin, waits for encode to complete)
+    const result = await window.veditor.finishFrameExport();
+    removeExportProgress();
+
+    if (result && result.ok) {
+      showToast('✅ Exported: ' + (result.path || '').split('/').pop());
+    } else {
+      showToast('⚠ Export failed: ' + (result ? result.error : 'Unknown'));
+    }
+  } catch (err) {
+    removeExportProgress();
+    showToast('⚠ Export error: ' + err.message);
+    console.error('[Export] Canvas pipeline error:', err);
   }
 }
 
 // Listen for export progress/completion from main process
 if (window.veditor && window.veditor.onExportProgress) {
   window.veditor.onExportProgress((data) => {
-    if (data && data.percent) showToast('Exporting… ' + data.percent + '%');
+    if (data && data.percent != null) updateExportProgress(data.percent, data.eta);
   });
 }
 if (window.veditor && window.veditor.onExportDone) {
   window.veditor.onExportDone((data) => {
+    removeExportProgress();
     if (data && data.ok) {
       showToast('✅ Export complete: ' + (data.path || '').split('/').pop());
+    } else if (data && data.cancelled) {
+      showToast('Export cancelled');
     } else if (data && data.error) {
       showToast('⚠ Export failed: ' + data.error);
     }
@@ -1239,7 +1952,7 @@ if (window.veditor && window.veditor.onExportDone) {
 
 function saveProject() {
   if (window.veditor && window.veditor.saveProject) {
-    window.veditor.saveProject(S.filePath, { segments: S.segments, zoomKeyframes: S.zoomKeyframes, viewport: S.viewport });
+    window.veditor.saveProject(S.filePath, { segments: S.segments, zoomKeyframes: S.zoomKeyframes, viewport: S.viewport, autoZoomApplied: S.autoZoomApplied });
   }
 }
 setInterval(saveProject, 30000);
@@ -1388,12 +2101,14 @@ document.addEventListener('keydown', e => {
   if (kl === 'l') { e.preventDefault(); S.speed = Math.min(4, S.speed + 0.5); video.playbackRate = S.speed; updateInspector(); if (!S.playing) playVideo(); return; }
 
   // Undo / Redo
-  if (kl === 'z' && meta && e.shiftKey) { e.preventDefault(); $('sb-redo').click(); return; }
-  if (kl === 'z' && meta) { e.preventDefault(); $('sb-undo').click(); return; }
+  if (kl === 'z' && meta && e.shiftKey) { e.preventDefault(); $('tl-btn-redo').click(); return; }
+  if (kl === 'z' && meta) { e.preventDefault(); $('tl-btn-undo').click(); return; }
 
   // Tool selection
-  if (kl === 'v' && !meta) { $('sb-select').click(); return; }
-  if (kl === 's' && !meta) { $('sb-cut').click(); return; }
+  if (kl === 'v' && !meta) { $('tl-btn-select').click(); return; }
+  if (kl === 'c' && !meta) { $('tl-btn-split').click(); return; }
+  if (kl === 'q' && !meta) { $('tl-btn-erase-left').click(); return; }
+  if (kl === 'e' && !meta) { $('tl-btn-erase-right').click(); return; }
 });
 
 /* ═══ WINDOW RESIZE ═══ */

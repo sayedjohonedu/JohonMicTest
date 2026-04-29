@@ -164,8 +164,8 @@ html, body {
 #lang-flag    { font-size: 13px; line-height: 1; }
 #lang-chevron { font-size: 8px; color: var(--muted); margin-left: 1px; }
 
-/* ── Settings, Browser, Translator, Clipboard & Screen Recorder Buttons ── */
-#settings-btn, #browser-btn, #translator-btn, #clipboard-btn, #screen-rec-btn {
+/* ── Settings, Browser, Translator, Clipboard, Screen Recorder & AppStore Buttons ── */
+#settings-btn, #browser-btn, #translator-btn, #clipboard-btn, #screen-rec-btn, #appstore-btn {
   display: flex; align-items: center; justify-content: center;
   background: transparent;
   border: none;
@@ -176,13 +176,14 @@ html, body {
   flex-shrink: 0;
   -webkit-app-region: no-drag;
 }
-#settings-btn:hover, #browser-btn:hover, #translator-btn:hover, #clipboard-btn:hover, #screen-rec-btn:hover { background: var(--surface); color: var(--text); transform: scale(1.05); }
-#settings-btn:active, #browser-btn:active, #translator-btn:active, #clipboard-btn:active, #screen-rec-btn:active { transform: scale(0.95); }
+#settings-btn:hover, #browser-btn:hover, #translator-btn:hover, #clipboard-btn:hover, #screen-rec-btn:hover, #appstore-btn:hover { background: var(--surface); color: var(--text); transform: scale(1.05); }
+#settings-btn:active, #browser-btn:active, #translator-btn:active, #clipboard-btn:active, #screen-rec-btn:active, #appstore-btn:active { transform: scale(0.95); }
 [data-theme="light"] #settings-btn:hover,
 [data-theme="light"] #browser-btn:hover,
 [data-theme="light"] #translator-btn:hover,
 [data-theme="light"] #clipboard-btn:hover,
-[data-theme="light"] #screen-rec-btn:hover { background: rgba(0,0,0,0.08); }
+[data-theme="light"] #screen-rec-btn:hover,
+[data-theme="light"] #appstore-btn:hover { background: rgba(0,0,0,0.08); }
 /* Screen recorder active state — red dot when recording */
 #screen-rec-btn.recording { color: #ef4444; }
 #screen-rec-btn.recording:hover { color: #f87171; }
@@ -244,6 +245,7 @@ html, body {
 #card.mini-mode #translator-btn,
 #card.mini-mode #clipboard-btn,
 #card.mini-mode #screen-rec-btn,
+#card.mini-mode #appstore-btn,
 #card.mini-mode #mini-btn,
 #card.mini-mode #transcript-area,
 #card.mini-mode #waveform-wrap,
@@ -257,6 +259,7 @@ html, body {
 #card.mini-mode #mini-browser-btn  { display: flex !important; }
 #card.mini-mode #mini-clipboard-btn { display: flex !important; }
 #card.mini-mode #mini-screen-rec-btn { display: flex !important; }
+#card.mini-mode #mini-appstore-btn { display: flex !important; }
 /* AI badge: visible in pill mode ONLY when AI is active */
 #card.mini-mode #mini-ai-badge.active { display: flex !important; }
 
@@ -350,6 +353,24 @@ html, body {
 #mini-screen-rec-btn:hover  { background: rgba(255,255,255,0.12); color: var(--text); }
 #mini-screen-rec-btn:active { transform: scale(0.9); }
 #mini-screen-rec-btn.recording { color: #ef4444; }
+
+/* ── Mini app store button (pill mode only) ── */
+#mini-appstore-btn {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  width: 22px; height: 22px;
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  color: var(--muted);
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background 0.15s, color 0.15s;
+  -webkit-app-region: no-drag;
+}
+#mini-appstore-btn:hover  { background: rgba(255,255,255,0.12); color: var(--text); }
+#mini-appstore-btn:active { transform: scale(0.9); }
 
 /* Language dropdown */
 #lang-dropdown {

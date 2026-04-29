@@ -7,6 +7,40 @@ let tray = null;
 let _captureAction = null;
 let _translatorAction = null;
 
+/* ─── Icon helpers ────────────────────────────────────────────────── */
+const ICON_DIR = path.join(__dirname, '../../assets/tray-icons');
+const _iconCache = {};
+
+/**
+ * Load a tray menu icon by base name (e.g. 'capture', 'settings').
+ *
+ * Dark mode → white icons  (`<name>.png`)
+ * Light mode → black icons (`<name>Template.png`)
+ *
+ * We do NOT use Electron's setTemplateImage() for menu item icons because
+ * macOS context menus don't reliably tint them — they render as muted gray.
+ * Instead we explicitly pick the right colour variant.
+ *
+ * @2x variants are picked up automatically by Electron on Retina displays.
+ */
+function getTrayIcon(baseName) {
+  if (_iconCache[baseName]) return _iconCache[baseName];
+
+  // Dark mode → white icons, light mode → black icons
+  const isDark = nativeTheme.shouldUseDarkColors;
+  const fileName = isDark ? `${baseName}.png` : `${baseName}Template.png`;
+  const filePath = path.join(ICON_DIR, fileName);
+
+  let icon = nativeImage.createFromPath(filePath);
+  if (icon.isEmpty()) return undefined; // graceful fallback – no icon
+
+  // Resize to 16×16 logical pixels so icons aren't oversized in the menu
+  icon = icon.resize({ width: 16, height: 16 });
+
+  _iconCache[baseName] = icon;
+  return icon;
+}
+
 /** Register the function that should fire when the user clicks "Capture" in the tray. */
 function setCaptureAction(fn) { _captureAction = fn; }
 
@@ -39,7 +73,14 @@ function createTray(toggleListening, showSettings, app, switchTrayLanguage, isLi
   };
 
   updateTrayIcon();
-  nativeTheme.on('updated', () => { if (tray) updateTrayIcon(); });
+  nativeTheme.on('updated', () => {
+    if (!tray) return;
+    updateTrayIcon();
+    // Clear cached icons and rebuild the menu so icons reload in the
+    // correct colour (white for dark mode, black for light mode).
+    Object.keys(_iconCache).forEach(k => delete _iconCache[k]);
+    updateTrayMenu(toggleListening, showSettings, app, switchTrayLanguage, isListening);
+  });
   tray.setToolTip('MicTab');
   
   updateTrayMenu(toggleListening, showSettings, app, switchTrayLanguage, isListening);
@@ -72,24 +113,30 @@ function updateTrayMenu(toggleListening, showSettings, app, switchTrayLanguage, 
   ];
 
   const contextMenu = Menu.buildFromTemplate([
-    { label: isListening ? 'Stop Listening' : 'Start Listening', click: () => toggleListening() },
+    {
+      label: isListening ? 'Stop Listening' : 'Start Listening',
+      icon: getTrayIcon(isListening ? 'microphone-off' : 'microphone'),
+      click: () => toggleListening()
+    },
     { type: 'separator' },
     {
       label: 'Capture',
+      icon: getTrayIcon('capture'),
       accelerator: 'Alt+Shift+S',
       click: () => { if (_captureAction) _captureAction(); }
     },
     {
       label: 'Translator',
+      icon: getTrayIcon('translator'),
       accelerator: 'Alt+Shift+T',
       click: () => { if (_translatorAction) _translatorAction(); }
     },
     { type: 'separator' },
-    { label: 'Language', submenu: langSubmenu },
+    { label: 'Language', icon: getTrayIcon('language'), submenu: langSubmenu },
     { type: 'separator' },
-    { label: 'Settings', click: () => showSettings() },
+    { label: 'Settings', icon: getTrayIcon('settings'), click: () => showSettings() },
     { type: 'separator' },
-    { label: 'Quit', click: () => app.quit() }
+    { label: 'Quit', icon: getTrayIcon('quit'), click: () => app.quit() }
   ]);
   tray.setContextMenu(contextMenu);
 }

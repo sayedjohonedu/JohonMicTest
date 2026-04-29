@@ -7,6 +7,7 @@
 
 const store = require('../../store/config');
 const { callLlmRaw, httpGet } = require('./llm-client');
+const apiVault = require('./api-vault');
 const clipboardHistoryStore = require('./clipboard-history-store');
 
 // ── Two focused default prompts (used when user has NOT set a custom prompt) ──
@@ -170,32 +171,10 @@ class AiDictationManager {
 
   /**
    * Build the ordered fallback chain of profiles.
-   * Active profile first, then remaining profiles in stored order.
+   * Delegates to the centralised API Vault.
    */
   _buildProfileChain() {
-    const profiles = store.get('aiProfiles') || [];
-    const activeId = store.get('aiActiveProfileId') || '';
-    const fallbackEnabled = store.get('aiFallbackEnabled') !== false; // default on
-
-    if (!profiles.length) {
-      // Legacy: no profiles array, build from flat config
-      return [{
-        id: '__legacy__',
-        name: 'Default',
-        provider: store.get('aiProvider') || 'openai',
-        model: store.get('aiModel') || 'gpt-4o-mini',
-        apiKey: store.get('aiApiKey') || '',
-        baseUrl: store.get('aiBaseUrl') || '',
-      }];
-    }
-
-    // Build ordered chain: active first, then rest
-    const active = profiles.find(p => p.id === activeId);
-    const rest = profiles.filter(p => p.id !== activeId);
-    const chain = active ? [active, ...rest] : [...profiles];
-
-    // If fallback is disabled, only return the active/first profile
-    return fallbackEnabled ? chain : chain.slice(0, 1);
+    return apiVault.getFallbackChain('ai-dictation');
   }
 
   /**

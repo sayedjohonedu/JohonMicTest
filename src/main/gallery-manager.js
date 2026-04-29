@@ -164,6 +164,8 @@ function setupGalleryIpc() {
     return scanMediaFiles();
   });
 
+  const SIDECAR_EXTS = ['.mictab-cursor.json', '.mictab-edit.json', '.mictab-whisper.json'];
+
   // Rename a file
   ipcMain.handle('gallery-rename-file', async (_, { oldPath, newName }) => {
     try {
@@ -178,6 +180,18 @@ function setupGalleryIpc() {
       }
 
       fs.renameSync(oldPath, newPath);
+
+      // Rename sidecars
+      const oldBase = oldPath.replace(/\.[^.]+$/, '');
+      const newBase = newPath.replace(/\.[^.]+$/, '');
+      for (const sidecarExt of SIDECAR_EXTS) {
+        const oldSidecar = oldBase + sidecarExt;
+        const newSidecar = newBase + sidecarExt;
+        if (fs.existsSync(oldSidecar)) {
+          fs.renameSync(oldSidecar, newSidecar);
+        }
+      }
+
       return { ok: true, newPath, newName: safeName };
     } catch (err) {
       return { ok: false, error: err.message };
@@ -187,8 +201,27 @@ function setupGalleryIpc() {
   // Delete a file
   ipcMain.handle('gallery-delete-file', async (_, filePath) => {
     try {
-      // Move to trash instead of permanent delete
-      await shell.trashItem(filePath);
+      // Also delete sidecar files
+      const baseName = filePath.replace(/\.[^.]+$/, '');
+      for (const ext of SIDECAR_EXTS) {
+        const sidecar = baseName + ext;
+        if (fs.existsSync(sidecar)) {
+          try {
+            await shell.trashItem(sidecar);
+          } catch (e) {
+            try { fs.unlinkSync(sidecar); } catch(err) {}
+          }
+        }
+      }
+
+      // Move main file to trash
+      try {
+        await shell.trashItem(filePath);
+      } catch (err) {
+        // Fallback to unlink if trash fails
+        fs.unlinkSync(filePath);
+      }
+
       return { ok: true };
     } catch (err) {
       return { ok: false, error: err.message };

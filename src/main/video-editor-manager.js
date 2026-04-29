@@ -17,6 +17,7 @@ const fs   = require('fs');
 
 /* ── Window reference ───────────────────────────────────── */
 let editorWindow = null;
+let activeExportProc = null;
 
 /* ── Open editor with a video file ─────────────────────── */
 function openEditor(filePath) {
@@ -128,10 +129,130 @@ function setupEditorIpc() {
     }
   });
 
+  // Cancel export
+  
+  ipcMain.handle('veditor-pick-append-video', async (event) => {
+    const { dialog } = require('electron');
+    const bw = BrowserWindow.fromWebContents(event.sender);
+    const { canceled, filePaths } = await dialog.showOpenDialog(bw, {
+      title: 'Import Video to Timeline',
+      filters: [{ name: 'Videos', extensions: ['mp4', 'mov', 'webm', 'avi', 'mkv', 'm4v'] }],
+      properties: ['openFile']
+    });
+    if (canceled || !filePaths || !filePaths.length) return null;
+    return filePaths[0];
+  });
+
+  
+  ipcMain.handle('veditor-append-video', async (event, { baseFilePath, appendFilePath }) => {
+    const { spawn, execFileSync } = require('child_process');
+    const ffmpegManager = require('./ffmpeg-manager');
+    if (!ffmpegManager.isFFmpegInstalled()) return { ok: false, error: 'FFmpeg not installed' };
+    const ffmpegPath = ffmpegManager.ffmpegBinPath();
+    const ffprobePath = ffmpegPath.replace(/ffmpeg([^/]*)$/, 'ffprobe$1');
+
+    try {
+      let srcWidth = 1920, srcHeight = 1080;
+      let hasAudio = false;
+      let totalDur = 0;
+      try {
+        const probeResult = execFileSync(ffprobePath, [
+          '-v', 'error', '-select_streams', 'a', '-show_entries', 'stream=codec_type',
+          '-of', 'csv=p=0', baseFilePath
+        ], { timeout: 10000 }).toString().trim();
+        hasAudio = probeResult.includes('audio');
+
+        const dimResult = execFileSync(ffprobePath, [
+          '-v', 'error', '-select_streams', 'v:0', '-show_entries', 'stream=width,height',
+          '-of', 'csv=p=0:s=x', baseFilePath
+        ], { timeout: 10000 }).toString().trim();
+        const dimParts = dimResult.split('x');
+        if (dimParts.length === 2) {
+          srcWidth = parseInt(dimParts[0]) || 1920;
+          srcHeight = parseInt(dimParts[1]) || 1080;
+        }
+
+        const dur1 = execFileSync(ffprobePath, ['-v', 'error', '-show_entries', 'format=duration', '-of', 'default=noprint_wrappers=1:nokey=1', baseFilePath]).toString().trim();
+        const dur2 = execFileSync(ffprobePath, ['-v', 'error', '-show_entries', 'format=duration', '-of', 'default=noprint_wrappers=1:nokey=1', appendFilePath]).toString().trim();
+        totalDur = parseFloat(dur1) + parseFloat(dur2);
+      } catch (e) {
+        console.warn('Probe failed, using defaults', e.message);
+      }
+
+      const outDir = path.dirname(baseFilePath);
+      const ext = path.extname(baseFilePath) || '.mp4';
+      const outPath = path.join(outDir, path.basename(baseFilePath, ext) + '_merged_' + Date.now() + ext);
+
+      const filterComplex = hasAudio 
+        ? `[1:v]scale=${srcWidth}:${srcHeight}:force_original_aspect_ratio=decrease,pad=${srcWidth}:${srcHeight}:(ow-iw)/2:(oh-ih)/2[v1];[0:v][0:a][v1][1:a]concat=n=2:v=1:a=1[v][a]`
+        : `[1:v]scale=${srcWidth}:${srcHeight}:force_original_aspect_ratio=decrease,pad=${srcWidth}:${srcHeight}:(ow-iw)/2:(oh-ih)/2[v1];[0:v][v1]concat=n=2:v=1:a=0[v]`;
+
+      const mapArgs = hasAudio ? ['-map', '[v]', '-map', '[a]'] : ['-map', '[v]'];
+      
+      const args = [
+        '-i', baseFilePath,
+        '-i', appendFilePath,
+        '-filter_complex', filterComplex,
+        ...mapArgs,
+        '-c:v', 'libx264', '-preset', 'superfast', '-crf', '24',
+        ...(hasAudio ? ['-c:a', 'aac'] : []),
+        '-y', outPath
+      ];
+
+      return new Promise((resolve) => {
+        const proc = spawn(ffmpegPath, args, { stdio: ['ignore', 'pipe', 'pipe'] });
+        let stderrBuf = '';
+        const startTime = Date.now();
+
+        const sendProgress = (pct) => {
+          if (editorWindow && !editorWindow.isDestroyed()) {
+            editorWindow.webContents.send('veditor-append-progress', { percent: pct });
+          }
+        };
+
+        proc.stderr.on('data', (chunk) => {
+          stderrBuf += chunk.toString();
+          const timeMatch = stderrBuf.match(/time=\s*(\d+):(\d+):(\d+)\.(\d+)/g);
+          if (timeMatch && totalDur > 0) {
+            const last = timeMatch[timeMatch.length - 1];
+            const m = last.match(/time=\s*(\d+):(\d+):(\d+)\.(\d+)/);
+            if (m) {
+              const elapsed = (+m[1]) * 3600 + (+m[2]) * 60 + (+m[3]) + (+m[4]) / 100;
+              const pct = Math.min(99, Math.round((elapsed / totalDur) * 100));
+              sendProgress(pct);
+            }
+          }
+          if (stderrBuf.length > 4096) stderrBuf = stderrBuf.slice(-2048);
+        });
+
+        proc.on('close', (code) => {
+          if (code !== 0) {
+            console.error('Merge error:', stderrBuf);
+            resolve({ ok: false, error: `FFmpeg exited with code ${code}` });
+          } else {
+            sendProgress(100);
+            resolve({ ok: true, path: outPath });
+          }
+        });
+      });
+    } catch (err) {
+      console.error(err);
+      return { ok: false, error: err.message };
+    }
+  });
+
+  ipcMain.on('veditor-cancel-export', () => {
+    if (activeExportProc) {
+      console.log('[VEditor Export] Cancelling export…');
+      activeExportProc.kill('SIGKILL');
+      activeExportProc = null;
+    }
+  });
+
   // Export video — applies all edits (cuts, deletions, muting, zoom)
   ipcMain.handle('veditor-export', async (_, opts) => {
     try {
-      const { filePath, format, filename, segments, mutedSegments, viewport, zoomRegions } = opts;
+      const { filePath, format, filename, segments, mutedSegments, viewport, zoomRegions, hwaccel, fps: fpsChoice } = opts;
       const dir = path.dirname(filePath);
       const outName = (filename || 'export') + '.' + format;
       const outPath = path.join(dir, outName);
@@ -360,6 +481,47 @@ function setupEditorIpc() {
           mapArgs = ['-map', '[outv]'];
         }
       }
+      // ═══ Post-process: apply aspect ratio + background from viewport ═══
+      const arSetting = (viewport && viewport.aspectRatio) || 'original';
+      const bgModeSetting = (viewport && viewport.bgMode) || 'color';
+      const bgColor = (viewport && viewport.bg) || 'none';
+      const blurSigma = (viewport && viewport.blurIntensity) || 30;
+
+      const arMap = { '16:9': 16/9, '9:16': 9/16, '1:1': 1, '4:3': 4/3, '3:4': 3/4, '4:5': 4/5, '21:9': 21/9 };
+      const targetAR = arMap[arSetting];
+      const sourceAR = srcWidth / srcHeight;
+
+      if (targetAR && Math.abs(targetAR - sourceAR) > 0.01) {
+        // Compute target canvas dimensions
+        let canvasW, canvasH;
+        if (targetAR > sourceAR) {
+          canvasH = srcHeight; canvasW = Math.round(srcHeight * targetAR);
+        } else {
+          canvasW = srcWidth; canvasH = Math.round(srcWidth / targetAR);
+        }
+        canvasW = canvasW % 2 === 0 ? canvasW : canvasW + 1;
+        canvasH = canvasH % 2 === 0 ? canvasH : canvasH + 1;
+
+        console.log('[VEditor Export] AR reframe:', `${srcWidth}x${srcHeight}`, '→', `${canvasW}x${canvasH}`, `(${arSetting})`);
+
+        // Rename [outv] → [arIn] in the existing filter
+        filterComplex = filterComplex.replace(/\[outv\]/g, '[arIn]');
+
+        if (bgModeSetting === 'blur') {
+          // Blur mode: split → one fills bg blurred, other is padded centered → overlay
+          filterComplex += `;[arIn]split=2[arBgSrc][arFg]`;
+          filterComplex += `;[arBgSrc]scale=${canvasW}:${canvasH}:force_original_aspect_ratio=increase,crop=${canvasW}:${canvasH},gblur=sigma=${blurSigma},colorlevels=rimax=0.5:gimax=0.5:bimax=0.5[arBg]`;
+          filterComplex += `;[arFg]scale=${canvasW}:${canvasH}:force_original_aspect_ratio=decrease[arFgScaled]`;
+          filterComplex += `;[arBg][arFgScaled]overlay=(W-w)/2:(H-h)/2[outv]`;
+        } else {
+          // Color mode: pad with solid color
+          let padColor = '0x0f0f1a'; // default dark
+          if (bgColor && bgColor !== 'none' && !bgColor.startsWith('linear')) {
+            padColor = '0x' + bgColor.replace('#', '');
+          }
+          filterComplex += `;[arIn]scale=${canvasW}:${canvasH}:force_original_aspect_ratio=decrease,pad=${canvasW}:${canvasH}:(ow-iw)/2:(oh-ih)/2:color=${padColor}[outv]`;
+        }
+      }
 
       // Build FFmpeg args
       const args = [
@@ -368,15 +530,39 @@ function setupEditorIpc() {
         ...mapArgs,
       ];
 
-      // Format-specific encoding options
+      // Hardware acceleration selection
+      const hw = hwaccel || 'auto';
+      const isMac = process.platform === 'darwin';
+      const isWin = process.platform === 'win32';
+
+      // Format-specific encoding options (with hwaccel support)
       if (format === 'webm') {
         args.push('-c:v', 'libvpx-vp9', '-crf', '30', '-b:v', '0');
         if (hasAudio) args.push('-c:a', 'libopus');
       } else if (format === 'mp4') {
-        args.push('-c:v', 'libx264', '-preset', 'fast', '-crf', '23');
+        if (hw === 'gpu' || (hw === 'auto' && isMac)) {
+          // GPU: use VideoToolbox on macOS, NVENC on Windows, fallback to CPU on Linux
+          if (isMac) {
+            args.push('-c:v', 'h264_videotoolbox', '-q:v', '65');
+          } else if (isWin) {
+            args.push('-c:v', 'h264_nvenc', '-preset', 'p4', '-cq', '23');
+          } else {
+            args.push('-c:v', 'libx264', '-preset', 'fast', '-crf', '23');
+          }
+        } else {
+          args.push('-c:v', 'libx264', '-preset', 'fast', '-crf', '23');
+        }
         if (hasAudio) args.push('-c:a', 'aac', '-b:a', '192k');
       } else if (format === 'mov') {
-        args.push('-c:v', 'libx264', '-preset', 'fast', '-crf', '23');
+        if (hw === 'gpu' || (hw === 'auto' && isMac)) {
+          if (isMac) {
+            args.push('-c:v', 'h264_videotoolbox', '-q:v', '65');
+          } else {
+            args.push('-c:v', 'libx264', '-preset', 'fast', '-crf', '23');
+          }
+        } else {
+          args.push('-c:v', 'libx264', '-preset', 'fast', '-crf', '23');
+        }
         if (hasAudio) args.push('-c:a', 'aac', '-b:a', '192k');
       } else if (format === 'gif') {
         // GIF — rebuild with zoom support
@@ -414,28 +600,68 @@ function setupEditorIpc() {
         args.push('-i', filePath, '-filter_complex', gifParts.join(';'), '-map', '[outgif]');
       }
 
+      // Frame rate: only add -r when user explicitly chose a specific fps
+      if (fpsChoice && fpsChoice !== 'source') {
+        args.push('-r', String(fpsChoice));
+      }
+
+      // Add shortest to avoid hanging or audio drift if streams mismatch
+      args.push('-shortest');
+
       args.push('-y', outPath);
 
       console.log('[VEditor Export] FFmpeg command:', ffmpegPath, args.join(' '));
 
-      // Send progress updates
-      const sendProgress = (pct) => {
+      // Compute total output duration for progress
+      const totalOutDuration = activeSegs.reduce((sum, s) => sum + (s.endSec - s.startSec), 0);
+
+      const sendProgress = (pct, eta) => {
         if (editorWindow && !editorWindow.isDestroyed()) {
-          editorWindow.webContents.send('veditor-export-progress', { percent: pct });
+          editorWindow.webContents.send('veditor-export-progress', { percent: pct, eta: eta || null });
         }
       };
 
-      sendProgress(10);
+      sendProgress(2);
 
+      const { spawn } = require('child_process');
       return new Promise((resolve) => {
-        const proc = execFile(ffmpegPath, args, { maxBuffer: 50 * 1024 * 1024 }, (err, stdout, stderr) => {
-          if (err) {
-            console.error('[VEditor Export] FFmpeg error:', err.message);
-            console.error('[VEditor Export] FFmpeg stderr:', stderr);
-            if (editorWindow && !editorWindow.isDestroyed()) {
-              editorWindow.webContents.send('veditor-export-done', { ok: false, error: err.message });
+        const proc = spawn(ffmpegPath, args, { stdio: ['ignore', 'pipe', 'pipe'] });
+        activeExportProc = proc;
+
+        let stderrBuf = '';
+        const startTime = Date.now();
+
+        proc.stderr.on('data', (chunk) => {
+          stderrBuf += chunk.toString();
+          // Parse FFmpeg time= progress from stderr
+          const timeMatch = stderrBuf.match(/time=\s*(\d+):(\d+):(\d+)\.(\d+)/g);
+          if (timeMatch && totalOutDuration > 0) {
+            const last = timeMatch[timeMatch.length - 1];
+            const m = last.match(/time=\s*(\d+):(\d+):(\d+)\.(\d+)/);
+            if (m) {
+              const elapsed = (+m[1]) * 3600 + (+m[2]) * 60 + (+m[3]) + (+m[4]) / 100;
+              const pct = Math.min(99, Math.round((elapsed / totalOutDuration) * 100));
+              // Estimate remaining time
+              const wallElapsed = (Date.now() - startTime) / 1000;
+              const eta = pct > 2 ? Math.round((wallElapsed / pct) * (100 - pct)) : null;
+              sendProgress(Math.max(2, pct), eta);
             }
-            resolve({ ok: false, error: err.message });
+          }
+          // Keep buffer from growing unbounded
+          if (stderrBuf.length > 4096) stderrBuf = stderrBuf.slice(-2048);
+        });
+
+        proc.on('close', (code) => {
+          activeExportProc = null;
+          if (code !== 0) {
+            const errMsg = code === null ? 'Export cancelled' : `FFmpeg exited with code ${code}`;
+            console.error('[VEditor Export] FFmpeg error:', errMsg);
+            if (editorWindow && !editorWindow.isDestroyed()) {
+              editorWindow.webContents.send('veditor-export-done', { ok: false, error: errMsg, cancelled: code === null });
+            }
+            // Clean up partial output
+            try { if (fs.existsSync(outPath)) fs.unlinkSync(outPath); } catch (_e) {}
+            resolve({ ok: false, error: errMsg, cancelled: code === null });
             return;
           }
           console.log('[VEditor Export] Success:', outPath);
@@ -450,6 +676,223 @@ function setupEditorIpc() {
     } catch (err) {
       return { ok: false, error: err.message };
     }
+  });
+
+  // ═══════════════════════════════════════════════════════════
+  //  CANVAS FRAME-BY-FRAME EXPORT — Dynamic Zoom Pipeline
+  //  Renderer sends JPEG frames via IPC, we pipe to FFmpeg stdin.
+  // ═══════════════════════════════════════════════════════════
+  let frameExportProc = null;
+  let frameExportOutPath = null;
+
+  ipcMain.handle('veditor-start-frame-export', async (_, opts) => {
+    try {
+      const { filePath, format, filename, width, height, fps, segments, mutedSegments, hwaccel } = opts;
+      const dir = path.dirname(filePath);
+      const outName = (filename || 'export') + '.' + format;
+      const outPath = path.join(dir, outName);
+      frameExportOutPath = outPath;
+
+      // Check FFmpeg
+      let ffmpegPath = null;
+      try {
+        const ffmpegManager = require('./ffmpeg-manager');
+        if (ffmpegManager.isFFmpegInstalled()) {
+          ffmpegPath = ffmpegManager.ffmpegBinPath();
+        } else {
+          ffmpegPath = await ffmpegManager.downloadFFmpeg();
+        }
+      } catch (e) {
+        return { ok: false, error: 'FFmpeg not available: ' + e.message };
+      }
+      if (!ffmpegPath) return { ok: false, error: 'FFmpeg not found.' };
+
+      // Probe source for audio
+      const { execFileSync, spawn } = require('child_process');
+      let hasAudio = false;
+      try {
+        const ffprobePath = ffmpegPath.replace(/ffmpeg([^/]*)$/, 'ffprobe$1');
+        const probeResult = execFileSync(ffprobePath, [
+          '-v', 'error', '-select_streams', 'a', '-show_entries', 'stream=codec_type',
+          '-of', 'csv=p=0', filePath
+        ], { timeout: 10000 }).toString().trim();
+        hasAudio = probeResult.includes('audio');
+      } catch (_e) {}
+
+      console.log(`[VEditor Frame Export] Starting: ${width}x${height} @ ${fps}fps, format=${format}, audio=${hasAudio}`);
+
+      // Build FFmpeg args
+      // Input 1: JPEG frames from stdin (piped from renderer)
+      // Input 2: Source file for audio extraction
+      const args = [
+        '-thread_queue_size', '1024',
+        '-f', 'image2pipe', '-c:v', 'mjpeg', '-r', String(fps),
+        '-i', 'pipe:0',         // video frames from stdin
+      ];
+
+      if (hasAudio) {
+        args.push('-thread_queue_size', '1024', '-i', filePath);  // input 1: source for audio
+      }
+
+      // Build audio filter for trimming + muting
+      if (hasAudio && segments && segments.length) {
+        const activeSegs = segments.filter(s => !s.isDeleted);
+        const mutedRanges = (mutedSegments || []).map(s => ({ start: s.startSec, end: s.endSec }));
+
+        const audioFilters = [];
+        const audioConcatInputs = [];
+
+        activeSegs.forEach((seg, i) => {
+          const start = seg.startSec;
+          const end = seg.endSec;
+          const isMuted = mutedRanges.some(m =>
+            m.start <= start + 0.01 && m.end >= end - 0.01
+          );
+          if (isMuted) {
+            audioFilters.push(`aevalsrc=0:d=${(end - start).toFixed(4)}[ea${i}]`);
+          } else {
+            audioFilters.push(`[1:a]atrim=start=${start}:end=${end},asetpts=PTS-STARTPTS[ea${i}]`);
+          }
+          audioConcatInputs.push(`[ea${i}]`);
+        });
+
+        const audioFilter = audioFilters.join(';') + ';' +
+          audioConcatInputs.join('') + `concat=n=${activeSegs.length}:v=0:a=1[outa]`;
+        args.push('-filter_complex', audioFilter);
+        args.push('-map', '0:v', '-map', '[outa]');
+      } else if (hasAudio) {
+        args.push('-map', '0:v', '-map', '1:a');
+      } else {
+        args.push('-map', '0:v');
+      }
+
+      // Encoding settings
+      const hw = hwaccel || 'auto';
+      const isMac = process.platform === 'darwin';
+      const isWin = process.platform === 'win32';
+
+      if (format === 'gif') {
+        // GIF: strip audio, add palette generation in a single pass
+        // For simplicity, just encode directly — quality is acceptable
+        args.length = 0;
+        args.push(
+          '-f', 'image2pipe', '-c:v', 'mjpeg', '-r', String(fps),
+          '-i', 'pipe:0',
+          '-vf', `fps=${Math.min(fps, 15)},scale=640:-1:flags=lanczos,split[s0][s1];[s0]palettegen[p];[s1][p]paletteuse`,
+          '-map', '0:v',
+        );
+      } else if (format === 'webm') {
+        args.push('-c:v', 'libvpx-vp9', '-crf', '30', '-b:v', '0');
+        if (hasAudio) args.push('-c:a', 'libopus');
+      } else if (format === 'mp4') {
+        if (hw === 'gpu' || (hw === 'auto' && isMac)) {
+          if (isMac) args.push('-c:v', 'h264_videotoolbox', '-q:v', '65');
+          else if (isWin) args.push('-c:v', 'h264_nvenc', '-preset', 'p4', '-cq', '23');
+          else args.push('-c:v', 'libx264', '-preset', 'fast', '-crf', '23');
+        } else {
+          args.push('-c:v', 'libx264', '-preset', 'fast', '-crf', '23');
+        }
+        if (hasAudio) args.push('-c:a', 'aac', '-b:a', '192k');
+      } else if (format === 'mov') {
+        if (hw === 'gpu' || (hw === 'auto' && isMac)) {
+          if (isMac) args.push('-c:v', 'h264_videotoolbox', '-q:v', '65');
+          else args.push('-c:v', 'libx264', '-preset', 'fast', '-crf', '23');
+        } else {
+          args.push('-c:v', 'libx264', '-preset', 'fast', '-crf', '23');
+        }
+        if (hasAudio) args.push('-c:a', 'aac', '-b:a', '192k');
+      }
+
+      // Add shortest to avoid audio trailing or dropping
+      args.push('-shortest');
+
+      args.push('-y', outPath);
+
+      console.log('[VEditor Frame Export] FFmpeg:', ffmpegPath, args.join(' '));
+
+      // Spawn FFmpeg with stdin pipe for frames
+      frameExportProc = spawn(ffmpegPath, args, {
+        stdio: ['pipe', 'pipe', 'pipe']
+      });
+      activeExportProc = frameExportProc;
+
+      // Log stderr for debugging (don't block)
+      frameExportProc.stderr.on('data', (chunk) => {
+        const msg = chunk.toString();
+        // Only log errors, not progress spam
+        if (msg.includes('Error') || msg.includes('error') || msg.includes('Invalid')) {
+          console.error('[VEditor Frame Export] FFmpeg stderr:', msg.trim());
+        }
+      });
+
+      frameExportProc.on('error', (err) => {
+        console.error('[VEditor Frame Export] FFmpeg process error:', err.message);
+      });
+
+      return { ok: true };
+    } catch (err) {
+      return { ok: false, error: err.message };
+    }
+  });
+
+  ipcMain.handle('veditor-send-frame', async (_, frameData) => {
+    if (!frameExportProc || !frameExportProc.stdin || !frameExportProc.stdin.writable) {
+      return { ok: false };
+    }
+    try {
+      const buf = Buffer.from(frameData);
+      // Write with backpressure handling
+      const canContinue = frameExportProc.stdin.write(buf);
+      if (!canContinue) {
+        // Wait for drain before allowing next frame
+        await new Promise(resolve => frameExportProc.stdin.once('drain', resolve));
+      }
+      return { ok: true };
+    } catch (e) {
+      return { ok: false, error: e.message };
+    }
+  });
+
+  ipcMain.handle('veditor-finish-frame-export', async () => {
+    if (!frameExportProc) return { ok: false, error: 'No active export' };
+
+    const outPath = frameExportOutPath;
+
+    return new Promise((resolve) => {
+      // Close stdin to signal end of input
+      frameExportProc.stdin.end();
+
+      frameExportProc.on('close', (code) => {
+        activeExportProc = null;
+        frameExportProc = null;
+
+        if (code !== 0) {
+          const errMsg = code === null ? 'Export cancelled' : `FFmpeg exited with code ${code}`;
+          console.error('[VEditor Frame Export] Failed:', errMsg);
+          try { if (fs.existsSync(outPath)) fs.unlinkSync(outPath); } catch (_e) {}
+          if (editorWindow && !editorWindow.isDestroyed()) {
+            editorWindow.webContents.send('veditor-export-done', { ok: false, error: errMsg });
+          }
+          resolve({ ok: false, error: errMsg });
+          return;
+        }
+
+        console.log('[VEditor Frame Export] Success:', outPath);
+        shell.showItemInFolder(outPath);
+        if (editorWindow && !editorWindow.isDestroyed()) {
+          editorWindow.webContents.send('veditor-export-done', { ok: true, path: outPath });
+        }
+        resolve({ ok: true, path: outPath });
+      });
+
+      // Safety timeout — if FFmpeg hangs, kill it after 5 minutes
+      setTimeout(() => {
+        if (frameExportProc) {
+          console.warn('[VEditor Frame Export] Timeout — killing FFmpeg');
+          frameExportProc.kill('SIGKILL');
+        }
+      }, 5 * 60 * 1000);
+    });
   });
 }
 

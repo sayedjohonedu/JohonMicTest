@@ -18,6 +18,7 @@ const store = require('../../store/config');
 const offlineRecorder = require('./offline-recorder');
 const whisperApiEngine = require('./whisper-api-engine');
 const { callLlmRaw } = require('./llm-client');
+const apiVault = require('./api-vault');
 const clipboardHistoryStore = require('./clipboard-history-store');
 const { applyTextReplacements } = require('./text-replacements');
 
@@ -92,7 +93,7 @@ class WhisperApiManager {
     }
 
     // Check at least one Whisper profile is configured
-    const profiles = store.get('whisperApiProfiles') || [];
+    const profiles = apiVault.getWhisperProfiles();
     if (!profiles.length || !profiles.some(p => p.apiKey)) {
       console.warn('[WhisperAPI] No Whisper profiles configured — ignoring activation');
       return;
@@ -114,17 +115,10 @@ class WhisperApiManager {
 
   /**
    * Get profiles ordered with active first, then the rest.
+   * Delegates to the centralised API Vault.
    */
   _getOrderedProfiles() {
-    const profiles = store.get('whisperApiProfiles') || [];
-    const activeId = store.get('whisperApiActiveProfileId') || '';
-    const active = profiles.find(p => p.id === activeId);
-    const rest = profiles.filter(p => p.id !== activeId && p.apiKey);
-
-    const ordered = [];
-    if (active && active.apiKey) ordered.push(active);
-    ordered.push(...rest);
-    return ordered;
+    return apiVault.getFallbackChain('whisper-stt');
   }
 
   /**
@@ -171,9 +165,7 @@ class WhisperApiManager {
       this._updatePill('transcribing', 'Sending to Whisper API…');
       let transcript;
 
-      const ordered = this._getOrderedProfiles();
-      const fallbackEnabled = store.get('whisperApiFallbackEnabled') !== false;
-      const profilesToTry = fallbackEnabled ? ordered : ordered.slice(0, 1);
+      const profilesToTry = this._getOrderedProfiles();
 
       if (!profilesToTry.length) {
         this._updatePill('error', 'No Whisper profiles configured');
@@ -282,11 +274,9 @@ class WhisperApiManager {
   }
 
   async _aiPolish(text) {
-    const profiles   = store.get('whisperApiAiProfiles')        || [];
-    const activeId   = store.get('whisperApiAiActiveProfileId') || '';
+    const chain = apiVault.getFallbackChain('whisper-polish');
     const customPrompt = store.get('whisperApiAiSystemPrompt')  || '';
     const temperature = store.get('whisperApiAiTemperature')    ?? 0.3;
-    const fallback   = store.get('whisperApiAiFallbackEnabled') !== false;
 
     // ── Prompt routing: detect Jarvis in transcript ──
     // If user has set a custom prompt → use it as-is (no splitting)
@@ -304,25 +294,14 @@ class WhisperApiManager {
       console.log('[WhisperAPI] Clean mode → using CLEAN prompt');
     }
 
-    if (!profiles.length) {
+    if (!chain.length) {
       console.warn('[WhisperAPI] AI polish enabled but no profiles configured — skipping');
       return text;
     }
 
-    // Build attempt order: active profile first, then remaining profiles
-    const activeProfile = profiles.find(p => p.id === activeId) || profiles[0];
-    const attempts = [activeProfile];
-    if (fallback) {
-      for (const p of profiles) {
-        if (p.id !== activeProfile.id && p.apiKey) {
-          attempts.push(p);
-        }
-      }
-    }
-
     let lastError = null;
 
-    for (const prof of attempts) {
+    for (const prof of chain) {
       if (!prof.apiKey && prof.provider !== 'custom') continue;
 
       try {
@@ -352,15 +331,15 @@ class WhisperApiManager {
         if (result.error) throw new Error(result.error);
 
         if (result.text && result.text.trim()) {
-          if (prof.id !== activeProfile.id) {
-            console.log(`[WhisperAPI] Active profile "${activeProfile.name}" failed, succeeded with fallback "${prof.name}"`);
+          if (chain.length > 1 && chain[0].id !== prof.id) {
+            console.log(`[WhisperAPI] Active profile failed, succeeded with fallback "${prof.name}"`);
           }
           return result.text;
         }
       } catch (e) {
         lastError = e;
         console.warn(`[WhisperAPI] AI polish failed with "${prof.name}": ${e.message}`);
-        if (!fallback || attempts.indexOf(prof) === attempts.length - 1) {
+        if (chain.indexOf(prof) === chain.length - 1) {
           throw e;
         }
       }
@@ -406,15 +385,14 @@ class WhisperApiManager {
 
   /** Get overall status for settings display */
   getStatus() {
-    const profiles = store.get('whisperApiProfiles') || [];
-    const activeId = store.get('whisperApiActiveProfileId') || '';
-    const activeProfile = profiles.find(p => p.id === activeId) || profiles[0];
+    const profiles = apiVault.getWhisperProfiles();
+    const defaultProfile = apiVault.getDefaultForFeature('whisper-stt');
     return {
       enabled: this.isEnabled,
       hasProfiles: profiles.length > 0,
-      activeProfile: activeProfile ? activeProfile.name : '',
-      provider: activeProfile?.provider || 'openai',
-      model: activeProfile?.model || 'whisper-1',
+      activeProfile: defaultProfile ? defaultProfile.name : '',
+      provider: defaultProfile?.provider || 'openai',
+      model: defaultProfile?.model || 'whisper-1',
       language: store.get('whisperApiLanguage') || '',
       activationKey: store.get('whisperApiActivationKey') || (process.platform === 'darwin' ? 'MetaRight' : 'ControlRight'),
     };
