@@ -1,3 +1,0 @@
-# Please paste your Nvidia NIM API key below this line and save the file.
-# I will use it to test the connection and see why it is timing out.
-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

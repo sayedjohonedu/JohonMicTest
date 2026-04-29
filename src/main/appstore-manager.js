@@ -11,6 +11,7 @@ const {
 const path = require("path");
 const fs = require("fs");
 const store = require("../../store/config");
+const AdmZip = require("adm-zip");
 
 let appStoreWindow = null;
 
@@ -255,8 +256,8 @@ function launchMiniApp(appId) {
 // ── Pick file for import (returns path without installing) ──
 async function pickFileForImport() {
   const result = await dialog.showOpenDialog({
-    title: "Select Web App",
-    filters: [{ name: "Web Apps", extensions: ["html", "zip"] }],
+    title: "Select Web App or Backup",
+    filters: [{ name: "Web Apps & Backups", extensions: ["html", "zip", "MicApps"] }],
     properties: ["openFile", "openDirectory"],
   });
   if (result.canceled || !result.filePaths.length) return null;
@@ -459,54 +460,45 @@ function _finalizeInstall(id, appDir, fallbackName, forcedCategory) {
 
   // Provide a random icon if none exists
   if (!appIcon && !manifest.icon) {
-    const ICONS = [
-      '<rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="21" x2="9" y2="9"/>',
-      '<circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/>',
-      '<path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/>',
-      '<polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>',
-      '<path d="M12 20V10"/><path d="M18 20V4"/><path d="M6 20v-4"/>',
-      '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/>',
-      '<path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/>',
-      '<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>',
-      '<circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/>',
-      '<path d="M22.65 14.39L12 22.13 1.35 14.39a.84.84 0 0 1-.3-.94l1.22-3.78 2.44-7.51A2 2 0 0 1 6.6 1h10.8a2 2 0 0 1 1.89 1.16l2.44 7.51 1.22 3.78a.84.84 0 0 1-.3.94z"/>',
-      '<polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/>',
-      '<circle cx="12" cy="12" r="10"/><path d="M16 12l-8 5V7z"/>',
-      '<circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/>',
-      '<path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/>',
-      '<path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>',
-      '<path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/>',
-      '<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2-2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>',
-      '<path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/>',
-      '<circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>',
-      '<rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><rect x="7" y="7" width="3" height="9"/><rect x="14" y="7" width="3" height="5"/>',
-      '<path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/>',
-      '<path d="M20.24 12.24a6 6 0 0 0-8.49-8.49L5 10.5V19h8.5z"/><line x1="16" y1="8" x2="2" y2="22"/><line x1="17.5" y1="15" x2="9" y2="6.5"/>',
-      '<circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>',
-      '<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>',
-      '<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>',
-    ];
-    const COLORS = [
-      { bg: "#FCE4EC", fg: "#E91E63" },
-      { bg: "#F3E5F5", fg: "#9C27B0" },
-      { bg: "#E8EAF6", fg: "#3F51B5" },
-      { bg: "#E3F2FD", fg: "#2196F3" },
-      { bg: "#E0F7FA", fg: "#00BCD4" },
-      { bg: "#E0F2F1", fg: "#009688" },
-      { bg: "#E8F5E9", fg: "#4CAF50" },
-      { bg: "#F9FBE7", fg: "#8BC34A" },
-      { bg: "#FFF8E1", fg: "#FFC107" },
-      { bg: "#FFF3E0", fg: "#FF9800" },
-      { bg: "#FBE9E7", fg: "#FF5722" },
-      { bg: "#EFEBE9", fg: "#795548" },
-      { bg: "#ECEFF1", fg: "#607D8B" },
-      { bg: "#EDE7F6", fg: "#673AB7" },
-      { bg: "#E1F5FE", fg: "#03A9F4" },
-    ];
-    const iconStr = ICONS[Math.floor(Math.random() * ICONS.length)];
-    const color = COLORS[Math.floor(Math.random() * COLORS.length)];
-    const svgStr = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" rx="16" fill="${color.bg}"/><g transform="translate(16,16) scale(1.333)" fill="none" stroke="${color.fg}" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">${iconStr}</g></svg>`;
-    const b64 = Buffer.from(svgStr).toString("base64");
+    const iconsDir = path.join(__dirname, "../../assets/icons");
+    let svgStr = "";
+    if (fs.existsSync(iconsDir)) {
+      const files = fs.readdirSync(iconsDir).filter(f => /\.(webp|png|jpe?g)$/i.test(f));
+      if (files.length > 0) {
+        const randomFile = files[Math.floor(Math.random() * files.length)];
+        try {
+          const filePath = path.join(iconsDir, randomFile);
+          const ext = path.extname(randomFile).toLowerCase().substring(1);
+          const mimeType = ext === "jpg" ? "jpeg" : ext;
+          const base64 = fs.readFileSync(filePath).toString("base64");
+          const dataUri = `data:image/${mimeType};base64,${base64}`;
+          const svgId = Math.random().toString(36).substr(2, 9);
+          const squirclePath = "M100,68.7182051 C100,69.9139093 100,71.1074395 99.9913043,72.3009696 C99.9847826,73.3075351 99.973913,74.3141006 99.9478261,75.3184921 C99.920129,77.5191265 99.7268293,79.7145543 99.3695652,81.886169 C98.9978261,84.0601765 98.3043478,86.1646159 97.3108696,88.1320927 C95.2972476,92.0852921 92.0834623,95.2992171 88.1304348,97.3129266 C86.1638623,98.305079 84.0602691,98.9982471 81.8891304,99.3695378 C79.7152174,99.7282491 77.5195652,99.9217357 75.3195652,99.9478238 C74.3139596,99.9737988 73.308105,99.9890177 72.3021739,99.993478 C71.1065217,100 69.9130435,100 68.7195652,100 L31.2804348,100 C30.0869565,100 28.8934783,100 27.6978261,99.993478 C26.6919027,99.9897456 25.6860481,99.9752514 24.6804348,99.9499978 C22.4791037,99.9219121 20.2830235,99.7278754 18.1108696,99.3695378 C15.9391304,98.9999565 13.8347826,98.3042741 11.8695652,97.3129266 C7.91695765,95.2996615 4.70324405,92.0865692 2.68913043,88.1342667 C1.69595654,86.1655631 1.00208487,84.0596773 0.630434783,81.886169 C0.273173217,79.7152845 0.079873167,77.5205795 0.052173913,75.3206661 C0.0260869565,74.3141006 0.0130434783,73.3075351 0.00869565217,72.3009696 C0,71.1052654 0,69.9139093 0,68.7182051 L0,31.2817949 C0,30.0860907 0,28.8903865 0.00869565217,27.6946824 C0.0130434783,26.6902909 0.0260869565,25.6837254 0.052173913,24.6793339 C0.0799060567,22.4794222 0.273205889,20.2847196 0.630434783,18.113831 C1.00217391,15.9398235 1.69565217,13.8353841 2.68913043,11.8657333 C4.7027524,7.91253387 7.91653768,4.69860886 11.8695652,2.68489934 C13.8355813,1.69325138 15.9383812,1.00010324 18.1086957,0.628288186 C20.2826087,0.271750946 22.4782609,0.0782642724 24.6782609,0.050002174 C25.6847826,0.0239140832 26.6913043,0.0108700378 27.6956522,0.0065220227 C28.8913043,0 30.0869565,0 31.2782609,0 L68.7173913,0 C69.9130435,0 71.1086957,0 72.3021739,0.0065220227 C73.3080973,0.0102577353 74.3139519,0.0247519479 75.3195652,0.050002174 C77.5195652,0.0782642724 79.7152174,0.271750946 81.8869565,0.628288186 C84.0608696,1.00004348 86.1630435,1.69355189 88.1304348,2.68489934 C92.0844481,4.69799461 95.2990996,7.91202483 97.3130435,11.8657333 C98.305381,13.8338276 98.9985196,15.9389795 99.3695652,18.111657 C99.7268538,20.2832686 99.9201536,22.4786983 99.9478261,24.6793339 C99.973913,25.6858994 99.9869565,26.6924649 99.9913043,27.6968564 C100,28.8925605 100,30.0860907 100,31.2796209 L100,68.7182051 Z";
+          svgStr = `<svg width="100%" height="100%" viewBox="0 0 100 100" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+  <defs>
+      <path d="${squirclePath}" id="path-${svgId}"></path>
+      <clipPath id="clip-${svgId}">
+          <use xlink:href="#path-${svgId}"></use>
+      </clipPath>
+      <mask id="mask-${svgId}" fill="white">
+          <use xlink:href="#path-${svgId}"></use>
+      </mask>
+  </defs>
+  <image href="${dataUri}" width="100" height="100" clip-path="url(#clip-${svgId})" preserveAspectRatio="xMidYMid slice" />
+  <g stroke="none" stroke-width="1" fill="none" fill-rule="evenodd">
+      <path d="${squirclePath}" stroke-opacity="0.25" stroke="#000000" stroke-width="2" mask="url(#mask-${svgId})" stroke-linejoin="round" stroke-miterlimit="1.41" vector-effect="non-scaling-stroke"></path>
+  </g>
+</svg>`;
+        } catch (e) {
+          console.error("Failed to load random icon:", e);
+        }
+      }
+    }
+    
+    if (!svgStr) {
+      svgStr = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" rx="16" fill="#E3F2FD"/><g transform="translate(16,16) scale(1.333)" fill="none" stroke="#2196F3" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></g></svg>`;
+    }
+    
     fs.writeFileSync(path.join(appDir, "appicon.svg"), svgStr, "utf-8");
     appIcon = "appicon.svg";
   }
@@ -909,71 +901,50 @@ function setupAppStoreIpc() {
   });
 
   ipcMain.handle("appstore-get-icons", async () => {
-    const ICONS = [
-      '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/>',
-      '<path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/>',
-      '<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>',
-      '<circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/>',
-      '<path d="M22.65 14.39L12 22.13 1.35 14.39a.84.84 0 0 1-.3-.94l1.22-3.78 2.44-7.51A2 2 0 0 1 6.6 1h10.8a2 2 0 0 1 1.89 1.16l2.44 7.51 1.22 3.78a.84.84 0 0 1-.3.94z"/>',
-      '<polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/>',
-      '<circle cx="12" cy="12" r="10"/><path d="M16 12l-8 5V7z"/>',
-      '<circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/>',
-      '<path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/>',
-      '<path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>',
-      '<path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/>',
-      '<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>',
-      '<path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/>',
-      '<circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>',
-      '<rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><rect x="7" y="7" width="3" height="9"/><rect x="14" y="7" width="3" height="5"/>',
-      '<path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/>',
-      '<path d="M20.24 12.24a6 6 0 0 0-8.49-8.49L5 10.5V19h8.5z"/><line x1="16" y1="8" x2="2" y2="22"/><line x1="17.5" y1="15" x2="9" y2="6.5"/>',
-      '<circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>',
-      '<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>',
-      '<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>',
-      '<circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>',
-      '<path d="M22 12h-4l-3 9L9 3l-3 9H2"/>',
-      '<rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/>',
-      '<path d="M12 20.94c5.17 0 9.38-4.21 9.38-9.38C21.38 6.39 17.17 2.18 12 2.18S2.62 6.39 2.62 11.56c0 5.17 4.21 9.38 9.38 9.38z"/><path d="M12 6.87v9.38"/><path d="M7.31 11.56h9.38"/>',
-      '<polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>',
-      '<path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/>',
-      '<circle cx="12" cy="12" r="10"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/>',
-      '<rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>',
-      '<path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>',
-      '<path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" y1="22" x2="4" y2="15"/>',
-      '<rect x="2" y="7" width="20" height="14" rx="2" ry="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/>',
-      '<rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>',
-      '<path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/>',
-      '<circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>',
-      '<path d="M2 12h4l2-9 4 18 2-9h4"/><line x1="12" y1="3" x2="12" y2="3.01"/><line x1="12" y1="21" x2="12" y2="21.01"/>',
-      '<polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/>',
-      '<path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3zM7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3"/>',
-      '<path d="M10 15v4a3 3 0 0 0 3 3l4-9V2H5.72a2 2 0 0 0-2 1.7l-1.38 9a2 2 0 0 0 2 2.3zm7-13h2a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2h-2"/>',
-      '<circle cx="12" cy="12" r="10"/><path d="M12 8v4l3 3"/>',
-    ];
-    const COLORS = [
-      { bg: "#FCE4EC", fg: "#E91E63" },
-      { bg: "#F3E5F5", fg: "#9C27B0" },
-      { bg: "#E8EAF6", fg: "#3F51B5" },
-      { bg: "#E3F2FD", fg: "#2196F3" },
-      { bg: "#E0F7FA", fg: "#00BCD4" },
-      { bg: "#E0F2F1", fg: "#009688" },
-      { bg: "#E8F5E9", fg: "#4CAF50" },
-      { bg: "#F9FBE7", fg: "#8BC34A" },
-      { bg: "#FFF8E1", fg: "#FFC107" },
-      { bg: "#FFF3E0", fg: "#FF9800" },
-      { bg: "#FBE9E7", fg: "#FF5722" },
-      { bg: "#EFEBE9", fg: "#795548" },
-      { bg: "#ECEFF1", fg: "#607D8B" },
-      { bg: "#EDE7F6", fg: "#673AB7" },
-      { bg: "#E1F5FE", fg: "#03A9F4" },
-    ];
+    const iconsDir = path.join(__dirname, "../../assets/icons");
     const result = [];
-    for (let i = 0; i < 40; i++) {
-      const iconStr = ICONS[i % ICONS.length];
-      const color = COLORS[i % COLORS.length];
-      const svgStr = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" rx="16" fill="${color.bg}"/><g transform="translate(16,16) scale(1.333)" fill="none" stroke="${color.fg}" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">${iconStr}</g></svg>`;
-      result.push(svgStr);
+    
+    if (fs.existsSync(iconsDir)) {
+      const files = fs.readdirSync(iconsDir);
+      
+      const squirclePath = "M100,68.7182051 C100,69.9139093 100,71.1074395 99.9913043,72.3009696 C99.9847826,73.3075351 99.973913,74.3141006 99.9478261,75.3184921 C99.920129,77.5191265 99.7268293,79.7145543 99.3695652,81.886169 C98.9978261,84.0601765 98.3043478,86.1646159 97.3108696,88.1320927 C95.2972476,92.0852921 92.0834623,95.2992171 88.1304348,97.3129266 C86.1638623,98.305079 84.0602691,98.9982471 81.8891304,99.3695378 C79.7152174,99.7282491 77.5195652,99.9217357 75.3195652,99.9478238 C74.3139596,99.9737988 73.308105,99.9890177 72.3021739,99.993478 C71.1065217,100 69.9130435,100 68.7195652,100 L31.2804348,100 C30.0869565,100 28.8934783,100 27.6978261,99.993478 C26.6919027,99.9897456 25.6860481,99.9752514 24.6804348,99.9499978 C22.4791037,99.9219121 20.2830235,99.7278754 18.1108696,99.3695378 C15.9391304,98.9999565 13.8347826,98.3042741 11.8695652,97.3129266 C7.91695765,95.2996615 4.70324405,92.0865692 2.68913043,88.1342667 C1.69595654,86.1655631 1.00208487,84.0596773 0.630434783,81.886169 C0.273173217,79.7152845 0.079873167,77.5205795 0.052173913,75.3206661 C0.0260869565,74.3141006 0.0130434783,73.3075351 0.00869565217,72.3009696 C0,71.1052654 0,69.9139093 0,68.7182051 L0,31.2817949 C0,30.0860907 0,28.8903865 0.00869565217,27.6946824 C0.0130434783,26.6902909 0.0260869565,25.6837254 0.052173913,24.6793339 C0.0799060567,22.4794222 0.273205889,20.2847196 0.630434783,18.113831 C1.00217391,15.9398235 1.69565217,13.8353841 2.68913043,11.8657333 C4.7027524,7.91253387 7.91653768,4.69860886 11.8695652,2.68489934 C13.8355813,1.69325138 15.9383812,1.00010324 18.1086957,0.628288186 C20.2826087,0.271750946 22.4782609,0.0782642724 24.6782609,0.050002174 C25.6847826,0.0239140832 26.6913043,0.0108700378 27.6956522,0.0065220227 C28.8913043,0 30.0869565,0 31.2782609,0 L68.7173913,0 C69.9130435,0 71.1086957,0 72.3021739,0.0065220227 C73.3080973,0.0102577353 74.3139519,0.0247519479 75.3195652,0.050002174 C77.5195652,0.0782642724 79.7152174,0.271750946 81.8869565,0.628288186 C84.0608696,1.00004348 86.1630435,1.69355189 88.1304348,2.68489934 C92.0844481,4.69799461 95.2990996,7.91202483 97.3130435,11.8657333 C98.305381,13.8338276 98.9985196,15.9389795 99.3695652,18.111657 C99.7268538,20.2832686 99.9201536,22.4786983 99.9478261,24.6793339 C99.973913,25.6858994 99.9869565,26.6924649 99.9913043,27.6968564 C100,28.8925605 100,30.0860907 100,31.2796209 L100,68.7182051 Z";
+      
+      for (const file of files) {
+        if (!file.match(/\.(webp|png|jpe?g)$/i)) continue;
+        
+        try {
+          const filePath = path.join(iconsDir, file);
+          const ext = path.extname(file).toLowerCase().substring(1);
+          const mimeType = ext === "jpg" ? "jpeg" : ext;
+          const base64 = fs.readFileSync(filePath).toString("base64");
+          const dataUri = `data:image/${mimeType};base64,${base64}`;
+          
+          const svgId = Math.random().toString(36).substr(2, 9);
+          
+          const svgStr = `<svg width="100%" height="100%" viewBox="0 0 100 100" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+  <defs>
+      <path d="${squirclePath}" id="path-${svgId}"></path>
+      <clipPath id="clip-${svgId}">
+          <use xlink:href="#path-${svgId}"></use>
+      </clipPath>
+      <mask id="mask-${svgId}" fill="white">
+          <use xlink:href="#path-${svgId}"></use>
+      </mask>
+  </defs>
+  <image href="${dataUri}" width="100" height="100" clip-path="url(#clip-${svgId})" preserveAspectRatio="xMidYMid slice" />
+  <g stroke="none" stroke-width="1" fill="none" fill-rule="evenodd">
+      <path d="${squirclePath}" stroke-opacity="0.25" stroke="#000000" stroke-width="2" mask="url(#mask-${svgId})" stroke-linejoin="round" stroke-miterlimit="1.41" vector-effect="non-scaling-stroke"></path>
+  </g>
+</svg>`;
+          result.push(svgStr);
+        } catch (e) {
+          console.error("Failed to load icon:", file, e);
+        }
+      }
     }
+    
+    // Sort randomly to mix them up
+    result.sort(() => Math.random() - 0.5);
     return result;
   });
 
@@ -1430,6 +1401,111 @@ function setupAppStoreIpc() {
     const newSessions = sessions.filter((s) => s.id !== sessionId);
     saveAiSessions(newSessions);
     return true;
+  });
+
+  // ── Backup & Restore ───────────────────────────────────────
+  ipcMain.handle("appstore-export-all", async () => {
+    const { filePath } = await dialog.showSaveDialog(
+      appStoreWindow || BrowserWindow.getFocusedWindow(),
+      {
+        title: "Backup App Store",
+        defaultPath: path.join(app.getPath("desktop"), "MicTab_Apps_Backup.MicApps"),
+        filters: [{ name: "MicTab Apps Backup", extensions: ["MicApps"] }],
+      }
+    );
+
+    if (!filePath) return { canceled: true };
+
+    try {
+      const zip = new AdmZip();
+      const dir = getAppsDir();
+      
+      if (fs.existsSync(dir)) {
+        zip.addLocalFolder(dir);
+      }
+
+      zip.writeZip(filePath);
+      return { success: true, filePath };
+    } catch (err) {
+      console.error("Backup failed:", err);
+      return { error: err.message };
+    }
+  });
+
+  ipcMain.handle("appstore-import-all", async (_, mode, filePath) => {
+    try {
+      if (!fs.existsSync(filePath)) {
+        return { error: "Backup file not found." };
+      }
+
+      const zip = new AdmZip(filePath);
+      const targetDir = getAppsDir();
+      
+      ensureAppsDir();
+
+      if (mode === "replace") {
+        // Clear existing files except built-ins? Wait, built-ins are managed dynamically.
+        // Let's just wipe targetDir and recreate it.
+        fs.rmSync(targetDir, { recursive: true, force: true });
+        fs.mkdirSync(targetDir, { recursive: true });
+        zip.extractAllTo(targetDir, true);
+      } else if (mode === "merge") {
+        // We need to merge registries and ai sessions, and extract files without overwriting existing?
+        // Wait, "marge will marge with existing".
+        // Let's extract to a temp folder, read its registry, then copy things over.
+        const tempDir = path.join(app.getPath("temp"), "mictab_apps_restore_" + Date.now());
+        zip.extractAllTo(tempDir, true);
+
+        // Merge registry
+        const currentRegistry = loadRegistry();
+        let backupRegistry = [];
+        try {
+          backupRegistry = JSON.parse(fs.readFileSync(path.join(tempDir, "registry.json"), "utf-8"));
+        } catch (e) {}
+
+        const currentIds = new Set(currentRegistry.map(a => a.id));
+        for (const appItem of backupRegistry) {
+          if (!currentIds.has(appItem.id)) {
+            currentRegistry.push(appItem);
+            currentIds.add(appItem.id);
+            // Copy folder if exists
+            const appFolderPath = path.join(tempDir, appItem.id);
+            if (fs.existsSync(appFolderPath)) {
+              fs.cpSync(appFolderPath, path.join(targetDir, appItem.id), { recursive: true });
+            }
+          }
+        }
+        saveRegistry(currentRegistry);
+
+        // Merge AI Sessions
+        const currentSessions = loadAiSessions();
+        let backupSessions = [];
+        try {
+          backupSessions = JSON.parse(fs.readFileSync(path.join(tempDir, "ai_sessions.json"), "utf-8"));
+        } catch (e) {}
+
+        const currentSessionIds = new Set(currentSessions.map(s => s.id));
+        for (const sess of backupSessions) {
+          if (!currentSessionIds.has(sess.id)) {
+            currentSessions.push(sess);
+            currentSessionIds.add(sess.id);
+          }
+        }
+        // Re-sort
+        currentSessions.sort((a, b) => b.updatedAt - a.updatedAt);
+        saveAiSessions(currentSessions);
+
+        // Clean up temp
+        try {
+          fs.rmSync(tempDir, { recursive: true, force: true });
+        } catch (e) {}
+      }
+
+      return { success: true };
+    } catch (err) {
+      console.error("Restore failed:", err);
+      return { error: err.message };
+    }
   });
 
   // Install built-in apps on first run

@@ -1,0 +1,1088 @@
+/* ============================================================
+   MicTab - Everyday Calculators  |  style.css
+   iOS Cream Theme — clean, modern, mobile-first design
+   ============================================================ */
+
+/* ---------- CSS Custom Properties ---------- */
+:root {
+    --bg: #F9F8F3;
+    --surface: #FFFFFF;
+    --input-bg: #F2F1EC;
+    --border: rgba(0, 0, 0, 0.05);
+    --border-strong: rgba(0, 0, 0, 0.1);
+    --text-primary: #1C1C1E;
+    --text-secondary: #8E8E93;
+    --accent: #007AFF;
+    --accent-hover: #0066D6;
+    --accent-active: #0055B3;
+    --accent-light: rgba(0, 122, 255, 0.1);
+    --danger: #FF3B30;
+    --success: #34C759;
+    --warning: #FF9500;
+    --info: #5AC8FA;
+    --purple: #5856D6;
+    --radius-sm: 8px;
+    --radius: 12px;
+    --radius-lg: 20px;
+    --radius-xl: 24px;
+    --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.04), 0 1px 2px rgba(0, 0, 0, 0.06);
+    --shadow: 0 2px 8px rgba(0, 0, 0, 0.06), 0 1px 3px rgba(0, 0, 0, 0.08);
+    --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.08), 0 2px 8px rgba(0, 0, 0, 0.06);
+    --shadow-hover: 0 4px 16px rgba(0, 0, 0, 0.1), 0 2px 6px rgba(0, 0, 0, 0.08);
+    --transition: 0.2s ease;
+    --font: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+}
+
+/* ---------- Reset & Base ---------- */
+*,
+*::before,
+*::after {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+html {
+    font-size: 16px;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    -webkit-tap-highlight-color: transparent;
+}
+
+body {
+    font-family: var(--font);
+    background: var(--bg);
+    color: var(--text-primary);
+    min-height: 100vh;
+    line-height: 1.6;
+}
+
+/* ---------- App Navigation Bar ---------- */
+.app-nav {
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 16px;
+    background: rgba(249, 248, 243, 0.85);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border-bottom: 1px solid var(--border);
+}
+
+.nav-back {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    color: var(--accent);
+    text-decoration: none;
+    font-size: 0.9rem;
+    font-weight: 500;
+    transition: opacity var(--transition);
+}
+
+.nav-back:hover {
+    opacity: 0.7;
+}
+
+.nav-back:active {
+    opacity: 0.5;
+}
+
+.nav-back svg {
+    width: 20px;
+    height: 20px;
+    flex-shrink: 0;
+}
+
+.nav-title {
+    font-size: 1.05rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    letter-spacing: -0.2px;
+}
+
+.nav-home {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--accent);
+    text-decoration: none;
+    transition: opacity var(--transition);
+}
+
+.nav-home:hover {
+    opacity: 0.7;
+}
+
+.nav-home:active {
+    opacity: 0.5;
+}
+
+.nav-home svg {
+    width: 22px;
+    height: 22px;
+}
+
+/* ---------- Tab Navigation — Horizontal Scrollable Strip ---------- */
+.tab-nav {
+    display: flex;
+    gap: 8px;
+    padding: 12px 16px;
+    background: var(--bg);
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+    border-bottom: 1px solid var(--border);
+}
+
+.tab-nav::-webkit-scrollbar {
+    display: none;
+}
+
+.tab-btn {
+    flex-shrink: 0;
+    background: var(--surface);
+    color: var(--text-secondary);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 8px 16px;
+    font-size: 0.85rem;
+    font-weight: 500;
+    font-family: var(--font);
+    cursor: pointer;
+    transition: all var(--transition);
+    white-space: nowrap;
+    box-shadow: var(--shadow-sm);
+}
+
+.tab-btn:hover {
+    background: var(--surface);
+    box-shadow: var(--shadow-hover);
+    color: var(--text-primary);
+}
+
+.tab-btn:active {
+    transform: scale(0.98);
+}
+
+.tab-btn.active {
+    background: var(--accent);
+    color: #FFFFFF;
+    border-color: var(--accent);
+    box-shadow: 0 2px 8px rgba(0, 122, 255, 0.3);
+}
+
+.tab-icon {
+    margin-right: 4px;
+    font-size: 0.9rem;
+}
+
+/* ---------- Main Content ---------- */
+.tab-content {
+    max-width: 450px;
+    margin: 0 auto;
+    padding: 20px 16px 48px;
+}
+
+/* ---------- Calculator Panels ---------- */
+.calculator-panel {
+    display: none;
+    animation: fadeIn 0.3s ease;
+}
+
+.calculator-panel.active {
+    display: block;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(8px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ---------- Cards ---------- */
+.calc-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 24px 20px;
+    box-shadow: var(--shadow);
+}
+
+.calc-heading {
+    font-size: 1.3rem;
+    font-weight: 700;
+    margin-bottom: 20px;
+    color: var(--text-primary);
+    letter-spacing: -0.3px;
+    padding-bottom: 12px;
+    border-bottom: 2px solid var(--accent);
+}
+
+/* ---------- Sub-Sections ---------- */
+.sub-section {
+    background: var(--input-bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 16px;
+    margin-bottom: 16px;
+}
+
+.sub-heading {
+    font-size: 0.95rem;
+    font-weight: 600;
+    margin-bottom: 12px;
+    color: var(--accent);
+}
+
+/* ---------- Input Groups ---------- */
+.input-group {
+    margin-bottom: 14px;
+}
+
+.input-label {
+    display: block;
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+    margin-bottom: 6px;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+}
+
+.input-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-bottom: 12px;
+}
+
+.input-row .input-label {
+    margin-bottom: 0;
+    font-size: 0.85rem;
+    text-transform: none;
+    letter-spacing: 0;
+}
+
+/* ---------- Inputs ---------- */
+.calc-input {
+    background: var(--surface);
+    border: 1px solid var(--border-strong);
+    border-radius: var(--radius);
+    color: var(--text-primary);
+    font-family: var(--font);
+    font-size: 0.95rem;
+    padding: 12px 14px;
+    outline: none;
+    transition: border-color var(--transition), box-shadow var(--transition);
+    width: 100px;
+}
+
+.calc-input.full-width {
+    width: 100%;
+}
+
+.calc-input:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px var(--accent-light);
+}
+
+.calc-input::placeholder {
+    color: var(--text-secondary);
+    opacity: 0.6;
+}
+
+/* Number input — hide spinners for cleaner look */
+.calc-input[type="number"]::-webkit-inner-spin-button,
+.calc-input[type="number"]::-webkit-outer-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+}
+.calc-input[type="number"] {
+    -moz-appearance: textfield;
+}
+
+/* Date input styling */
+.calc-input[type="date"] {
+    color-scheme: light;
+}
+
+/* ---------- Buttons ---------- */
+.calc-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--accent);
+    color: #FFFFFF;
+    border: none;
+    border-radius: var(--radius);
+    padding: 12px 28px;
+    font-size: 0.95rem;
+    font-weight: 600;
+    font-family: var(--font);
+    cursor: pointer;
+    transition: all var(--transition);
+    margin-top: 6px;
+    width: 100%;
+}
+
+.calc-btn:hover {
+    background: var(--accent-hover);
+    box-shadow: 0 2px 8px rgba(0, 122, 255, 0.3);
+}
+
+.calc-btn:active {
+    background: var(--accent-active);
+    transform: scale(0.98);
+}
+
+/* Secondary button style */
+.calc-btn-secondary {
+    background: var(--input-bg);
+    color: var(--accent);
+    border: 1px solid var(--border-strong);
+    box-shadow: var(--shadow-sm);
+}
+
+.calc-btn-secondary:hover {
+    background: var(--surface);
+    box-shadow: var(--shadow-hover);
+}
+
+.calc-btn-secondary:active {
+    background: var(--input-bg);
+}
+
+/* ---------- Result Box ---------- */
+.result-box {
+    margin-top: 16px;
+    min-height: 20px;
+    font-size: 0.95rem;
+    color: var(--text-primary);
+    line-height: 1.7;
+}
+
+.result-box:empty::after {
+    content: "";
+}
+
+.result-highlight {
+    font-weight: 700;
+    color: var(--accent);
+}
+
+.result-success {
+    color: var(--success);
+    font-weight: 600;
+}
+
+.result-danger {
+    color: var(--danger);
+    font-weight: 600;
+}
+
+.result-warning {
+    color: var(--warning);
+    font-weight: 600;
+}
+
+/* Result Card — white card with shadow for special results */
+.result-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 16px;
+    margin-top: 12px;
+    box-shadow: var(--shadow-sm);
+}
+
+.result-card-title {
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--text-secondary);
+    margin-bottom: 8px;
+}
+
+/* ============================================================
+   1. SCIENTIFIC CALCULATOR
+   ============================================================ */
+
+/* Calculator Layout */
+.sci-layout {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+/* Angle Toggle */
+.angle-toggle {
+    display: flex;
+    gap: 6px;
+    margin-bottom: 4px;
+}
+
+.toggle-btn {
+    background: var(--input-bg);
+    color: var(--text-secondary);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 6px 16px;
+    font-size: 0.75rem;
+    font-weight: 700;
+    font-family: var(--font);
+    cursor: pointer;
+    transition: all var(--transition);
+    letter-spacing: 1px;
+}
+
+.toggle-btn.active {
+    background: var(--accent);
+    color: #fff;
+    border-color: var(--accent);
+}
+
+.toggle-btn:hover:not(.active) {
+    background: var(--surface);
+    box-shadow: var(--shadow-sm);
+}
+
+/* Display */
+.sci-display {
+    background: var(--text-primary);
+    border-radius: var(--radius-lg);
+    padding: 16px 20px;
+    margin-bottom: 4px;
+    min-height: 90px;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+}
+
+.sci-expression {
+    font-size: 0.85rem;
+    color: rgba(255, 255, 255, 0.5);
+    text-align: right;
+    min-height: 20px;
+    word-break: break-all;
+}
+
+.sci-result {
+    font-size: 2.2rem;
+    font-weight: 300;
+    color: #FFFFFF;
+    text-align: right;
+    word-break: break-all;
+    letter-spacing: -0.5px;
+}
+
+/* Memory Indicator */
+.memory-indicator {
+    font-size: 0.7rem;
+    color: var(--text-secondary);
+    margin-bottom: 4px;
+    text-align: right;
+}
+
+/* Button Grid */
+.sci-grid {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 6px;
+}
+
+.sci-btn {
+    background: #333336;
+    color: #FFFFFF;
+    border: none;
+    border-radius: var(--radius);
+    padding: 14px 4px;
+    font-size: 0.95rem;
+    font-family: var(--font);
+    cursor: pointer;
+    transition: all var(--transition);
+    text-align: center;
+    user-select: none;
+    -webkit-user-select: none;
+}
+
+.sci-btn:hover {
+    background: #4A4A4D;
+}
+
+.sci-btn:active {
+    transform: scale(0.98);
+    background: #555558;
+}
+
+.sci-btn.wide-btn {
+    grid-column: span 2;
+}
+
+/* Button type colours — iOS style */
+.sci-btn.mem-btn {
+    background: #2C2C2E;
+    color: #9E9E9E;
+    font-size: 0.75rem;
+    font-weight: 600;
+}
+
+.sci-btn.mem-btn:hover {
+    background: #3A3A3C;
+    color: #FFFFFF;
+}
+
+.sci-btn.func-btn {
+    background: #2C2C2E;
+    color: #9E9E9E;
+    font-size: 0.8rem;
+}
+
+.sci-btn.func-btn:hover {
+    background: #3A3A3C;
+    color: #FFFFFF;
+}
+
+.sci-btn.op-btn {
+    background: var(--accent);
+    color: #FFFFFF;
+    font-weight: 600;
+}
+
+.sci-btn.op-btn:hover {
+    background: var(--accent-hover);
+}
+
+.sci-btn.op-btn:active {
+    background: var(--accent-active);
+}
+
+.sci-btn.num-btn {
+    background: #505050;
+    color: #FFFFFF;
+    font-weight: 500;
+}
+
+.sci-btn.num-btn:hover {
+    background: #606060;
+}
+
+.sci-btn.accent-btn {
+    background: var(--accent);
+    color: #FFFFFF;
+    font-size: 1.2rem;
+    font-weight: 600;
+    grid-row: span 2;
+}
+
+.sci-btn.accent-btn:hover {
+    background: var(--accent-hover);
+}
+
+/* History Panel */
+.sci-history {
+    margin-top: 12px;
+}
+
+.sci-history-toggle {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 0;
+    cursor: pointer;
+    color: var(--text-secondary);
+    font-size: 0.85rem;
+    font-weight: 500;
+    border: none;
+    background: none;
+    width: 100%;
+    font-family: var(--font);
+}
+
+.sci-history-toggle:hover {
+    color: var(--text-primary);
+}
+
+.sci-history-toggle svg {
+    width: 16px;
+    height: 16px;
+    transition: transform var(--transition);
+}
+
+.sci-history-toggle.open svg {
+    transform: rotate(180deg);
+}
+
+.sci-history-list {
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height 0.3s ease;
+}
+
+.sci-history-list.open {
+    max-height: 300px;
+    overflow-y: auto;
+}
+
+.sci-history-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 12px;
+    border-radius: var(--radius-sm);
+    margin-bottom: 4px;
+    background: var(--input-bg);
+    font-size: 0.8rem;
+    cursor: pointer;
+    transition: background var(--transition);
+}
+
+.sci-history-item:hover {
+    background: var(--border-strong);
+}
+
+.sci-history-expr {
+    color: var(--text-secondary);
+    flex: 1;
+    margin-right: 8px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.sci-history-val {
+    color: var(--text-primary);
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+/* Extra func buttons row */
+.sci-extra-row {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 6px;
+    margin-bottom: 6px;
+}
+
+/* ============================================================
+   3. BMI VISUAL BAR
+   ============================================================ */
+
+.bmi-bar-container {
+    margin-top: 20px;
+    position: relative;
+}
+
+.bmi-bar {
+    display: flex;
+    height: 32px;
+    border-radius: 16px;
+    overflow: hidden;
+    position: relative;
+    box-shadow: var(--shadow-sm);
+}
+
+.bmi-segment {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.65rem;
+    font-weight: 700;
+    color: #fff;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+    letter-spacing: 0.3px;
+}
+
+.bmi-segment.underweight {
+    width: 24%;
+    background: var(--info);
+}
+
+.bmi-segment.normal {
+    width: 27%;
+    background: var(--success);
+}
+
+.bmi-segment.overweight {
+    width: 22%;
+    background: var(--warning);
+}
+
+.bmi-segment.obese {
+    width: 27%;
+    background: var(--danger);
+}
+
+.bmi-pointer {
+    position: absolute;
+    top: -8px;
+    width: 4px;
+    height: 48px;
+    background: var(--text-primary);
+    border-radius: 2px;
+    transition: left 0.4s ease;
+    box-shadow: 0 0 6px rgba(0, 0, 0, 0.3);
+    z-index: 2;
+}
+
+.bmi-pointer::before {
+    content: '';
+    position: absolute;
+    top: -4px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 12px;
+    height: 12px;
+    background: var(--text-primary);
+    border-radius: 50%;
+}
+
+.bmi-labels {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.7rem;
+    color: var(--text-secondary);
+    margin-top: 8px;
+}
+
+/* BMI Ideal Weight Range */
+.bmi-ideal-weight {
+    margin-top: 16px;
+    background: var(--input-bg);
+    border-radius: var(--radius);
+    padding: 14px 16px;
+    border: 1px solid var(--border);
+}
+
+.bmi-ideal-title {
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--text-secondary);
+    margin-bottom: 6px;
+}
+
+.bmi-ideal-range {
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: var(--success);
+}
+
+.bmi-ideal-note {
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+    margin-top: 4px;
+}
+
+/* ============================================================
+   4. AGE CALCULATOR
+   ============================================================ */
+
+.age-zodiac {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: var(--accent-light);
+    border-radius: var(--radius);
+    padding: 8px 14px;
+    margin-top: 8px;
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: var(--accent);
+}
+
+.age-zodiac-icon {
+    font-size: 1.3rem;
+}
+
+.age-birthday-card {
+    margin-top: 12px;
+    background: var(--input-bg);
+    border-radius: var(--radius);
+    padding: 14px 16px;
+    border: 1px solid var(--border);
+}
+
+.age-birthday-title {
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--text-secondary);
+    margin-bottom: 6px;
+}
+
+.age-birthday-countdown {
+    font-size: 1.05rem;
+    font-weight: 700;
+    color: var(--accent);
+}
+
+/* ============================================================
+   5. DAYS BETWEEN
+   ============================================================ */
+
+.days-breakdown {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    margin-top: 12px;
+}
+
+.days-stat {
+    background: var(--input-bg);
+    border-radius: var(--radius);
+    padding: 10px 14px;
+    border: 1px solid var(--border);
+    text-align: center;
+}
+
+.days-stat-value {
+    font-size: 1.2rem;
+    font-weight: 700;
+    color: var(--accent);
+}
+
+.days-stat-label {
+    font-size: 0.7rem;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    color: var(--text-secondary);
+    margin-top: 2px;
+}
+
+/* ============================================================
+   6. ROI VISUAL
+   ============================================================ */
+
+.roi-visual {
+    margin-top: 20px;
+}
+
+.roi-bar-bg {
+    height: 28px;
+    border-radius: 14px;
+    background: linear-gradient(to right, var(--danger), var(--warning) 50%, var(--success));
+    position: relative;
+    overflow: visible;
+    box-shadow: var(--shadow-sm);
+}
+
+.roi-bar-fill {
+    position: absolute;
+    top: 0;
+    left: 50%;
+    height: 100%;
+    border-radius: 0 14px 14px 0;
+    transition: width 0.4s ease, left 0.4s ease;
+}
+
+.roi-legend {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 8px;
+    font-size: 0.75rem;
+    font-weight: 500;
+}
+
+.roi-legend-loss   { color: var(--danger); }
+.roi-legend-zero   { color: var(--warning); }
+.roi-legend-gain   { color: var(--success); }
+
+/* ROI Compound Interest */
+.roi-compound-section {
+    margin-top: 16px;
+    padding-top: 16px;
+    border-top: 1px solid var(--border);
+}
+
+.roi-compound-title {
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: var(--accent);
+    margin-bottom: 12px;
+}
+
+/* ============================================================
+   7. ELECTRICITY COST ESTIMATOR
+   ============================================================ */
+
+.elec-cost-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 8px;
+    margin-top: 12px;
+}
+
+.elec-cost-card {
+    background: var(--input-bg);
+    border-radius: var(--radius);
+    padding: 12px;
+    border: 1px solid var(--border);
+    text-align: center;
+}
+
+.elec-cost-value {
+    font-size: 1.05rem;
+    font-weight: 700;
+    color: var(--accent);
+}
+
+.elec-cost-label {
+    font-size: 0.7rem;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    color: var(--text-secondary);
+    margin-top: 2px;
+}
+
+/* ============================================================
+   8. UNIT PRICE — CHEAPER HIGHLIGHT
+   ============================================================ */
+
+.up-item-result {
+    padding: 12px 14px;
+    border-radius: var(--radius);
+    margin-bottom: 8px;
+    background: var(--input-bg);
+    border: 1px solid var(--border);
+    transition: all var(--transition);
+}
+
+.up-item-result.cheaper {
+    background: rgba(52, 199, 89, 0.1);
+    border-color: var(--success);
+    color: var(--success);
+}
+
+.up-extra-info {
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+    margin-top: 4px;
+}
+
+/* ============================================================
+   RESPONSIVE
+   ============================================================ */
+
+@media (max-width: 600px) {
+    .app-nav {
+        padding: 10px 12px;
+    }
+
+    .nav-title {
+        font-size: 0.95rem;
+    }
+
+    .tab-nav {
+        padding: 10px 12px;
+        gap: 6px;
+    }
+
+    .tab-btn {
+        padding: 7px 12px;
+        font-size: 0.8rem;
+    }
+
+    .tab-icon {
+        display: none;
+    }
+
+    .calc-card {
+        padding: 18px 16px;
+        border-radius: var(--radius-lg);
+    }
+
+    .calc-heading {
+        font-size: 1.1rem;
+    }
+
+    .sci-grid {
+        grid-template-columns: repeat(5, 1fr);
+        gap: 4px;
+    }
+
+    .sci-extra-row {
+        gap: 4px;
+    }
+
+    .sci-btn {
+        padding: 12px 2px;
+        font-size: 0.8rem;
+        border-radius: var(--radius-sm);
+    }
+
+    .sci-result {
+        font-size: 1.7rem;
+    }
+
+    .input-row {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .input-row .calc-input {
+        width: 100%;
+    }
+
+    .days-breakdown {
+        grid-template-columns: 1fr 1fr;
+    }
+
+    .elec-cost-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media (max-width: 380px) {
+    .sci-grid {
+        grid-template-columns: repeat(4, 1fr);
+        gap: 3px;
+    }
+
+    .sci-extra-row {
+        grid-template-columns: repeat(4, 1fr);
+    }
+
+    .sci-btn.wide-btn {
+        grid-column: span 2;
+    }
+
+    .sci-btn.accent-btn {
+        grid-row: span 1;
+    }
+
+    .days-breakdown {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* ---------- Custom Scrollbar ---------- */
+.sci-history-list::-webkit-scrollbar {
+    width: 4px;
+}
+
+.sci-history-list::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.sci-history-list::-webkit-scrollbar-thumb {
+    background: var(--border-strong);
+    border-radius: 2px;
+}
+
+/* ---------- Utility ---------- */
+.text-sm { font-size: 0.85rem; }
+.text-xs { font-size: 0.75rem; }
+.mt-2 { margin-top: 8px; }
+.mt-3 { margin-top: 12px; }
+.mt-4 { margin-top: 16px; }
+.gap-2 { gap: 8px; }

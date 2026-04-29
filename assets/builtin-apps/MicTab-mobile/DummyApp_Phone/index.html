@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Phone</title>
+    <link rel="stylesheet" href="../shared-animations.css">
+    <style>
+        :root { 
+            --ios-green: #34c759; 
+            --ios-red: #ff3b30;
+            --ios-bg: #fff; 
+            --ios-gray: #8e8e93; 
+            --ios-light-gray: #e5e5ea;
+            --ios-dark-gray: #d1d1d6;
+            --accent: #007aff;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", sans-serif; -webkit-tap-highlight-color: transparent; }
+        body { 
+            background: var(--ios-bg); 
+            color: #000; 
+            min-height: 100vh; 
+            display: flex; 
+            flex-direction: column; 
+            overflow: hidden; 
+            user-select: none;
+        }
+        
+        .header { 
+            padding: 20px 16px 10px; 
+            display: flex; 
+            justify-content: flex-start;
+            animation: fadeInDown 0.4s var(--ease-smooth);
+        }
+        .back-btn { 
+            text-decoration: none; 
+            color: var(--accent); 
+            font-size: 17px;
+            font-weight: 600;
+            padding: 8px 12px;
+            border-radius: 20px;
+            transition: all 0.2s var(--ease-spring);
+        }
+        .back-btn:hover {
+            background: #e5f0ff;
+            transform: scale(1.05);
+        }
+
+        .display-area { 
+            flex: 1; 
+            display: flex; 
+            flex-direction: column; 
+            justify-content: flex-end; 
+            align-items: center; 
+            padding-bottom: 20px; 
+            min-height: 120px;
+        }
+        .phone-number { 
+            font-size: 48px; 
+            font-weight: 300; 
+            letter-spacing: 2px; 
+            min-height: 56px;
+            transition: all 0.2s;
+        }
+        .phone-number.shake {
+            animation: shake 0.4s ease;
+        }
+        .add-number { 
+            color: var(--accent); 
+            font-size: 15px; 
+            margin-top: 8px; 
+            font-weight: 500; 
+            opacity: 0; 
+            transform: translateY(-10px);
+            transition: all 0.3s var(--ease-spring);
+        }
+        .add-number.visible { 
+            opacity: 1; 
+            transform: translateY(0);
+        }
+
+        .keypad { 
+            display: grid; 
+            grid-template-columns: repeat(3, 1fr); 
+            gap: 20px 30px; 
+            padding: 0 40px 40px;
+        }
+        .key { 
+            width: 75px; 
+            height: 75px; 
+            border-radius: 50%; 
+            background: var(--ios-light-gray);
+            display: flex; 
+            flex-direction: column; 
+            align-items: center; 
+            justify-content: center; 
+            cursor: pointer; 
+            transition: all 0.2s var(--ease-spring);
+            position: relative;
+            overflow: hidden;
+        }
+        .key:hover { background: var(--ios-dark-gray); }
+        .key:active { 
+            background: #c7c7cc; 
+            transform: scale(0.95);
+        }
+        .key.press-anim {
+            animation: keyPress 0.3s var(--ease-spring);
+        }
+        @keyframes keyPress {
+            0% { transform: scale(1); }
+            50% { transform: scale(0.9); background: var(--accent); color: white; }
+            100% { transform: scale(1); }
+        }
+        .key-val { 
+            font-size: 36px; 
+            line-height: 1; 
+            font-weight: 400;
+        }
+        .key-sub { 
+            font-size: 10px; 
+            font-weight: 700; 
+            color: var(--ios-gray); 
+            letter-spacing: 1px; 
+            margin-top: 2px; 
+            height: 12px;
+        }
+
+        .action-row { 
+            display: grid; 
+            grid-template-columns: repeat(3, 1fr); 
+            gap: 30px; 
+            padding: 0 40px 40px; 
+            align-items: center;
+        }
+        .call-btn { 
+            grid-column: 2; 
+            width: 75px; 
+            height: 75px; 
+            border-radius: 50%; 
+            background: var(--ios-green); 
+            color: #fff; 
+            display: flex; 
+            align-items: center; 
+            justify-content: center; 
+            font-size: 36px;
+            box-shadow: 0 4px 12px rgba(52, 199, 89, 0.3);
+            transition: all 0.2s var(--ease-spring);
+            cursor: pointer;
+        }
+        .call-btn:hover { 
+            transform: scale(1.05);
+            box-shadow: 0 6px 16px rgba(52, 199, 89, 0.4);
+        }
+        .call-btn:active { 
+            transform: scale(0.95);
+        }
+        .delete-btn { 
+            font-size: 24px; 
+            color: var(--ios-gray); 
+            opacity: 0; 
+            cursor: pointer; 
+            transition: all 0.2s;
+            text-align: center;
+            grid-column: 2;
+            width: 75px;
+            height: 75px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 50%;
+        }
+        .delete-btn.visible { 
+            opacity: 1; 
+        }
+        .delete-btn:hover {
+            background: #f2f2f7;
+            color: var(--ios-red);
+        }
+        .delete-btn:active {
+            transform: scale(0.9);
+        }
+
+        .tab-bar { 
+            background: rgba(249, 249, 249, 0.95);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border-top: 1px solid #d1d1d1; 
+            display: flex; 
+            justify-content: space-around; 
+            padding: 10px 0 30px;
+            animation: slideInUp 0.5s var(--ease-smooth) 0.2s both;
+        }
+        .tab-item { 
+            display: flex; 
+            flex-direction: column; 
+            align-items: center; 
+            gap: 4px; 
+            color: var(--ios-gray); 
+            text-decoration: none;
+            transition: all 0.2s;
+            padding: 6px 12px;
+            border-radius: 12px;
+        }
+        .tab-item.active { 
+            color: var(--accent); 
+            background: rgba(0, 122, 255, 0.08);
+        }
+        .tab-item:hover {
+            transform: scale(1.05);
+        }
+        .tab-icon { 
+            font-size: 26px;
+        }
+        .tab-label { 
+            font-size: 10px; 
+            font-weight: 600;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <a href="../index.html" class="back-btn">‹ Back</a>
+    </div>
+
+    <div class="display-area">
+        <div class="phone-number" id="phoneNum"></div>
+        <div class="add-number" id="addLink">Add Number</div>
+    </div>
+
+    <div class="keypad">
+        <div class="key" onclick="press('1')"><span class="key-val">1</span><span class="key-sub"></span></div>
+        <div class="key" onclick="press('2')"><span class="key-val">2</span><span class="key-sub">ABC</span></div>
+        <div class="key" onclick="press('3')"><span class="key-val">3</span><span class="key-sub">DEF</span></div>
+        <div class="key" onclick="press('4')"><span class="key-val">4</span><span class="key-sub">GHI</span></div>
+        <div class="key" onclick="press('5')"><span class="key-val">5</span><span class="key-sub">JKL</span></div>
+        <div class="key" onclick="press('6')"><span class="key-val">6</span><span class="key-sub">MNO</span></div>
+        <div class="key" onclick="press('7')"><span class="key-val">7</span><span class="key-sub">PQRS</span></div>
+        <div class="key" onclick="press('8')"><span class="key-val">8</span><span class="key-sub">TUV</span></div>
+        <div class="key" onclick="press('9')"><span class="key-val">9</span><span class="key-sub">WXYZ</span></div>
+        <div class="key" onclick="press('*')"><span class="key-val">*</span><span class="key-sub"></span></div>
+        <div class="key" onclick="press('0')"><span class="key-val">0</span><span class="key-sub">+</span></div>
+        <div class="key" onclick="press('#')"><span class="key-val">#</span><span class="key-sub"></span></div>
+    </div>
+
+    <div class="action-row">
+        <div></div>
+        <div class="call-btn">📞</div>
+        <div class="delete-btn" id="delBtn" onclick="del()">⌫</div>
+    </div>
+
+    <div class="tab-bar">
+        <a href="#" class="tab-item"><span class="tab-icon">⭐️</span><span class="tab-label">Favorites</span></a>
+        <a href="#" class="tab-item"><span class="tab-icon">🕒</span><span class="tab-label">Recents</span></a>
+        <a href="#" class="tab-item"><span class="tab-icon">👥</span><span class="tab-label">Contacts</span></a>
+        <a href="#" class="tab-item active"><span class="tab-icon">⌨️</span><span class="tab-label">Keypad</span></a>
+        <a href="#" class="tab-item"><span class="tab-icon">📼</span><span class="tab-label">Voicemail</span></a>
+    </div>
+
+    <script>
+        let num = '';
+        function press(v) {
+            num += v;
+            update();
+            
+            // Animate key press
+            const keys = document.querySelectorAll('.key');
+            const keyMap = {'1':0, '2':1, '3':2, '4':3, '5':4, '6':5, '7':6, '8':7, '9':8, '*':9, '0':10, '#':11};
+            if (keyMap.hasOwnProperty(v)) {
+                const keyEl = keys[keyMap[v]];
+                keyEl.classList.add('press-anim');
+                setTimeout(() => keyEl.classList.remove('press-anim'), 300);
+                
+                // Haptic feedback
+                if (window.Haptic) Haptic.light();
+            }
+        }
+        function del() {
+            num = num.slice(0, -1);
+            update();
+            if (window.Haptic) Haptic.light();
+        }
+        function update() {
+            const phoneNum = document.getElementById('phoneNum');
+            phoneNum.textContent = num;
+            
+            // Subtle pulse on number change
+            if (num.length > 0) {
+                phoneNum.classList.add('timer-tick');
+                setTimeout(() => phoneNum.classList.remove('timer-tick'), 300);
+            }
+            
+            const delBtn = document.getElementById('delBtn');
+            const addLink = document.getElementById('addLink');
+            if (num.length > 0) {
+                delBtn.classList.add('visible');
+                addLink.classList.add('visible');
+            } else {
+                delBtn.classList.remove('visible');
+                addLink.classList.remove('visible');
+            }
+        }
+        
+        // Add keyboard support
+        document.addEventListener('keydown', (e) => {
+            if (e.key >= '0' && e.key <= '9') press(e.key);
+            if (e.key === '*') press('*');
+            if (e.key === '#') press('#');
+            if (e.key === 'Backspace') del();
+        });
+    </script>
+    <script src="../shared-utils.js"></script>
+</body>
+</html>

@@ -1,0 +1,406 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Settings</title>
+    <style>
+        :root {
+            --bg-color: #f2f2f7;
+            --section-bg: #ffffff;
+            --text-color: #000000;
+            --text-secondary: #8e8e93;
+            --border-color: #c6c6c8;
+            --accent-color: #007aff;
+            --chevron-color: #c4c4c6;
+        }
+
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --bg-color: #000000;
+                --section-bg: #1c1c1e;
+                --text-color: #ffffff;
+                --text-secondary: #8e8e93;
+                --border-color: #38383a;
+                --chevron-color: #48484a;
+            }
+        }
+
+        * {
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            margin: 0;
+            padding: 0;
+            overflow-x: hidden;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        .container {
+            max-width: 100%;
+            padding-bottom: 40px;
+        }
+
+        header {
+            padding: 50px 16px 10px;
+            position: sticky;
+            top: 0;
+            background-color: var(--bg-color);
+            z-index: 10;
+        }
+
+        h1 {
+            font-size: 34px;
+            font-weight: 700;
+            margin: 0;
+            letter-spacing: -0.5px;
+        }
+
+        .search-bar {
+            margin: 10px 16px;
+            background-color: rgba(142, 142, 147, 0.12);
+            border-radius: 10px;
+            padding: 8px 12px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .search-bar svg {
+            fill: var(--text-secondary);
+        }
+
+        .search-bar input {
+            background: none;
+            border: none;
+            color: var(--text-color);
+            font-size: 17px;
+            width: 100%;
+            outline: none;
+        }
+
+        .search-bar input::placeholder {
+            color: var(--text-secondary);
+        }
+
+        .section {
+            margin: 20px 16px;
+            background-color: var(--section-bg);
+            border-radius: 10px;
+            overflow: hidden;
+        }
+
+        .profile-section {
+            display: flex;
+            align-items: center;
+            padding: 12px 16px;
+            gap: 16px;
+        }
+
+        .profile-avatar {
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #a2b0b9, #546e7a);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            color: white;
+            font-size: 24px;
+            font-weight: 600;
+        }
+
+        .profile-info {
+            flex: 1;
+        }
+
+        .profile-name {
+            font-size: 20px;
+            font-weight: 500;
+        }
+
+        .profile-detail {
+            font-size: 13px;
+            color: var(--text-secondary);
+            margin-top: 2px;
+        }
+
+        .list-item {
+            display: flex;
+            align-items: center;
+            padding: 10px 16px;
+            gap: 15px;
+            cursor: pointer;
+            position: relative;
+        }
+
+        .list-item:not(:last-child)::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            right: 0;
+            left: 47px;
+            height: 1px;
+            background-color: var(--border-color);
+        }
+
+        .list-item:active {
+            background-color: rgba(0, 0, 0, 0.05);
+        }
+
+        @media (prefers-color-scheme: dark) {
+            .list-item:active {
+                background-color: rgba(255, 255, 255, 0.1);
+            }
+        }
+
+        .icon-box {
+            width: 28px;
+            height: 28px;
+            border-radius: 6px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            flex-shrink: 0;
+        }
+
+        .icon-box svg {
+            fill: white;
+            width: 18px;
+            height: 18px;
+        }
+
+        .item-label {
+            flex: 1;
+            font-size: 17px;
+        }
+
+        .item-value {
+            font-size: 17px;
+            color: var(--text-secondary);
+            margin-right: 4px;
+        }
+
+        .chevron {
+            color: var(--chevron-color);
+            display: flex;
+            align-items: center;
+        }
+
+        /* Icon Colors */
+        .bg-orange { background-color: #ff9500; }
+        .bg-blue { background-color: #007aff; }
+        .bg-green { background-color: #34c759; }
+        .bg-red { background-color: #ff3b30; }
+        .bg-purple { background-color: #5856d6; }
+        .bg-pink { background-color: #ff2d55; }
+        .bg-gray { background-color: #8e8e93; }
+        .bg-teal { background-color: #5ac8fa; }
+        .bg-indigo { background-color: #5856d6; }
+
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Settings</h1>
+        </header>
+
+        <div class="search-bar">
+            <svg width="16" height="16" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>
+            <input type="text" placeholder="Search">
+        </div>
+
+        <div class="section">
+            <div class="profile-section">
+                <div class="profile-avatar">SJ</div>
+                <div class="profile-info">
+                    <div class="profile-name">Sayed Johon</div>
+                    <div class="profile-detail">Apple ID, iCloud+, Media & Purchases</div>
+                </div>
+                <div class="chevron">
+                    <svg width="20" height="20" viewBox="0 0 24 24"><path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.41z" fill="currentColor"/></svg>
+                </div>
+            </div>
+        </div>
+
+        <div class="section">
+            <div class="list-item">
+                <div class="icon-box bg-orange">
+                    <svg viewBox="0 0 24 24"><path d="M10.18 9l-.42-2H4L8 15h.03L11 21l3.5-3.5L18 21l2-2-3.5-3.5L20 12l-5.46-1.71-3.36-1.29zm.82 2.29l2.5 5.21-1.5 1.5-2.29-4.58-.21-.42-1-.21L5.3 12.01l.83-.83 4.87-.18z"/></svg>
+                </div>
+                <div class="item-label">Airplane Mode</div>
+                <div class="chevron">
+                    <!-- Toggle Switch Placeholder -->
+                    <div style="width: 51px; height: 31px; background: #e9e9ea; border-radius: 16px; position: relative;">
+                        <div style="width: 27px; height: 27px; background: white; border-radius: 50%; position: absolute; left: 2px; top: 2px; box-shadow: 0 3px 8px rgba(0,0,0,0.15);"></div>
+                    </div>
+                </div>
+            </div>
+            <div class="list-item">
+                <div class="icon-box bg-blue">
+                    <svg viewBox="0 0 24 24"><path d="M12.01 21.49L23.64 7c-.45-.34-4.93-4-11.64-4C5.28 3 .81 6.66.36 7l11.63 14.49.01.01.01-.01z"/></svg>
+                </div>
+                <div class="item-label">Wi-Fi</div>
+                <div class="item-value">MicTab_5G</div>
+                <div class="chevron">
+                    <svg width="20" height="20" viewBox="0 0 24 24"><path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.41z" fill="currentColor"/></svg>
+                </div>
+            </div>
+            <div class="list-item">
+                <div class="icon-box bg-blue">
+                    <svg viewBox="0 0 24 24"><path d="M17.71 7.71L12 2h-1v7.59L6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 11 14.41V22h1l5.71-5.71-4.3-4.29 4.3-4.29zM13 5.83l1.88 1.88L13 9.59V5.83zm1.88 10.46L13 18.17v-3.76l1.88 1.88z"/></svg>
+                </div>
+                <div class="item-label">Bluetooth</div>
+                <div class="item-value">On</div>
+                <div class="chevron">
+                    <svg width="20" height="20" viewBox="0 0 24 24"><path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.41z" fill="currentColor"/></svg>
+                </div>
+            </div>
+            <div class="list-item">
+                <div class="icon-box bg-green">
+                    <svg viewBox="0 0 24 24"><path d="M17 19h2v2h-2V19zM13 19h2v2h-2V19zM9 19h2v2H9V19zM5 19h2v2H5V19zM1 19h2v2H1V19zM17 15h2v2h-2V15zM13 15h2v2h-2V15zM9 15h2v2H9V15zM5 15h2v2H5V15zM1 15h2v2H1V15zM17 11h2v2h-2V11zM13 11h2v2h-2V11zM9 11h2v2H9V11zM5 11h2v2H5V11zM1 11h2v2H1V11zM17 7h2v2h-2V7zM13 7h2v2h-2V7zM9 7h2v2H9V7zM5 7h2v2H5V7zM1 7h2v2H1V7z"/></svg>
+                </div>
+                <div class="item-label">Cellular</div>
+                <div class="chevron">
+                    <svg width="20" height="20" viewBox="0 0 24 24"><path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.41z" fill="currentColor"/></svg>
+                </div>
+            </div>
+        </div>
+
+        <div class="section">
+            <div class="list-item">
+                <div class="icon-box bg-red">
+                    <svg viewBox="0 0 24 24"><path d="M12 22c1.1 0 2-.9 2-2h-4c0 1.1.9 2 2 2zm6-6v-5c0-3.07-1.63-5.64-4.5-6.32V4c0-.83-.67-1.5-1.5-1.5s-1.5.67-1.5 1.5v.68C7.64 5.36 6 7.92 6 11v5l-2 2v1h16v-1l-2-2z"/></svg>
+                </div>
+                <div class="item-label">Notifications</div>
+                <div class="chevron">
+                    <svg width="20" height="20" viewBox="0 0 24 24"><path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.41z" fill="currentColor"/></svg>
+                </div>
+            </div>
+            <div class="list-item">
+                <div class="icon-box bg-pink">
+                    <svg viewBox="0 0 24 24"><path d="M12 3v9.28c-.47-.17-.97-.28-1.5-.28C8.01 12 6 14.01 6 16.5S8.01 21 10.5 21c2.31 0 4.2-1.75 4.45-4H15V6h4V3h-7z"/></svg>
+                </div>
+                <div class="item-label">Sounds & Haptics</div>
+                <div class="chevron">
+                    <svg width="20" height="20" viewBox="0 0 24 24"><path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.41z" fill="currentColor"/></svg>
+                </div>
+            </div>
+            <div class="list-item">
+                <div class="icon-box bg-purple">
+                    <svg viewBox="0 0 24 24"><path d="M12 2C6.47 2 2 6.47 2 12s4.47 10 10 10 10-4.47 10-10S17.53 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm-1-13h2v6h-2zm0 8h2v2h-2z"/></svg>
+                </div>
+                <div class="item-label">Focus</div>
+                <div class="chevron">
+                    <svg width="20" height="20" viewBox="0 0 24 24"><path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.41z" fill="currentColor"/></svg>
+                </div>
+            </div>
+            <div class="list-item">
+                <div class="icon-box bg-purple">
+                    <svg viewBox="0 0 24 24"><path d="M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm.5-13H11v6l5.25 3.15.75-1.23-4.5-2.67z"/></svg>
+                </div>
+                <div class="item-label">Screen Time</div>
+                <div class="chevron">
+                    <svg width="20" height="20" viewBox="0 0 24 24"><path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.41z" fill="currentColor"/></svg>
+                </div>
+            </div>
+        </div>
+
+        <div class="section">
+            <div class="list-item">
+                <div class="icon-box bg-gray">
+                    <svg viewBox="0 0 24 24"><path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58a.49.49 0 0 0 .12-.61l-1.92-3.32a.488.488 0 0 0-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54a.484.484 0 0 0-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58a.49.49 0 0 0-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/></svg>
+                </div>
+                <div class="item-label">General</div>
+                <div class="chevron">
+                    <svg width="20" height="20" viewBox="0 0 24 24"><path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.41z" fill="currentColor"/></svg>
+                </div>
+            </div>
+            <div class="list-item">
+                <div class="icon-box bg-blue">
+                    <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm-5-9h10v2H7z"/></svg>
+                </div>
+                <div class="item-label">Control Center</div>
+                <div class="chevron">
+                    <svg width="20" height="20" viewBox="0 0 24 24"><path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.41z" fill="currentColor"/></svg>
+                </div>
+            </div>
+            <div class="list-item">
+                <div class="icon-box bg-blue">
+                    <svg viewBox="0 0 24 24"><path d="M20 8.69V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12 20 8.69zM12 18c-3.31 0-6-2.69-6-6s2.69-6 6-6 6 2.69 6 6-2.69 6-6 6zm0-10c-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4-1.79-4-4-4z"/></svg>
+                </div>
+                <div class="item-label">Display & Brightness</div>
+                <div class="chevron">
+                    <svg width="20" height="20" viewBox="0 0 24 24"><path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.41z" fill="currentColor"/></svg>
+                </div>
+            </div>
+        </div>
+
+        <div class="section">
+            <div class="list-item">
+                <div class="icon-box bg-blue">
+                    <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/></svg>
+                </div>
+                <div class="item-label">Accessibility</div>
+                <div class="chevron">
+                    <svg width="20" height="20" viewBox="0 0 24 24"><path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.41z" fill="currentColor"/></svg>
+                </div>
+            </div>
+            <div class="list-item">
+                <div class="icon-box bg-teal">
+                    <svg viewBox="0 0 24 24"><path d="M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z"/></svg>
+                </div>
+                <div class="item-label">Wallpaper</div>
+                <div class="chevron">
+                    <svg width="20" height="20" viewBox="0 0 24 24"><path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.41z" fill="currentColor"/></svg>
+                </div>
+            </div>
+        </div>
+
+        <div style="margin: 30px 16px 10px; font-size: 13px; color: var(--text-secondary); text-transform: uppercase;">Apps</div>
+        <div class="section">
+            <div class="list-item">
+                <div class="icon-box" style="background-image: url('../icons/photos-2025-10-20.webp'); background-size: cover;"></div>
+                <div class="item-label">Photos</div>
+                <div class="chevron">
+                    <svg width="20" height="20" viewBox="0 0 24 24"><path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.41z" fill="currentColor"/></svg>
+                </div>
+            </div>
+            <div class="list-item">
+                <div class="icon-box" style="background-image: url('../icons/apple-music-2025-10-20.webp'); background-size: cover;"></div>
+                <div class="item-label">Music</div>
+                <div class="chevron">
+                    <svg width="20" height="20" viewBox="0 0 24 24"><path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.41z" fill="currentColor"/></svg>
+                </div>
+            </div>
+            <div class="list-item">
+                <div class="icon-box" style="background-image: url('../icons/apple-books-2025-10-20.webp'); background-size: cover;"></div>
+                <div class="item-label">Books</div>
+                <div class="chevron">
+                    <svg width="20" height="20" viewBox="0 0 24 24"><path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.41z" fill="currentColor"/></svg>
+                </div>
+            </div>
+            <div class="list-item">
+                <div class="icon-box" style="background-image: url('../icons/apple-podcasts-2022-01-30.webp'); background-size: cover;"></div>
+                <div class="item-label">Podcasts</div>
+                <div class="chevron">
+                    <svg width="20" height="20" viewBox="0 0 24 24"><path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.41z" fill="currentColor"/></svg>
+                </div>
+            </div>
+            <div class="list-item">
+                <div class="icon-box" style="background-image: url('../icons/apple-tv-2025-11-04.webp'); background-size: cover;"></div>
+                <div class="item-label">TV</div>
+                <div class="chevron">
+                    <svg width="20" height="20" viewBox="0 0 24 24"><path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.41z" fill="currentColor"/></svg>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

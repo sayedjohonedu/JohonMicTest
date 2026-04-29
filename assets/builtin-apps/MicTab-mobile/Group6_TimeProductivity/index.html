@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Clock</title>
+    <link rel="stylesheet" href="../shared-animations.css">
+    <style>
+        :root { --ios-orange: #ff9f0a; --ios-bg: #000; --ios-gray: #8e8e93; }
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", sans-serif; }
+        body { background: var(--ios-bg); color: #fff; min-height: 100vh; display: flex; flex-direction: column; overflow-x: hidden; }
+        
+        .top-nav { 
+            padding: 10px 16px; 
+            display: flex; 
+            justify-content: space-between; 
+            align-items: center; 
+            position: sticky;
+            top: 0;
+            background: rgba(0, 0, 0, 0.8);
+            backdrop-filter: blur(20px);
+            z-index: 100;
+        }
+        .nav-btn { color: var(--ios-orange); text-decoration: none; font-size: 17px; font-weight: 500; }
+        .nav-title { font-size: 34px; font-weight: 700; padding: 0 16px 12px; }
+
+        .list-section { padding-bottom: 40px; }
+        .list-item { 
+            padding: 12px 16px; 
+            display: flex; 
+            justify-content: space-between; 
+            align-items: center; 
+            border-bottom: 1px solid #1c1c1e;
+        }
+        .item-left { display: flex; flex-direction: column; gap: 2px; }
+        .item-time-sub { font-size: 14px; color: var(--ios-gray); }
+        .item-time-main { font-size: 40px; font-weight: 300; }
+        .item-time-ampm { font-size: 18px; font-weight: 400; margin-left: 4px; }
+        
+        /* Toggle Mock */
+        .toggle { width: 51px; height: 31px; background: #34c759; border-radius: 15.5px; position: relative; }
+        .toggle::after { content: ''; position: absolute; width: 27px; height: 27px; background: #fff; border-radius: 50%; top: 2px; right: 2px; box-shadow: 0 3px 8px rgba(0,0,0,0.15); }
+        .toggle.off { background: #333; }
+        .toggle.off::after { right: auto; left: 2px; }
+
+        /* Stopwatch Circle */
+        .stopwatch-face { 
+            flex: 1; 
+            display: flex; 
+            flex-direction: column; 
+            align-items: center; 
+            justify-content: center; 
+            padding: 40px 0;
+        }
+        .stopwatch-time { font-size: 72px; font-weight: 200; font-variant-numeric: tabular-nums; }
+        
+        .lap-btns { display: flex; justify-content: space-between; width: 100%; padding: 0 30px 40px; }
+        .lap-btn { 
+            width: 80px; 
+            height: 80px; 
+            border-radius: 50%; 
+            display: flex; 
+            align-items: center; 
+            justify-content: center; 
+            font-size: 17px; 
+            font-weight: 500; 
+            cursor: pointer;
+        }
+        .btn-lap { background: #1c1c1e; color: #fff; }
+        .btn-start { background: rgba(52, 199, 89, 0.2); color: #34c759; }
+        .btn-stop { background: rgba(255, 59, 48, 0.2); color: #ff3b30; }
+
+        /* Tab Bar */
+        .tab-bar {
+            background: rgba(28, 28, 30, 0.94);
+            backdrop-filter: blur(20px);
+            border-top: 1px solid #1c1c1e;
+            display: flex;
+            justify-content: space-around;
+            padding: 10px 0 24px;
+            position: sticky;
+            bottom: 0;
+            z-index: 100;
+        }
+        .tab-item { display: flex; flex-direction: column; align-items: center; gap: 4px; color: var(--ios-gray); text-decoration: none; min-width: 60px; }
+        .tab-item.active { color: var(--ios-orange); }
+        .tab-icon { font-size: 24px; }
+        .tab-label { font-size: 10px; font-weight: 600; }
+    </style>
+</head>
+<body>
+    <div class="top-nav">
+        <a href="../index.html" class="nav-btn">Edit</a>
+        <a href="#" class="nav-btn" style="font-size: 24px;">+</a>
+    </div>
+
+    <div class="nav-title">Alarm</div>
+
+    <div class="list-section">
+        <div class="list-item">
+            <div class="item-left">
+                <div class="item-time-sub">Wake Up</div>
+                <div class="item-time-main">7:00<span class="item-time-ampm">AM</span></div>
+                <div class="item-time-sub">Every day</div>
+            </div>
+            <div class="toggle"></div>
+        </div>
+        <div class="list-item">
+            <div class="item-left">
+                <div class="item-time-sub">Gym</div>
+                <div class="item-time-main">8:30<span class="item-time-ampm">AM</span></div>
+                <div class="item-time-sub">Weekdays</div>
+            </div>
+            <div class="toggle off"></div>
+        </div>
+        <div class="list-item">
+            <div class="item-left">
+                <div class="item-time-sub">Meeting</div>
+                <div class="item-time-main">10:15<span class="item-time-ampm">AM</span></div>
+                <div class="item-time-sub">Tomorrow</div>
+            </div>
+            <div class="toggle"></div>
+        </div>
+    </div>
+
+    <div class="tab-bar">
+        <a href="#" class="tab-item">
+            <span class="tab-icon">🌐</span>
+            <span class="tab-label">World Clock</span>
+        </a>
+        <a href="#" class="tab-item active">
+            <span class="tab-icon">⏰</span>
+            <span class="tab-label">Alarm</span>
+        </a>
+        <a href="#" class="tab-item">
+            <span class="tab-icon">⏱️</span>
+            <span class="tab-label">Stopwatch</span>
+        </a>
+        <a href="#" class="tab-item">
+            <span class="tab-icon">⏳</span>
+            <span class="tab-label">Timer</span>
+        </a>
+    </div>
+    <script src="../shared-utils.js"></script>
+    <script src="script.js"></script>
+</body>
+</html>

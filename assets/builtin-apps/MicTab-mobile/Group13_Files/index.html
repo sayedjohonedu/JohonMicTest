@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Files</title>
+    <link rel="stylesheet" href="../shared-animations.css">
+    <style>
+        :root { --ios-blue: #007aff; --ios-bg: #fff; --ios-gray: #8e8e93; --ios-light-gray: #f2f2f7; }
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", sans-serif; }
+        body { background: var(--ios-bg); color: #000; min-height: 100vh; display: flex; flex-direction: column; overflow-x: hidden; }
+        
+        .top-nav { 
+            padding: 10px 16px; 
+            display: flex; 
+            justify-content: space-between; 
+            align-items: center; 
+            position: sticky;
+            top: 0;
+            background: rgba(255, 255, 255, 0.9);
+            backdrop-filter: blur(20px);
+            z-index: 100;
+        }
+        .nav-btn { color: var(--ios-blue); text-decoration: none; font-size: 17px; font-weight: 400; }
+        .nav-title { font-weight: 600; font-size: 17px; }
+
+        .header { padding: 10px 16px 12px; }
+        .header-title { font-size: 34px; font-weight: 700; }
+        
+        .search-wrap { padding: 0 16px 16px; }
+        .search-bar { background: var(--ios-light-gray); border-radius: 10px; padding: 8px 12px; display: flex; align-items: center; gap: 8px; color: var(--ios-gray); font-size: 17px; }
+
+        .grid-view { 
+            display: grid; 
+            grid-template-columns: repeat(3, 1fr); 
+            gap: 20px; 
+            padding: 16px; 
+            flex: 1;
+        }
+        .file-item { 
+            display: flex; 
+            flex-direction: column; 
+            align-items: center; 
+            gap: 6px; 
+            text-align: center;
+            cursor: pointer;
+            transition: opacity 0.1s;
+        }
+        .file-item:active { opacity: 0.6; }
+        
+        .icon-box { 
+            width: 80px; 
+            height: 80px; 
+            background: var(--ios-light-gray); 
+            border-radius: 14px; 
+            display: flex; 
+            align-items: center; 
+            justify-content: center; 
+            font-size: 40px; 
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+            position: relative;
+        }
+        .folder-icon { color: var(--ios-blue); }
+        .file-name { font-size: 12px; font-weight: 500; color: #333; width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 0 4px; }
+        .file-meta { font-size: 10px; color: var(--ios-gray); }
+
+        /* Detail Modal */
+        .preview-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: #fff;
+            z-index: 200;
+            display: none;
+            flex-direction: column;
+            animation: slideUp 0.3s cubic-bezier(0.1, 0.7, 0.1, 1);
+        }
+        @keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
+        .preview-content { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 40px; text-align: center; }
+        .preview-icon { font-size: 100px; margin-bottom: 20px; }
+        .preview-name { font-size: 24px; font-weight: 700; margin-bottom: 10px; }
+        .preview-info { font-size: 15px; color: var(--ios-gray); line-height: 1.5; }
+
+        /* Tab Bar */
+        .tab-bar {
+            background: rgba(249, 249, 249, 0.94);
+            backdrop-filter: blur(20px);
+            border-top: 1px solid #d1d1d1;
+            display: flex;
+            justify-content: space-around;
+            padding: 10px 0 24px;
+            position: sticky;
+            bottom: 0;
+        }
+        .tab-item { display: flex; flex-direction: column; align-items: center; gap: 4px; color: var(--ios-gray); text-decoration: none; min-width: 80px; }
+        .tab-item.active { color: var(--ios-blue); }
+        .tab-icon { font-size: 24px; }
+        .tab-label { font-size: 10px; font-weight: 600; }
+    </style>
+</head>
+<body>
+    <div class="top-nav">
+        <a href="../index.html" class="nav-btn">‹ Home</a>
+        <div class="nav-title" id="navTitle">Browse</div>
+        <a href="#" class="nav-btn">Select</a>
+    </div>
+
+    <div class="header">
+        <div class="header-title" id="pageTitle">On My iPhone</div>
+    </div>
+
+    <div class="search-wrap">
+        <div class="search-bar">🔍 Search</div>
+    </div>
+
+    <div class="grid-view" id="fileGrid">
+        <div class="file-item" onclick="openPreview('Downloads', 'Folder • 12 items', '📁')">
+            <div class="icon-box folder-icon">📁</div>
+            <div class="file-name">Downloads</div>
+            <div class="file-meta">12 items</div>
+        </div>
+        <div class="file-item" onclick="openPreview('Documents', 'Folder • 45 items', '📁')">
+            <div class="icon-box folder-icon">📁</div>
+            <div class="file-name">Documents</div>
+            <div class="file-meta">45 items</div>
+        </div>
+        <div class="file-item" onclick="openPreview('Projects', 'Folder • 8 items', '📁')">
+            <div class="icon-box folder-icon" style="color:#ff9500;">📁</div>
+            <div class="file-name">Projects</div>
+            <div class="file-meta">8 items</div>
+        </div>
+        <div class="file-item" onclick="openPreview('Vacation.jpg', 'Image • 2.4 MB', '🖼️')">
+            <div class="icon-box">🖼️</div>
+            <div class="file-name">Vacation.jpg</div>
+            <div class="file-meta">2.4 MB</div>
+        </div>
+        <div class="file-item" onclick="openPreview('Report.pdf', 'PDF Document • 850 KB', '📄')">
+            <div class="icon-box">📄</div>
+            <div class="file-name">Report.pdf</div>
+            <div class="file-meta">850 KB</div>
+        </div>
+        <div class="file-item" onclick="openPreview('Presentation.pptx', 'PowerPoint • 12.1 MB', '📊')">
+            <div class="icon-box">📊</div>
+            <div class="file-name">Presentation.pptx</div>
+            <div class="file-meta">12.1 MB</div>
+        </div>
+    </div>
+
+    <div class="tab-bar">
+        <a href="#" class="tab-item">
+            <span class="tab-icon">🕒</span>
+            <span class="tab-label">Recents</span>
+        </a>
+        <a href="#" class="tab-item">
+            <span class="tab-icon">👥</span>
+            <span class="tab-label">Shared</span>
+        </a>
+        <a href="#" class="tab-item active">
+            <span class="tab-icon">📂</span>
+            <span class="tab-label">Browse</span>
+        </a>
+    </div>
+
+    <div class="preview-overlay" id="previewOverlay">
+        <div class="top-nav">
+            <a href="javascript:void(0)" class="nav-btn" onclick="closePreview()">Done</a>
+            <div style="display:flex; gap: 20px; color:var(--ios-blue); font-size: 20px;">
+                <span>📤</span><span>➕</span>
+            </div>
+        </div>
+        <div class="preview-content">
+            <div class="preview-icon" id="prevIcon">📄</div>
+            <div class="preview-name" id="prevName">Filename</div>
+            <div class="preview-info" id="prevInfo">Info</div>
+            <div style="margin-top: 40px; display: flex; gap: 20px;">
+                <div style="padding:15px 30px; background:var(--ios-light-gray); border-radius:10px; font-weight:600;">Move</div>
+                <div style="padding:15px 30px; background:var(--ios-light-gray); border-radius:10px; font-weight:600; color: #ff3b30;">Delete</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function openPreview(name, info, icon) {
+            document.getElementById('prevName').textContent = name;
+            document.getElementById('prevInfo').textContent = info;
+            document.getElementById('prevIcon').textContent = icon;
+            document.getElementById('previewOverlay').style.display = 'flex';
+        }
+        function closePreview() {
+            document.getElementById('previewOverlay').style.display = 'none';
+        }
+    </script>
+    <script src="../shared-utils.js"></script>
+    <script src="script.js"></script>
+</body>
+</html>

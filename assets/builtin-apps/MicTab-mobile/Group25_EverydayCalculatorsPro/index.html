@@ -1,0 +1,440 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MicTab - Everyday Calculators</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <!-- ===== TOP NAVIGATION BAR ===== -->
+    <nav class="app-nav">
+        <a href="../index.html" class="nav-back">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15,18 9,12 15,6"/></svg>
+            Back
+        </a>
+        <span class="nav-title">Calculators</span>
+        <a href="../index.html" class="nav-home">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9,22 9,12 15,12 15,22"/></svg>
+        </a>
+    </nav>
+
+    <!-- ===== TAB NAVIGATION — Horizontal Scrollable Strip ===== -->
+    <nav class="tab-nav" role="tablist">
+        <button class="tab-btn active" data-tab="scientific" role="tab" aria-selected="true">
+            <span class="tab-icon">&#128290;</span> Scientific
+        </button>
+        <button class="tab-btn" data-tab="percentage" role="tab" aria-selected="false">
+            <span class="tab-icon">&#37;</span> Percentage
+        </button>
+        <button class="tab-btn" data-tab="bmi" role="tab" aria-selected="false">
+            <span class="tab-icon">&#9878;</span> BMI
+        </button>
+        <button class="tab-btn" data-tab="age" role="tab" aria-selected="false">
+            <span class="tab-icon">&#127874;</span> Age
+        </button>
+        <button class="tab-btn" data-tab="days" role="tab" aria-selected="false">
+            <span class="tab-icon">&#128197;</span> Days Between
+        </button>
+        <button class="tab-btn" data-tab="roi" role="tab" aria-selected="false">
+            <span class="tab-icon">&#128200;</span> ROI
+        </button>
+        <button class="tab-btn" data-tab="electricity" role="tab" aria-selected="false">
+            <span class="tab-icon">&#9889;</span> Electricity
+        </button>
+        <button class="tab-btn" data-tab="unitprice" role="tab" aria-selected="false">
+            <span class="tab-icon">&#128722;</span> Unit Price
+        </button>
+    </nav>
+
+    <!-- ===== MAIN CONTENT ===== -->
+    <main class="tab-content">
+
+        <!-- ==================== 1. SCIENTIFIC CALCULATOR ==================== -->
+        <section id="tab-scientific" class="calculator-panel active" role="tabpanel">
+            <div class="calc-card">
+                <h2 class="calc-heading">Scientific Calculator</h2>
+
+                <div class="sci-layout">
+                    <!-- Degree / Radian Toggle -->
+                    <div class="angle-toggle">
+                        <button class="toggle-btn active" id="deg-btn">DEG</button>
+                        <button class="toggle-btn" id="rad-btn">RAD</button>
+                    </div>
+
+                    <!-- Display -->
+                    <div class="sci-display">
+                        <div class="sci-expression" id="sci-expression">&nbsp;</div>
+                        <div class="sci-result" id="sci-result">0</div>
+                    </div>
+
+                    <!-- Memory indicator -->
+                    <div class="memory-indicator">Memory: <span id="mem-indicator">0</span></div>
+
+                    <!-- Extra Functions Row -->
+                    <div class="sci-extra-row">
+                        <button class="sci-btn func-btn" data-action="asin">sin&#8315;&sup1;</button>
+                        <button class="sci-btn func-btn" data-action="acos">cos&#8315;&sup1;</button>
+                        <button class="sci-btn func-btn" data-action="atan">tan&#8315;&sup1;</button>
+                        <button class="sci-btn func-btn" data-action="factorial">n!</button>
+                        <button class="sci-btn func-btn" data-action="ln">ln</button>
+                    </div>
+
+                    <!-- Button Grid -->
+                    <div class="sci-grid">
+                        <!-- Row 1: Memory + scientific -->
+                        <button class="sci-btn mem-btn" data-action="mc">MC</button>
+                        <button class="sci-btn mem-btn" data-action="mr">MR</button>
+                        <button class="sci-btn mem-btn" data-action="m+">M+</button>
+                        <button class="sci-btn mem-btn" data-action="m-">M-</button>
+                        <button class="sci-btn func-btn" data-action="sin">sin</button>
+
+                        <!-- Row 2 -->
+                        <button class="sci-btn func-btn" data-action="cos">cos</button>
+                        <button class="sci-btn func-btn" data-action="tan">tan</button>
+                        <button class="sci-btn func-btn" data-action="log">log</button>
+                        <button class="sci-btn func-btn" data-action="sqrt">&#8730;</button>
+                        <button class="sci-btn func-btn" data-action="power">x<sup>y</sup></button>
+
+                        <!-- Row 3 -->
+                        <button class="sci-btn func-btn" data-action="pi">&#960;</button>
+                        <button class="sci-btn func-btn" data-action="e">e</button>
+                        <button class="sci-btn func-btn" data-action="nPr">nPr</button>
+                        <button class="sci-btn func-btn" data-action="nCr">nCr</button>
+                        <button class="sci-btn op-btn" data-action="clear">C</button>
+
+                        <!-- Row 4 -->
+                        <button class="sci-btn num-btn" data-action="7">7</button>
+                        <button class="sci-btn num-btn" data-action="8">8</button>
+                        <button class="sci-btn num-btn" data-action="9">9</button>
+                        <button class="sci-btn op-btn" data-action="divide">&divide;</button>
+                        <button class="sci-btn op-btn" data-action="backspace">&#9003;</button>
+
+                        <!-- Row 5 -->
+                        <button class="sci-btn num-btn" data-action="4">4</button>
+                        <button class="sci-btn num-btn" data-action="5">5</button>
+                        <button class="sci-btn num-btn" data-action="6">6</button>
+                        <button class="sci-btn op-btn" data-action="multiply">&times;</button>
+                        <button class="sci-btn op-btn" data-action="negate">&plusmn;</button>
+
+                        <!-- Row 6 -->
+                        <button class="sci-btn num-btn" data-action="1">1</button>
+                        <button class="sci-btn num-btn" data-action="2">2</button>
+                        <button class="sci-btn num-btn" data-action="3">3</button>
+                        <button class="sci-btn op-btn" data-action="subtract">&minus;</button>
+                        <button class="sci-btn accent-btn" data-action="equals">=</button>
+
+                        <!-- Row 7 -->
+                        <button class="sci-btn num-btn wide-btn" data-action="0">0</button>
+                        <button class="sci-btn num-btn" data-action="decimal">.</button>
+                        <button class="sci-btn op-btn" data-action="add">+</button>
+                        <button class="sci-btn op-btn" data-action="percent">%</button>
+                    </div>
+
+                    <!-- History Panel -->
+                    <div class="sci-history">
+                        <button class="sci-history-toggle" id="sci-history-toggle">
+                            <span>History (last 10)</span>
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6,9 12,15 18,9"/></svg>
+                        </button>
+                        <div class="sci-history-list" id="sci-history-list">
+                            <!-- Populated by JS -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ==================== 2. PERCENTAGE CALCULATOR ==================== -->
+        <section id="tab-percentage" class="calculator-panel" role="tabpanel">
+            <div class="calc-card">
+                <h2 class="calc-heading">Percentage Calculator</h2>
+
+                <!-- Mode 1: What is X% of Y? -->
+                <div class="sub-section">
+                    <h3 class="sub-heading">What is X% of Y?</h3>
+                    <div class="input-row">
+                        <span class="input-label">What is</span>
+                        <input type="number" id="pct1-x" class="calc-input" placeholder="X">
+                        <span class="input-label">% of</span>
+                        <input type="number" id="pct1-y" class="calc-input" placeholder="Y">
+                        <span class="input-label">?</span>
+                    </div>
+                    <button class="calc-btn" id="pct1-calc">Calculate</button>
+                    <div class="result-box" id="pct1-result"></div>
+                </div>
+
+                <!-- Mode 2: X is what % of Y? -->
+                <div class="sub-section">
+                    <h3 class="sub-heading">X is what % of Y?</h3>
+                    <div class="input-row">
+                        <input type="number" id="pct2-x" class="calc-input" placeholder="X">
+                        <span class="input-label">is what % of</span>
+                        <input type="number" id="pct2-y" class="calc-input" placeholder="Y">
+                        <span class="input-label">?</span>
+                    </div>
+                    <button class="calc-btn" id="pct2-calc">Calculate</button>
+                    <div class="result-box" id="pct2-result"></div>
+                </div>
+
+                <!-- Mode 3: Percentage Change from X to Y -->
+                <div class="sub-section">
+                    <h3 class="sub-heading">Percentage Change</h3>
+                    <div class="input-row">
+                        <span class="input-label">From</span>
+                        <input type="number" id="pct3-x" class="calc-input" placeholder="X">
+                        <span class="input-label">to</span>
+                        <input type="number" id="pct3-y" class="calc-input" placeholder="Y">
+                    </div>
+                    <button class="calc-btn" id="pct3-calc">Calculate</button>
+                    <div class="result-box" id="pct3-result"></div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ==================== 3. BMI CALCULATOR ==================== -->
+        <section id="tab-bmi" class="calculator-panel" role="tabpanel">
+            <div class="calc-card">
+                <h2 class="calc-heading">BMI Calculator</h2>
+                <div class="input-group">
+                    <label class="input-label" for="bmi-height">Height (cm)</label>
+                    <input type="number" id="bmi-height" class="calc-input full-width" placeholder="e.g. 175">
+                </div>
+                <div class="input-group">
+                    <label class="input-label" for="bmi-weight">Weight (kg)</label>
+                    <input type="number" id="bmi-weight" class="calc-input full-width" placeholder="e.g. 70">
+                </div>
+                <button class="calc-btn" id="bmi-calc">Calculate BMI</button>
+                <div class="result-box" id="bmi-result"></div>
+
+                <!-- Visual BMI Bar -->
+                <div class="bmi-bar-container" id="bmi-bar-container" style="display:none;">
+                    <div class="bmi-bar">
+                        <div class="bmi-segment underweight">UW</div>
+                        <div class="bmi-segment normal">Normal</div>
+                        <div class="bmi-segment overweight">OW</div>
+                        <div class="bmi-segment obese">Obese</div>
+                    </div>
+                    <div class="bmi-pointer" id="bmi-pointer"></div>
+                    <div class="bmi-labels">
+                        <span>&lt;18.5</span>
+                        <span>18.5</span>
+                        <span>25</span>
+                        <span>30</span>
+                        <span>40+</span>
+                    </div>
+                </div>
+
+                <!-- Ideal Weight Range -->
+                <div class="bmi-ideal-weight" id="bmi-ideal-weight" style="display:none;">
+                    <div class="bmi-ideal-title">Ideal Weight Range (BMI 18.5–24.9)</div>
+                    <div class="bmi-ideal-range" id="bmi-ideal-range"></div>
+                    <div class="bmi-ideal-note">Based on your height</div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ==================== 4. AGE CALCULATOR ==================== -->
+        <section id="tab-age" class="calculator-panel" role="tabpanel">
+            <div class="calc-card">
+                <h2 class="calc-heading">Age Calculator</h2>
+                <div class="input-group">
+                    <label class="input-label" for="age-dob">Date of Birth</label>
+                    <input type="date" id="age-dob" class="calc-input full-width">
+                </div>
+                <button class="calc-btn" id="age-calc">Calculate Age</button>
+                <div class="result-box" id="age-result"></div>
+
+                <!-- Zodiac Sign -->
+                <div id="age-zodiac-container" style="display:none;">
+                    <div class="age-zodiac">
+                        <span class="age-zodiac-icon" id="age-zodiac-icon"></span>
+                        <span id="age-zodiac-name"></span>
+                    </div>
+                </div>
+
+                <!-- Next Birthday Countdown -->
+                <div class="age-birthday-card" id="age-birthday-card" style="display:none;">
+                    <div class="age-birthday-title">Next Birthday Countdown</div>
+                    <div class="age-birthday-countdown" id="age-birthday-countdown"></div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ==================== 5. DAYS BETWEEN DATES ==================== -->
+        <section id="tab-days" class="calculator-panel" role="tabpanel">
+            <div class="calc-card">
+                <h2 class="calc-heading">Days Between Dates</h2>
+                <div class="input-group">
+                    <label class="input-label" for="days-start">Start Date</label>
+                    <input type="date" id="days-start" class="calc-input full-width">
+                </div>
+                <div class="input-group">
+                    <label class="input-label" for="days-end">End Date</label>
+                    <input type="date" id="days-end" class="calc-input full-width">
+                </div>
+                <button class="calc-btn" id="days-calc">Calculate Difference</button>
+                <div class="result-box" id="days-result"></div>
+
+                <!-- Detailed Breakdown -->
+                <div class="days-breakdown" id="days-breakdown" style="display:none;">
+                    <div class="days-stat">
+                        <div class="days-stat-value" id="days-val-days"></div>
+                        <div class="days-stat-label">Days</div>
+                    </div>
+                    <div class="days-stat">
+                        <div class="days-stat-value" id="days-val-weeks"></div>
+                        <div class="days-stat-label">Weeks</div>
+                    </div>
+                    <div class="days-stat">
+                        <div class="days-stat-value" id="days-val-months"></div>
+                        <div class="days-stat-label">Months</div>
+                    </div>
+                    <div class="days-stat">
+                        <div class="days-stat-value" id="days-val-hours"></div>
+                        <div class="days-stat-label">Hours</div>
+                    </div>
+                    <div class="days-stat">
+                        <div class="days-stat-value" id="days-val-minutes"></div>
+                        <div class="days-stat-label">Minutes</div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ==================== 6. ROI CALCULATOR ==================== -->
+        <section id="tab-roi" class="calculator-panel" role="tabpanel">
+            <div class="calc-card">
+                <h2 class="calc-heading">ROI Calculator</h2>
+                <div class="input-group">
+                    <label class="input-label" for="roi-cost">Investment Cost</label>
+                    <input type="number" id="roi-cost" class="calc-input full-width" placeholder="e.g. 10000">
+                </div>
+                <div class="input-group">
+                    <label class="input-label" for="roi-final">Final Value</label>
+                    <input type="number" id="roi-final" class="calc-input full-width" placeholder="e.g. 15000">
+                </div>
+                <button class="calc-btn" id="roi-calc">Calculate ROI</button>
+                <div class="result-box" id="roi-result"></div>
+
+                <!-- Visual Gain/Loss Indicator -->
+                <div class="roi-visual" id="roi-visual" style="display:none;">
+                    <div class="roi-bar-bg">
+                        <div class="roi-bar-fill" id="roi-bar-fill"></div>
+                    </div>
+                    <div class="roi-legend">
+                        <span class="roi-legend-loss">Loss</span>
+                        <span class="roi-legend-zero">Break-even</span>
+                        <span class="roi-legend-gain">Gain</span>
+                    </div>
+                </div>
+
+                <!-- Compound Interest Section -->
+                <div class="roi-compound-section">
+                    <div class="roi-compound-title">Compound Interest Calculator</div>
+                    <div class="input-group">
+                        <label class="input-label" for="roi-principal">Principal Amount ($)</label>
+                        <input type="number" id="roi-principal" class="calc-input full-width" placeholder="e.g. 10000">
+                    </div>
+                    <div class="input-group">
+                        <label class="input-label" for="roi-rate">Annual Rate (%)</label>
+                        <input type="number" id="roi-rate" class="calc-input full-width" placeholder="e.g. 5" step="0.01">
+                    </div>
+                    <div class="input-group">
+                        <label class="input-label" for="roi-periods">Time Period (years)</label>
+                        <input type="number" id="roi-periods" class="calc-input full-width" placeholder="e.g. 10" step="0.5">
+                    </div>
+                    <div class="input-group">
+                        <label class="input-label" for="roi-compound-freq">Compounding Frequency</label>
+                        <select id="roi-compound-freq" class="calc-input full-width">
+                            <option value="1">Annually</option>
+                            <option value="2">Semi-annually</option>
+                            <option value="4">Quarterly</option>
+                            <option value="12" selected>Monthly</option>
+                            <option value="365">Daily</option>
+                        </select>
+                    </div>
+                    <button class="calc-btn calc-btn-secondary" id="roi-compound-calc">Calculate Compound Interest</button>
+                    <div class="result-box" id="roi-compound-result"></div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ==================== 7. ELECTRICITY COST ESTIMATOR ==================== -->
+        <section id="tab-electricity" class="calculator-panel" role="tabpanel">
+            <div class="calc-card">
+                <h2 class="calc-heading">Electricity Cost Estimator</h2>
+                <div class="input-group">
+                    <label class="input-label" for="elec-wattage">Wattage (W)</label>
+                    <input type="number" id="elec-wattage" class="calc-input full-width" placeholder="e.g. 100">
+                </div>
+                <div class="input-group">
+                    <label class="input-label" for="elec-hours">Hours of Use per Day</label>
+                    <input type="number" id="elec-hours" class="calc-input full-width" placeholder="e.g. 8" step="0.5">
+                </div>
+                <div class="input-group">
+                    <label class="input-label" for="elec-price">Price per kWh ($)</label>
+                    <input type="number" id="elec-price" class="calc-input full-width" placeholder="e.g. 0.12" step="0.01">
+                </div>
+                <button class="calc-btn" id="elec-calc">Estimate Cost</button>
+                <div class="result-box" id="elec-result"></div>
+
+                <!-- Cost Projection Cards -->
+                <div class="elec-cost-grid" id="elec-cost-grid" style="display:none;">
+                    <div class="elec-cost-card">
+                        <div class="elec-cost-value" id="elec-daily"></div>
+                        <div class="elec-cost-label">Daily</div>
+                    </div>
+                    <div class="elec-cost-card">
+                        <div class="elec-cost-value" id="elec-monthly"></div>
+                        <div class="elec-cost-label">Monthly</div>
+                    </div>
+                    <div class="elec-cost-card">
+                        <div class="elec-cost-value" id="elec-yearly"></div>
+                        <div class="elec-cost-label">Yearly</div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ==================== 8. UNIT PRICE COMPARISON ==================== -->
+        <section id="tab-unitprice" class="calculator-panel" role="tabpanel">
+            <div class="calc-card">
+                <h2 class="calc-heading">Unit Price Comparison</h2>
+
+                <!-- Item 1 -->
+                <div class="sub-section">
+                    <h3 class="sub-heading">Item 1</h3>
+                    <div class="input-group">
+                        <label class="input-label" for="up1-price">Price ($)</label>
+                        <input type="number" id="up1-price" class="calc-input full-width" placeholder="e.g. 4.99">
+                    </div>
+                    <div class="input-group">
+                        <label class="input-label" for="up1-qty">Quantity (g or units)</label>
+                        <input type="number" id="up1-qty" class="calc-input full-width" placeholder="e.g. 500">
+                    </div>
+                </div>
+
+                <!-- Item 2 -->
+                <div class="sub-section">
+                    <h3 class="sub-heading">Item 2</h3>
+                    <div class="input-group">
+                        <label class="input-label" for="up2-price">Price ($)</label>
+                        <input type="number" id="up2-price" class="calc-input full-width" placeholder="e.g. 7.49">
+                    </div>
+                    <div class="input-group">
+                        <label class="input-label" for="up2-qty">Quantity (g or units)</label>
+                        <input type="number" id="up2-qty" class="calc-input full-width" placeholder="e.g. 750">
+                    </div>
+                </div>
+
+                <button class="calc-btn" id="up-calc">Compare Prices</button>
+                <div class="result-box" id="up-result"></div>
+            </div>
+        </section>
+
+    </main>
+
+    <script src="script.js"></script>
+</body>
+</html>

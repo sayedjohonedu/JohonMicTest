@@ -76,6 +76,23 @@
             <button id="btn-apply-dev-mode" class="action-btn action-btn-accent" style="width:100%; justify-content:center;">Apply</button>
           </div>
         </div>
+        <div class="import-dropdown-wrap" id="backup-dropdown-wrap" style="margin-right: 8px;">
+          <button id="btn-backup-restore" class="action-btn" title="Backup / Restore">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+            Data
+            <svg class="chevron-icon" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+          </button>
+          <div class="import-dropdown" id="backup-dropdown">
+            <button class="import-opt" id="opt-backup">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+              Backup App Store
+            </button>
+            <button class="import-opt" id="opt-restore">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+              Restore App Store
+            </button>
+          </div>
+        </div>
 
         <div class="import-dropdown-wrap" id="import-dropdown-wrap">
           <button id="btn-import" class="action-btn" title="Import app">
@@ -139,6 +156,19 @@
               </button>
             </div>
           </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Restore Mode Modal ──────────────────────────────────── -->
+    <div id="restore-mode-modal" class="modal-overlay" style="display:none; z-index: 10006;">
+      <div class="modal-card" style="max-width: 380px; text-align: center;">
+        <h3 style="margin-top:0; font-size:1.1rem; margin-bottom:8px;">Restore App Store</h3>
+        <p style="font-size:13px; color:var(--muted); margin-bottom:20px;">How would you like to restore the backup?</p>
+        <div class="modal-footer" style="display:flex; flex-direction:column; gap:8px; width:100%; margin-top:0;">
+          <button id="restore-mode-merge" class="action-btn" style="width:100%; justify-content:center; padding:10px;">Merge with existing</button>
+          <button id="restore-mode-replace" class="action-btn" style="width:100%; justify-content:center; padding:10px; color: #f87171; border-color: rgba(248, 113, 113, 0.3);">Replace (Wipe current apps)</button>
+          <button id="restore-mode-cancel" class="action-btn" style="width:100%; justify-content:center; padding:10px; background: transparent; border-color: transparent;">Cancel</button>
         </div>
       </div>
     </div>

@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Code Gen</title>
+    <link rel="stylesheet" href="../shared-animations.css">
+    <style>
+        :root { --ios-blue: #007aff; --ios-bg: #1c1c1e; --ios-gray: #8e8e93; }
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", sans-serif; }
+        body { background: #000; color: #fff; min-height: 100vh; display: flex; flex-direction: column; overflow-x: hidden; }
+        
+        .top-nav { 
+            padding: 10px 16px; 
+            display: flex; 
+            justify-content: space-between; 
+            align-items: center; 
+            position: sticky;
+            top: 0;
+            background: rgba(0, 0, 0, 0.8);
+            backdrop-filter: blur(20px);
+            z-index: 100;
+        }
+        .nav-btn { color: var(--ios-blue); text-decoration: none; font-size: 17px; font-weight: 500; }
+        .nav-title { font-size: 34px; font-weight: 700; padding: 0 16px 12px; }
+
+        .config-section { padding: 0 16px 20px; }
+        .config-card { 
+            background: #1c1c1e; 
+            border-radius: 12px; 
+            padding: 20px; 
+            margin-bottom: 20px;
+            border: 1px solid #2c2c2e;
+        }
+        .label { font-size: 13px; font-weight: 600; color: var(--ios-gray); text-transform: uppercase; margin-bottom: 12px; display: block; }
+        
+        select, input { 
+            width: 100%; 
+            padding: 12px; 
+            background: #2c2c2e; 
+            border: none; 
+            border-radius: 8px; 
+            color: #fff; 
+            font-size: 16px; 
+            margin-bottom: 15px; 
+            outline: none;
+        }
+
+        .code-preview { 
+            background: #000; 
+            border: 1px solid #2c2c2e; 
+            border-radius: 12px; 
+            padding: 15px; 
+            font-family: "SF Mono", Menlo, monospace; 
+            font-size: 14px; 
+            line-height: 1.5; 
+            color: #4cd964;
+            overflow-x: auto;
+            position: relative;
+        }
+        .copy-btn { 
+            position: absolute; 
+            top: 10px; 
+            right: 10px; 
+            background: rgba(255,255,255,0.1); 
+            color: #fff; 
+            padding: 4px 10px; 
+            border-radius: 6px; 
+            font-size: 12px;
+            cursor: pointer;
+        }
+
+        .action-btn { 
+            background: var(--ios-blue); 
+            color: #fff; 
+            width: 100%; 
+            padding: 15px; 
+            border-radius: 12px; 
+            font-weight: 700; 
+            font-size: 17px; 
+            border: none; 
+            cursor: pointer;
+            margin-bottom: 30px;
+        }
+
+        /* Tab Bar */
+        .tab-bar {
+            background: rgba(28, 28, 30, 0.94);
+            backdrop-filter: blur(20px);
+            border-top: 1px solid #2c2c2e;
+            display: flex;
+            justify-content: space-around;
+            padding: 10px 0 24px;
+            position: sticky;
+            bottom: 0;
+            z-index: 100;
+        }
+        .tab-item { display: flex; flex-direction: column; align-items: center; gap: 4px; color: var(--ios-gray); text-decoration: none; min-width: 60px; }
+        .tab-item.active { color: var(--ios-blue); }
+        .tab-icon { font-size: 24px; }
+        .tab-label { font-size: 10px; font-weight: 600; }
+    </style>
+</head>
+<body>
+    <div class="top-nav">
+        <a href="../index.html" class="nav-btn">‹ Back</a>
+        <span class="nav-btn">History</span>
+    </div>
+
+    <div class="nav-title">Code Gen</div>
+
+    <div class="config-section">
+        <div class="config-card">
+            <label class="label">Template</label>
+            <select>
+                <option>React Component</option>
+                <option>Python API Entry</option>
+                <option>SQL Migration</option>
+                <option>Docker Compose</option>
+            </select>
+
+            <label class="label">Component Name</label>
+            <input type="text" placeholder="e.g. UserProfile">
+            
+            <button class="action-btn">Generate Code</button>
+        </div>
+
+        <label class="label">Output</label>
+        <div class="code-preview">
+            <span class="copy-btn">Copy</span>
+            <span style="color:#ff79c6;">import</span> React <span style="color:#ff79c6;">from</span> <span style="color:#f1fa8c;">'react'</span>;<br><br>
+            <span style="color:#ff79c6;">const</span> <span style="color:#50fa7b;">UserProfile</span> = () => {<br>
+            &nbsp;&nbsp;<span style="color:#ff79c6;">return</span> (<br>
+            &nbsp;&nbsp;&nbsp;&nbsp;&lt;div&gt;<br>
+            &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&lt;h1&gt;User Profile&lt;/h1&gt;<br>
+            &nbsp;&nbsp;&nbsp;&nbsp;&lt;/div&gt;<br>
+            &nbsp;&nbsp;);<br>
+            };<br><br>
+            <span style="color:#ff79c6;">export default</span> UserProfile;
+        </div>
+    </div>
+
+    <div class="tab-bar">
+        <a href="#" class="tab-item active">
+            <span class="tab-icon">💻</span>
+            <span class="tab-label">Generate</span>
+        </a>
+        <a href="#" class="tab-item">
+            <span class="tab-icon">📂</span>
+            <span class="tab-label">Snippets</span>
+        </a>
+        <a href="#" class="tab-item">
+            <span class="tab-icon">⚙️</span>
+            <span class="tab-label">Templates</span>
+        </a>
+    </div>
+    <script src="../shared-utils.js"></script>
+    <script src="script.js"></script>
+</body>
+</html>

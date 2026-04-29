@@ -145,36 +145,29 @@ function setupEditorIpc() {
 
   
   ipcMain.handle('veditor-append-video', async (event, { baseFilePath, appendFilePath }) => {
-    const { spawn, execFileSync } = require('child_process');
+    const { spawn, spawnSync } = require('child_process');
     const ffmpegManager = require('./ffmpeg-manager');
     if (!ffmpegManager.isFFmpegInstalled()) return { ok: false, error: 'FFmpeg not installed' };
     const ffmpegPath = ffmpegManager.ffmpegBinPath();
-    const ffprobePath = ffmpegPath.replace(/ffmpeg([^/]*)$/, 'ffprobe$1');
 
     try {
       let srcWidth = 1920, srcHeight = 1080;
       let hasAudio = false;
       let totalDur = 0;
       try {
-        const probeResult = execFileSync(ffprobePath, [
-          '-v', 'error', '-select_streams', 'a', '-show_entries', 'stream=codec_type',
-          '-of', 'csv=p=0', baseFilePath
-        ], { timeout: 10000 }).toString().trim();
-        hasAudio = probeResult.includes('audio');
-
-        const dimResult = execFileSync(ffprobePath, [
-          '-v', 'error', '-select_streams', 'v:0', '-show_entries', 'stream=width,height',
-          '-of', 'csv=p=0:s=x', baseFilePath
-        ], { timeout: 10000 }).toString().trim();
-        const dimParts = dimResult.split('x');
-        if (dimParts.length === 2) {
-          srcWidth = parseInt(dimParts[0]) || 1920;
-          srcHeight = parseInt(dimParts[1]) || 1080;
-        }
-
-        const dur1 = execFileSync(ffprobePath, ['-v', 'error', '-show_entries', 'format=duration', '-of', 'default=noprint_wrappers=1:nokey=1', baseFilePath]).toString().trim();
-        const dur2 = execFileSync(ffprobePath, ['-v', 'error', '-show_entries', 'format=duration', '-of', 'default=noprint_wrappers=1:nokey=1', appendFilePath]).toString().trim();
-        totalDur = parseFloat(dur1) + parseFloat(dur2);
+        // Use ffmpeg -i to probe (ffprobe not bundled)
+        const infoOut = spawnSync(ffmpegPath, ['-i', baseFilePath], { timeout: 10000 });
+        const infoStr = infoOut.stderr ? infoOut.stderr.toString() : '';
+        hasAudio = /Stream.*Audio/i.test(infoStr);
+        const dimMatch = infoStr.match(/(\d{2,5})x(\d{2,5})/);
+        if (dimMatch) { srcWidth = parseInt(dimMatch[1]) || 1920; srcHeight = parseInt(dimMatch[2]) || 1080; }
+        // Probe duration via ffmpeg format info
+        const durMatch1 = infoStr.match(/Duration:\s*([\d:.]+)/);
+        const durOut2 = spawnSync(ffmpegPath, ['-i', appendFilePath], { timeout: 10000 });
+        const infoStr2 = durOut2.stderr ? durOut2.stderr.toString() : '';
+        const durMatch2 = infoStr2.match(/Duration:\s*([\d:.]+)/);
+        const parseDur = (s) => { if (!s) return 0; const p = s.split(':'); return (+p[0])*3600+(+p[1])*60+parseFloat(p[2]||0); };
+        totalDur = parseDur(durMatch1 && durMatch1[1]) + parseDur(durMatch2 && durMatch2[1]);
       } catch (e) {
         console.warn('Probe failed, using defaults', e.message);
       }
@@ -313,31 +306,44 @@ function setupEditorIpc() {
       }
 
       // ═══ Build FFmpeg command with filter_complex ═══
-      const { execFile, execFileSync } = require('child_process');
+      const { execFile, execFileSync, spawnSync } = require('child_process');
 
-      // Probe source for audio stream and video dimensions
+      // Probe source for audio stream and video dimensions.
+      // We use ffmpeg itself (not ffprobe — it's not bundled) to probe the file.
       let hasAudio = true;
       let srcWidth = 1920, srcHeight = 1080;
       try {
-        const ffprobePath = ffmpegPath.replace(/ffmpeg([^/]*)$/, 'ffprobe$1');
-        const probeResult = execFileSync(ffprobePath, [
-          '-v', 'error', '-select_streams', 'a', '-show_entries', 'stream=codec_type',
-          '-of', 'csv=p=0', filePath
-        ], { timeout: 10000 }).toString().trim();
-        hasAudio = probeResult.includes('audio');
+        // Use ffmpeg -i to probe metadata — it exits non-zero but prints info to stderr
+        const probeOut = spawnSync(ffmpegPath, ['-v', 'quiet', '-print_format', 'json', '-show_streams', filePath], { timeout: 10000 });
+        // First try via ffprobe-compatible invocation using ffmpeg
+        const probeStr = (probeOut.stdout || probeOut.stderr || Buffer.alloc(0)).toString();
+        // Try JSON parse (works if ffprobe is available)
+        let streamsDetected = false;
+        try {
+          const info = JSON.parse(probeStr);
+          if (info && info.streams) {
+            hasAudio = info.streams.some(s => s.codec_type === 'audio');
+            const vStream = info.streams.find(s => s.codec_type === 'video');
+            if (vStream && vStream.width) { srcWidth = vStream.width; srcHeight = vStream.height; }
+            streamsDetected = true;
+          }
+        } catch (_) {}
 
-        // Probe video dimensions
-        const dimResult = execFileSync(ffprobePath, [
-          '-v', 'error', '-select_streams', 'v:0', '-show_entries', 'stream=width,height',
-          '-of', 'csv=p=0:s=x', filePath
-        ], { timeout: 10000 }).toString().trim();
-        const dimParts = dimResult.split('x');
-        if (dimParts.length === 2) {
-          srcWidth = parseInt(dimParts[0]) || 1920;
-          srcHeight = parseInt(dimParts[1]) || 1080;
+        if (!streamsDetected) {
+          // Fallback: use ffmpeg -i stderr output (always available)
+          const infoOut = spawnSync(ffmpegPath, ['-i', filePath], { timeout: 10000 });
+          const infoStr = infoOut.stderr ? infoOut.stderr.toString() : '';
+          hasAudio = /Stream.*Audio/i.test(infoStr);
+          const dimMatch = infoStr.match(/(\d{2,5})x(\d{2,5})/);
+          if (dimMatch) {
+            srcWidth = parseInt(dimMatch[1]) || 1920;
+            srcHeight = parseInt(dimMatch[2]) || 1080;
+          }
+          streamsDetected = true;
+          console.log(`[VEditor Export] ffmpeg probe: audio=${hasAudio}, dim=${srcWidth}x${srcHeight}`);
         }
       } catch (e) {
-        console.log('[VEditor Export] ffprobe failed, using defaults:', e.message);
+        console.log('[VEditor Export] Probe failed, assuming audio+1920x1080:', e.message);
       }
 
       // Ensure even dimensions for h264/vp9 encoding
@@ -707,17 +713,20 @@ function setupEditorIpc() {
       }
       if (!ffmpegPath) return { ok: false, error: 'FFmpeg not found.' };
 
-      // Probe source for audio
-      const { execFileSync, spawn } = require('child_process');
+      // Probe source for audio using ffmpeg itself (ffprobe is not bundled)
+      const { spawnSync, spawn } = require('child_process');
       let hasAudio = false;
       try {
-        const ffprobePath = ffmpegPath.replace(/ffmpeg([^/]*)$/, 'ffprobe$1');
-        const probeResult = execFileSync(ffprobePath, [
-          '-v', 'error', '-select_streams', 'a', '-show_entries', 'stream=codec_type',
-          '-of', 'csv=p=0', filePath
-        ], { timeout: 10000 }).toString().trim();
-        hasAudio = probeResult.includes('audio');
-      } catch (_e) {}
+        // ffmpeg -i exits with code 1 but prints stream info to stderr
+        const infoOut = spawnSync(ffmpegPath, ['-i', filePath], { timeout: 10000 });
+        const infoStr = infoOut.stderr ? infoOut.stderr.toString() : '';
+        hasAudio = /Stream.*Audio/i.test(infoStr);
+        console.log(`[VEditor Frame Export] Audio probe: hasAudio=${hasAudio}`);
+      } catch (_e) {
+        // If probe fails, assume audio exists (safer — FFmpeg will ignore -map 1:a if absent)
+        hasAudio = true;
+        console.warn('[VEditor Frame Export] Audio probe failed, assuming audio=true');
+      }
 
       console.log(`[VEditor Frame Export] Starting: ${width}x${height} @ ${fps}fps, format=${format}, audio=${hasAudio}`);
 

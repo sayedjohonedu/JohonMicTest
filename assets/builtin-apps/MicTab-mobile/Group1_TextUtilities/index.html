@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Notes & Utilities</title>
+    <link rel="stylesheet" href="../shared-animations.css">
+    <style>
+        :root { --ios-orange: #ff9500; --ios-bg: #f2f2f7; --ios-gray: #8e8e93; }
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", sans-serif; }
+        body { background: var(--ios-bg); color: #000; min-height: 100vh; display: flex; flex-direction: column; overflow-x: hidden; }
+        
+        .top-nav { 
+            padding: 10px 16px; 
+            display: flex; 
+            justify-content: space-between; 
+            align-items: center; 
+            position: sticky;
+            top: 0;
+            background: rgba(242, 242, 247, 0.9);
+            backdrop-filter: blur(20px);
+            z-index: 100;
+        }
+        .nav-btn { color: var(--ios-orange); text-decoration: none; font-size: 17px; font-weight: 400; cursor: pointer; }
+        .nav-title { font-size: 34px; font-weight: 700; padding: 0 16px 12px; }
+
+        .search-bar { 
+            margin: 0 16px 20px; 
+            background: #e3e3e8; 
+            border-radius: 10px; 
+            padding: 8px 12px; 
+            display: flex; 
+            align-items: center; 
+            gap: 8px; 
+            color: var(--ios-gray);
+            font-size: 17px;
+        }
+
+        .section-header {
+            margin: 0 16px 8px;
+            font-size: 13px;
+            text-transform: uppercase;
+            color: var(--ios-gray);
+            font-weight: 600;
+        }
+
+        .list-group { 
+            background: #fff; 
+            border-radius: 12px; 
+            margin: 0 16px 25px; 
+            overflow: hidden; 
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+        }
+        .list-item { 
+            display: flex; 
+            align-items: center; 
+            padding: 12px 16px; 
+            gap: 15px; 
+            border-bottom: 1px solid #efeff4; 
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        .list-item:active { background: #f2f2f7; }
+        .list-item:last-child { border-bottom: none; }
+        
+        .item-icon { 
+            width: 32px; 
+            height: 32px; 
+            border-radius: 8px; 
+            display: flex; 
+            align-items: center; 
+            justify-content: center; 
+            color: #fff; 
+            font-size: 18px; 
+        }
+        .item-info { flex: 1; min-width: 0; }
+        .item-title { font-size: 17px; font-weight: 400; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .item-subtitle { font-size: 13px; color: var(--ios-gray); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .item-chevron { color: #c7c7cc; font-size: 17px; }
+
+        /* Detail Tool Overlay */
+        .tool-overlay {
+            position: fixed;
+            top: 0;
+            left: 100%;
+            width: 100%;
+            height: 100%;
+            background: #fff;
+            z-index: 200;
+            transition: left 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            display: flex; flex-direction: column;
+        }
+        .tool-overlay.active { left: 0; }
+        .tool-content { padding: 20px 16px; flex: 1; overflow-y: auto; display: flex; flex-direction: column; }
+        
+        textarea { 
+            width: 100%; 
+            flex: 1;
+            border: none; 
+            border-radius: 0; 
+            padding: 0; 
+            font-size: 17px; 
+            outline: none; 
+            background: transparent;
+            margin-bottom: 20px;
+            resize: none;
+            line-height: 1.4;
+        }
+        .action-row { display: flex; gap: 10px; margin-bottom: 20px; }
+        .btn-ios { 
+            flex: 1; 
+            background: var(--ios-orange); 
+            color: #fff; 
+            border: none; 
+            padding: 12px; 
+            border-radius: 10px; 
+            font-weight: 600; 
+            font-size: 16px; 
+            cursor: pointer; 
+        }
+        .btn-ios.secondary { background: #f2f2f7; color: var(--ios-orange); }
+        .btn-ios.danger { background: #ff3b30; color: #fff; }
+
+        .result-box { 
+            background: #f9f9f9; 
+            border-radius: 12px; 
+            padding: 15px; 
+            border: 1px solid #efeff4;
+            margin-top: auto;
+        }
+        .result-label { font-size: 13px; font-weight: 600; color: var(--ios-gray); text-transform: uppercase; margin-bottom: 8px; }
+        .result-val { font-size: 16px; font-weight: 500; }
+
+        /* Footer Info */
+        .footer-info { padding: 0 16px 20px; color: var(--ios-gray); font-size: 13px; text-align: center; }
+        
+        .empty-state {
+            padding: 40px 20px;
+            text-align: center;
+            color: var(--ios-gray);
+            font-size: 17px;
+        }
+    </style>
+</head>
+<body>
+    <div class="top-nav">
+        <a href="../index.html" class="nav-btn">‹ Folders</a>
+        <span class="nav-btn" onclick="openTool('New Note', '📝')">New Note</span>
+    </div>
+
+    <div class="nav-title">Notes</div>
+
+    <div class="search-bar">🔍 Search</div>
+
+    <div class="section-header">Your Notes</div>
+    <div class="list-group" id="notesList">
+        <!-- Notes will be loaded here -->
+    </div>
+
+    <div class="section-header">Utilities</div>
+    <div class="list-group">
+        <div class="list-item" onclick="openTool('Word Counter', '📊')">
+            <div class="item-icon" style="background: #ffcc00;">📊</div>
+            <div class="item-info">
+                <div class="item-title">Word Counter</div>
+            </div>
+            <div class="item-chevron">›</div>
+        </div>
+        <div class="list-item" onclick="openTool('Case Converter', '🔠')">
+            <div class="item-icon" style="background: #5856d6;">🔠</div>
+            <div class="item-info">
+                <div class="item-title">Case Converter</div>
+            </div>
+            <div class="item-chevron">›</div>
+        </div>
+        <div class="list-item" onclick="openTool('MD to HTML', '🌐')">
+            <div class="item-icon" style="background: #007aff;">🌐</div>
+            <div class="item-info">
+                <div class="item-title">Markdown to HTML</div>
+            </div>
+            <div class="item-chevron">›</div>
+        </div>
+    </div>
+
+    <div class="footer-info" id="footerCount">
+        0 Notes
+    </div>
+
+    <!-- Tool Overlay -->
+    <div class="tool-overlay" id="toolOverlay">
+        <div class="top-nav">
+            <a href="javascript:void(0)" class="nav-btn" onclick="closeTool()">‹ Back</a>
+            <div style="font-weight: 600; font-size: 17px;" id="toolHeader">Note</div>
+            <a href="javascript:void(0)" class="nav-btn" style="font-weight: 600;" onclick="saveCurrentNote()">Done</a>
+        </div>
+        <div class="tool-content">
+            <textarea id="toolInput" placeholder="Start typing..."></textarea>
+            
+            <div id="utilityActions" style="display: none;">
+                <div class="action-row">
+                    <button class="btn-ios" onclick="processText()">Process</button>
+                    <button class="btn-ios secondary" onclick="copyText()">Copy</button>
+                </div>
+                <div class="result-box">
+                    <div class="result-label">Result</div>
+                    <div class="result-val" id="toolResult">...</div>
+                </div>
+            </div>
+
+            <div id="noteActions" style="display: none;">
+                <div class="action-row">
+                    <button class="btn-ios danger" id="deleteBtn" onclick="deleteCurrentNote()">Delete Note</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let currentTool = '';
+        let currentNoteId = null;
+        let notes = JSON.parse(localStorage.getItem('micTabNotes') || '[]');
+
+        function renderNotes() {
+            const list = document.getElementById('notesList');
+            const count = document.getElementById('footerCount');
+            
+            if (notes.length === 0) {
+                list.innerHTML = '<div class="empty-state">No Notes Yet</div>';
+                count.textContent = '0 Notes';
+                return;
+            }
+
+            count.textContent = `${notes.length} Note${notes.length === 1 ? '' : 's'}`;
+            list.innerHTML = notes.map(note => `
+                <div class="list-item" onclick="openNote('${note.id}')">
+                    <div class="item-icon" style="background: #ffcc00;">📝</div>
+                    <div class="item-info">
+                        <div class="item-title">${note.text.split('\n')[0] || 'Empty Note'}</div>
+                        <div class="item-subtitle">${new Date(note.date).toLocaleDateString()} - ${note.text.split('\n').slice(1).join(' ') || 'No additional text'}</div>
+                    </div>
+                    <div class="item-chevron">›</div>
+                </div>
+            `).join('');
+        }
+
+        function openTool(name, icon) {
+            currentTool = name;
+            currentNoteId = null;
+            document.getElementById('toolHeader').textContent = name;
+            document.getElementById('toolOverlay').classList.add('active');
+            document.getElementById('toolInput').value = '';
+            document.getElementById('toolInput').placeholder = (name === 'New Note') ? 'Start typing your note...' : 'Type or paste here...';
+            
+            const isUtility = ['Word Counter', 'Case Converter', 'MD to HTML'].includes(name);
+            document.getElementById('utilityActions').style.display = isUtility ? 'block' : 'none';
+            document.getElementById('noteActions').style.display = 'none';
+            
+            if (isUtility) {
+                document.getElementById('toolResult').textContent = '...';
+            }
+        }
+
+        function openNote(id) {
+            const note = notes.find(n => n.id === id);
+            if (!note) return;
+            
+            currentTool = 'Edit Note';
+            currentNoteId = id;
+            document.getElementById('toolHeader').textContent = 'Note';
+            document.getElementById('toolOverlay').classList.add('active');
+            document.getElementById('toolInput').value = note.text;
+            
+            document.getElementById('utilityActions').style.display = 'none';
+            document.getElementById('noteActions').style.display = 'block';
+        }
+
+        function closeTool() {
+            saveCurrentNote();
+            document.getElementById('toolOverlay').classList.remove('active');
+        }
+
+        function saveCurrentNote() {
+            const text = document.getElementById('toolInput').value.trim();
+            
+            if (currentTool === 'New Note' || currentTool === 'Edit Note') {
+                if (!text) {
+                    if (currentNoteId) {
+                        notes = notes.filter(n => n.id !== currentNoteId);
+                    }
+                } else {
+                    if (currentNoteId) {
+                        const note = notes.find(n => n.id === currentNoteId);
+                        note.text = text;
+                        note.date = Date.now();
+                    } else {
+                        notes.unshift({
+                            id: Date.now().toString(),
+                            text: text,
+                            date: Date.now()
+                        });
+                    }
+                }
+                localStorage.setItem('micTabNotes', JSON.stringify(notes));
+                renderNotes();
+            }
+            
+            if (currentTool !== 'Edit Note') {
+                 document.getElementById('toolOverlay').classList.remove('active');
+            }
+        }
+
+        function deleteCurrentNote() {
+            if (currentNoteId) {
+                notes = notes.filter(n => n.id !== currentNoteId);
+                localStorage.setItem('micTabNotes', JSON.stringify(notes));
+                renderNotes();
+                document.getElementById('toolOverlay').classList.remove('active');
+            }
+        }
+
+        function processText() {
+            const input = document.getElementById('toolInput').value;
+            let res = '';
+            if (currentTool === 'Word Counter') {
+                const words = input.trim() ? input.trim().split(/\s+/).length : 0;
+                const chars = input.length;
+                res = `${words} words, ${chars} characters`;
+            } else if (currentTool === 'Case Converter') {
+                res = input.toUpperCase();
+            } else if (currentTool === 'MD to HTML') {
+                res = 'HTML preview not available in this view.';
+            }
+            document.getElementById('toolResult').textContent = res;
+        }
+
+        function copyText() {
+            const res = document.getElementById('toolResult').textContent;
+            if (res && res !== '...') {
+                navigator.clipboard.writeText(res);
+                alert('Copied to clipboard!');
+            }
+        }
+
+        // Initial render
+        renderNotes();
+    </script>
+    <script src="../shared-utils.js"></script>
+    <script src="script.js"></script>
+</body>
+</html>

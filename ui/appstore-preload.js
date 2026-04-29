@@ -88,4 +88,8 @@ contextBridge.exposeInMainWorld("appStoreAPI", {
   // Vault check (to show AI builder availability)
   getVaultSummary: () => ipcRenderer.invoke("appstore-vault-summary"),
   getLlmProfiles: () => ipcRenderer.invoke("appstore-get-llm-profiles"),
+
+  // Backup & Restore
+  exportAllApps: () => ipcRenderer.invoke("appstore-export-all"),
+  importAllApps: (mode, filePath) => ipcRenderer.invoke("appstore-import-all", mode, filePath),
 });

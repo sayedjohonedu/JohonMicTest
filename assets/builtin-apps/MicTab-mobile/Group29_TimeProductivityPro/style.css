@@ -1,0 +1,1329 @@
+/* ============================================================
+   MicTab - Time & Productivity  |  style.css
+   Design System: iOS Cream Theme
+   ============================================================ */
+
+/* ---------- CSS Custom Properties ---------- */
+:root {
+  --bg:              #F9F8F3;
+  --surface:         #FFFFFF;
+  --input-bg:        #F2F1EC;
+  --border:          #E5E5EA;
+  --text-primary:    #1C1C1E;
+  --text-secondary:  #8E8E93;
+  --accent:          #007AFF;
+  --accent-hover:    #0066D6;
+  --accent-light:    rgba(0, 122, 255, 0.1);
+  --purple:          #5856D6;
+  --purple-light:    rgba(88, 86, 214, 0.1);
+  --danger:          #FF3B30;
+  --danger-light:    rgba(255, 59, 48, 0.1);
+  --success:         #34C759;
+  --success-light:   rgba(52, 199, 89, 0.1);
+  --warning:         #FF9500;
+  --warning-light:   rgba(255, 149, 0, 0.1);
+  --card-radius:     20px;
+  --btn-radius:      12px;
+  --font-stack:      -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --shadow-sm:       0 1px 3px rgba(0,0,0,0.04), 0 1px 2px rgba(0,0,0,0.06);
+  --shadow-md:       0 4px 12px rgba(0,0,0,0.06), 0 2px 4px rgba(0,0,0,0.04);
+  --shadow-lg:       0 10px 30px rgba(0,0,0,0.08), 0 4px 8px rgba(0,0,0,0.04);
+  --transition:      0.2s ease;
+  --max-width:       450px;
+}
+
+/* ---------- Reset ---------- */
+*, *::before, *::after {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html {
+  font-size: 16px;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  -webkit-tap-highlight-color: transparent;
+}
+
+body {
+  font-family: var(--font-stack);
+  background: var(--bg);
+  color: var(--text-primary);
+  min-height: 100vh;
+  overflow-x: hidden;
+  padding-top: 100px; /* nav + tab strip */
+}
+
+/* ---------- Navigation Bar ---------- */
+.app-nav {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 52px;
+  background: rgba(249, 248, 243, 0.85);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border-bottom: 0.5px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 16px;
+  z-index: 100;
+}
+
+.nav-back, .nav-home {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--accent);
+  text-decoration: none;
+  font-size: 0.92rem;
+  font-weight: 500;
+  transition: opacity var(--transition);
+}
+
+.nav-back:hover, .nav-home:hover {
+  opacity: 0.7;
+}
+
+.nav-back svg, .nav-home svg {
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+}
+
+.nav-title {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  letter-spacing: -0.2px;
+}
+
+/* ---------- Tab Strip ---------- */
+.tab-strip {
+  position: fixed;
+  top: 52px;
+  left: 0;
+  right: 0;
+  height: 48px;
+  background: rgba(249, 248, 243, 0.85);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border-bottom: 0.5px solid var(--border);
+  z-index: 99;
+  display: flex;
+  align-items: center;
+  overflow-x: auto;
+  overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  padding: 0 8px;
+  gap: 2px;
+}
+
+.tab-strip::-webkit-scrollbar {
+  display: none;
+}
+
+.tab-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  border-radius: var(--btn-radius);
+  cursor: pointer;
+  color: var(--text-secondary);
+  font-size: 0.82rem;
+  font-weight: 500;
+  white-space: nowrap;
+  transition: background var(--transition), color var(--transition), transform 0.15s ease;
+  user-select: none;
+  flex-shrink: 0;
+}
+
+.tab-item:hover {
+  background: var(--accent-light);
+  color: var(--accent);
+}
+
+.tab-item.active {
+  background: var(--accent);
+  color: #FFFFFF;
+}
+
+.tab-item:active {
+  transform: scale(0.98);
+}
+
+.tab-icon {
+  font-size: 1rem;
+  line-height: 1;
+}
+
+/* ---------- Main Content ---------- */
+.content {
+  max-width: var(--max-width);
+  margin: 0 auto;
+  padding: 20px 16px 40px;
+}
+
+/* ---------- Tool Panels (White Cards) ---------- */
+.tool-panel {
+  display: none;
+  animation: fadeIn 0.35s ease;
+}
+
+.tool-panel.active {
+  display: block;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.panel-card {
+  background: var(--surface);
+  border-radius: var(--card-radius);
+  box-shadow: var(--shadow-md);
+  padding: 24px 20px;
+  margin-bottom: 16px;
+}
+
+.panel-title {
+  font-size: 1.35rem;
+  font-weight: 700;
+  margin-bottom: 20px;
+  color: var(--text-primary);
+  letter-spacing: -0.3px;
+}
+
+/* ---------- Buttons ---------- */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 11px 22px;
+  border: none;
+  border-radius: var(--btn-radius);
+  font-family: var(--font-stack);
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background var(--transition), transform 0.15s ease, box-shadow var(--transition);
+  user-select: none;
+}
+
+.btn:active {
+  transform: scale(0.98);
+}
+
+.btn-accent {
+  background: var(--accent);
+  color: #FFFFFF;
+  box-shadow: 0 2px 8px rgba(0, 122, 255, 0.25);
+}
+
+.btn-accent:hover {
+  background: var(--accent-hover);
+  box-shadow: 0 4px 12px rgba(0, 122, 255, 0.3);
+}
+
+.btn-secondary {
+  background: var(--input-bg);
+  color: var(--text-primary);
+}
+
+.btn-secondary:hover {
+  background: #E8E7E2;
+}
+
+.btn-purple {
+  background: var(--purple);
+  color: #FFFFFF;
+  box-shadow: 0 2px 8px rgba(88, 86, 214, 0.25);
+}
+
+.btn-purple:hover {
+  background: #4B49C7;
+}
+
+.btn-danger {
+  background: var(--danger);
+  color: #FFFFFF;
+}
+
+.btn-danger:hover {
+  background: #E0342B;
+}
+
+.btn-success {
+  background: var(--success);
+  color: #FFFFFF;
+}
+
+.btn-small {
+  padding: 8px 14px;
+  font-size: 0.82rem;
+  border-radius: 10px;
+}
+
+.btn-tiny {
+  padding: 5px 10px;
+  font-size: 0.75rem;
+  border-radius: 8px;
+}
+
+/* ---------- Inputs ---------- */
+.input-field {
+  background: var(--input-bg);
+  border: 1.5px solid transparent;
+  border-radius: var(--btn-radius);
+  color: var(--text-primary);
+  font-family: var(--font-stack);
+  font-size: 0.92rem;
+  padding: 10px 14px;
+  outline: none;
+  transition: border-color var(--transition), box-shadow var(--transition), background var(--transition);
+}
+
+.input-field:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(0, 122, 255, 0.15);
+  background: #FFFFFF;
+}
+
+.input-field::placeholder {
+  color: var(--text-secondary);
+}
+
+.input-group {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.input-group label {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  font-weight: 600;
+}
+
+.select-field {
+  appearance: none;
+  -webkit-appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%238E8E93' stroke-width='1.5' fill='none'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  padding-right: 32px;
+}
+
+/* ============================================================
+   1. POMODORO TIMER
+   ============================================================ */
+.pomodoro-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 20px;
+}
+
+.pomodoro-ring-wrapper {
+  position: relative;
+  width: 220px;
+  height: 220px;
+}
+
+.pomodoro-svg {
+  width: 100%;
+  height: 100%;
+  transform: rotate(-90deg);
+}
+
+.ring-bg {
+  fill: none;
+  stroke: var(--input-bg);
+  stroke-width: 8;
+}
+
+.ring-progress {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 8;
+  stroke-linecap: round;
+  stroke-dasharray: 565.49;
+  stroke-dashoffset: 0;
+  transition: stroke-dashoffset 0.5s linear;
+}
+
+.pomodoro-time-display {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.pomodoro-time-display span:first-child {
+  font-size: 2.6rem;
+  font-weight: 700;
+  letter-spacing: 1px;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-primary);
+}
+
+.pomodoro-phase {
+  font-size: 0.82rem;
+  color: var(--accent);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  margin-top: 2px;
+  font-weight: 600;
+}
+
+.pomodoro-phase.on-break {
+  color: var(--success);
+}
+
+.pomodoro-phase.on-longbreak {
+  color: var(--purple);
+}
+
+.pomodoro-controls {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.pomodoro-sessions {
+  font-size: 0.88rem;
+  color: var(--text-secondary);
+  text-align: center;
+}
+
+.pomodoro-sessions strong {
+  color: var(--accent);
+  font-size: 1.1rem;
+}
+
+.pomodoro-custom {
+  display: flex;
+  gap: 12px;
+  align-items: flex-end;
+  flex-wrap: wrap;
+  justify-content: center;
+  width: 100%;
+}
+
+.pomodoro-custom .input-group {
+  flex: 1;
+  min-width: 70px;
+}
+
+.pomodoro-custom .input-field {
+  width: 100%;
+  text-align: center;
+}
+
+/* Session History */
+.pomodoro-history {
+  width: 100%;
+  margin-top: 4px;
+}
+
+.pomodoro-history-title {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.pomodoro-history-list {
+  max-height: 160px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+}
+
+.pomodoro-history-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 0;
+  border-bottom: 0.5px solid var(--border);
+  font-size: 0.82rem;
+}
+
+.pomodoro-history-item:last-child {
+  border-bottom: none;
+}
+
+.pomodoro-history-type {
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.pomodoro-history-type .dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+.pomodoro-history-type .dot.work { background: var(--accent); }
+.pomodoro-history-type .dot.break { background: var(--success); }
+.pomodoro-history-type .dot.longbreak { background: var(--purple); }
+
+.pomodoro-history-time {
+  color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ============================================================
+   2. STOPWATCH
+   ============================================================ */
+.stopwatch-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 20px;
+}
+
+.stopwatch-display {
+  font-size: 3rem;
+  font-weight: 700;
+  letter-spacing: 1px;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-primary);
+}
+
+.stopwatch-controls {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.lap-list-container {
+  width: 100%;
+  max-height: 220px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+}
+
+.lap-list {
+  list-style: none;
+  width: 100%;
+}
+
+.lap-item {
+  display: flex;
+  justify-content: space-between;
+  padding: 9px 4px;
+  border-bottom: 0.5px solid var(--border);
+  font-size: 0.85rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.lap-item:nth-child(odd) {
+  background: var(--input-bg);
+  border-radius: 6px;
+  padding-left: 8px;
+  padding-right: 8px;
+}
+
+.lap-num {
+  color: var(--text-secondary);
+  min-width: 56px;
+  font-weight: 500;
+}
+
+.lap-split {
+  color: var(--accent);
+  min-width: 100px;
+  text-align: center;
+  font-weight: 600;
+}
+
+.lap-total {
+  color: var(--text-primary);
+  min-width: 100px;
+  text-align: right;
+  font-weight: 500;
+}
+
+.sw-export-btn {
+  margin-top: 4px;
+}
+
+/* ============================================================
+   3. COUNTDOWN TIMER
+   ============================================================ */
+.countdown-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 20px;
+}
+
+.countdown-display {
+  font-size: 3.5rem;
+  font-weight: 700;
+  letter-spacing: 2px;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-primary);
+  transition: color var(--transition);
+}
+
+.countdown-display.pulse {
+  animation: countPulse 0.6s ease infinite alternate;
+  color: var(--danger);
+}
+
+@keyframes countPulse {
+  from { opacity: 1; transform: scale(1); }
+  to   { opacity: 0.6; transform: scale(1.04); }
+}
+
+.countdown-presets {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.preset-btn {
+  padding: 8px 14px;
+  border-radius: 20px;
+  background: var(--input-bg);
+  border: 1.5px solid transparent;
+  color: var(--text-primary);
+  font-family: var(--font-stack);
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all var(--transition);
+}
+
+.preset-btn:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: var(--accent-light);
+}
+
+.preset-btn:active {
+  transform: scale(0.98);
+}
+
+.countdown-inputs {
+  display: flex;
+  gap: 12px;
+  align-items: flex-end;
+}
+
+.countdown-inputs .input-group {
+  flex: 1;
+}
+
+.countdown-inputs .input-field {
+  width: 100%;
+  text-align: center;
+}
+
+.countdown-controls {
+  display: flex;
+  gap: 10px;
+}
+
+/* ============================================================
+   4. WORLD CLOCK
+   ============================================================ */
+.worldclock-container {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.clock-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.clock-card {
+  background: var(--input-bg);
+  border-radius: 16px;
+  padding: 16px 20px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  transition: background var(--transition), box-shadow var(--transition);
+  position: relative;
+}
+
+.clock-card:hover {
+  background: #EDECEA;
+  box-shadow: var(--shadow-sm);
+}
+
+/* Analog clock face */
+.analog-clock {
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  border: 2px solid var(--border);
+  position: relative;
+  flex-shrink: 0;
+  background: var(--surface);
+}
+
+.analog-clock .hand {
+  position: absolute;
+  bottom: 50%;
+  left: 50%;
+  transform-origin: bottom center;
+  border-radius: 2px;
+}
+
+.analog-clock .hand-hour {
+  width: 2.5px;
+  height: 14px;
+  background: var(--text-primary);
+  margin-left: -1.25px;
+}
+
+.analog-clock .hand-minute {
+  width: 2px;
+  height: 18px;
+  background: var(--text-primary);
+  margin-left: -1px;
+}
+
+.analog-clock .hand-second {
+  width: 1px;
+  height: 20px;
+  background: var(--danger);
+  margin-left: -0.5px;
+}
+
+.analog-clock .center-dot {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 4px;
+  height: 4px;
+  background: var(--text-primary);
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+}
+
+.clock-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.clock-city {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  color: var(--text-secondary);
+  font-weight: 600;
+  margin-bottom: 2px;
+}
+
+.clock-time {
+  font-size: 1.5rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-primary);
+  letter-spacing: -0.5px;
+}
+
+.clock-date {
+  font-size: 0.78rem;
+  color: var(--text-secondary);
+  margin-top: 1px;
+}
+
+.clock-remove {
+  background: none;
+  border: none;
+  color: var(--danger);
+  cursor: pointer;
+  font-size: 0.75rem;
+  padding: 4px 8px;
+  opacity: 0.6;
+  transition: opacity var(--transition);
+  font-weight: 500;
+  flex-shrink: 0;
+}
+
+.clock-remove:hover {
+  opacity: 1;
+}
+
+.clock-view-toggle {
+  display: flex;
+  gap: 6px;
+}
+
+.toggle-view-btn {
+  padding: 5px 10px;
+  border-radius: 8px;
+  background: var(--input-bg);
+  border: none;
+  color: var(--text-secondary);
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all var(--transition);
+  font-family: var(--font-stack);
+}
+
+.toggle-view-btn.active {
+  background: var(--accent);
+  color: #FFFFFF;
+}
+
+.worldclock-add {
+  display: flex;
+  align-items: flex-end;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.worldclock-add label {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  white-space: nowrap;
+}
+
+.worldclock-add .select-field {
+  flex: 1;
+  min-width: 140px;
+}
+
+/* ============================================================
+   5. TODO LIST
+   ============================================================ */
+.todo-container {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.todo-input-area {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.todo-input-row {
+  display: flex;
+  gap: 8px;
+}
+
+.todo-input {
+  flex: 1;
+}
+
+.todo-meta-row {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.todo-meta-row .input-field,
+.todo-meta-row select {
+  font-size: 0.82rem;
+  padding: 7px 10px;
+}
+
+.todo-priority-select {
+  border-radius: 10px;
+  background: var(--input-bg);
+  border: 1.5px solid transparent;
+  font-family: var(--font-stack);
+  color: var(--text-primary);
+  padding: 7px 10px;
+  font-size: 0.82rem;
+  outline: none;
+  appearance: none;
+  -webkit-appearance: none;
+  cursor: pointer;
+}
+
+.todo-category-select {
+  border-radius: 10px;
+  background: var(--input-bg);
+  border: 1.5px solid transparent;
+  font-family: var(--font-stack);
+  color: var(--text-primary);
+  padding: 7px 10px;
+  font-size: 0.82rem;
+  outline: none;
+  appearance: none;
+  -webkit-appearance: none;
+  cursor: pointer;
+}
+
+.todo-filters {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.filter-btn {
+  background: none;
+  border: 1.5px solid var(--border);
+  border-radius: 20px;
+  color: var(--text-secondary);
+  padding: 5px 12px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background var(--transition), color var(--transition), border-color var(--transition);
+  font-family: var(--font-stack);
+}
+
+.filter-btn:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.filter-btn.active {
+  background: var(--accent);
+  color: #FFFFFF;
+  border-color: var(--accent);
+}
+
+.todo-count {
+  font-size: 0.78rem;
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+
+.todo-list {
+  list-style: none;
+}
+
+.todo-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 12px 10px;
+  border-bottom: 0.5px solid var(--border);
+  transition: background var(--transition);
+  cursor: grab;
+}
+
+.todo-item:active {
+  cursor: grabbing;
+}
+
+.todo-item.dragging {
+  opacity: 0.5;
+  background: var(--accent-light);
+  border-radius: 10px;
+}
+
+.todo-item.drag-over {
+  border-top: 2px solid var(--accent);
+}
+
+.todo-item:hover {
+  background: var(--input-bg);
+}
+
+.todo-drag-handle {
+  color: var(--text-secondary);
+  cursor: grab;
+  font-size: 0.9rem;
+  padding: 2px;
+  opacity: 0.4;
+  transition: opacity var(--transition);
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.todo-item:hover .todo-drag-handle {
+  opacity: 0.8;
+}
+
+.todo-checkbox {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 22px;
+  height: 22px;
+  border: 2px solid var(--border);
+  border-radius: 6px;
+  cursor: pointer;
+  position: relative;
+  flex-shrink: 0;
+  transition: background var(--transition), border-color var(--transition);
+  margin-top: 1px;
+}
+
+.todo-checkbox:checked {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
+.todo-checkbox:checked::after {
+  content: '';
+  position: absolute;
+  left: 6px;
+  top: 2px;
+  width: 6px;
+  height: 10px;
+  border: solid #FFFFFF;
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
+}
+
+.todo-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.todo-text {
+  font-size: 0.92rem;
+  word-break: break-word;
+  transition: color var(--transition), text-decoration var(--transition);
+  line-height: 1.4;
+}
+
+.todo-item.completed .todo-text {
+  text-decoration: line-through;
+  color: var(--text-secondary);
+}
+
+.todo-tags {
+  display: flex;
+  gap: 6px;
+  margin-top: 4px;
+  flex-wrap: wrap;
+}
+
+.todo-tag {
+  font-size: 0.68rem;
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-weight: 600;
+  letter-spacing: 0.2px;
+}
+
+.todo-tag.priority-high {
+  background: var(--danger-light);
+  color: var(--danger);
+}
+
+.todo-tag.priority-medium {
+  background: var(--warning-light);
+  color: var(--warning);
+}
+
+.todo-tag.priority-low {
+  background: var(--success-light);
+  color: var(--success);
+}
+
+.todo-tag.category {
+  background: var(--accent-light);
+  color: var(--accent);
+}
+
+.todo-tag.due-date {
+  background: var(--purple-light);
+  color: var(--purple);
+}
+
+.todo-delete {
+  background: none;
+  border: none;
+  color: var(--danger);
+  cursor: pointer;
+  font-size: 1rem;
+  padding: 2px 6px;
+  opacity: 0;
+  transition: opacity var(--transition);
+  flex-shrink: 0;
+}
+
+.todo-item:hover .todo-delete {
+  opacity: 0.7;
+}
+
+.todo-delete:hover {
+  opacity: 1 !important;
+}
+
+.todo-actions-row {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+/* ============================================================
+   6. QUICK NOTES
+   ============================================================ */
+.notes-container {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.notes-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.notes-status {
+  font-size: 0.78rem;
+  font-weight: 600;
+  padding: 3px 10px;
+  border-radius: 10px;
+  transition: background var(--transition), color var(--transition);
+}
+
+.notes-status.saved {
+  background: var(--success-light);
+  color: var(--success);
+}
+
+.notes-status.unsaved {
+  background: var(--danger-light);
+  color: var(--danger);
+}
+
+.notes-meta {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+
+.notes-chars, .notes-words {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+
+.notes-toggle-row {
+  display: flex;
+  gap: 6px;
+}
+
+.toggle-btn {
+  padding: 5px 12px;
+  border-radius: 10px;
+  background: var(--input-bg);
+  border: 1.5px solid transparent;
+  color: var(--text-secondary);
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all var(--transition);
+  font-family: var(--font-stack);
+}
+
+.toggle-btn.active {
+  background: var(--accent);
+  color: #FFFFFF;
+  border-color: var(--accent);
+}
+
+.notes-textarea {
+  width: 100%;
+  min-height: 280px;
+  resize: vertical;
+  background: var(--input-bg);
+  border: 1.5px solid transparent;
+  border-radius: 16px;
+  color: var(--text-primary);
+  font-family: var(--font-stack);
+  font-size: 0.92rem;
+  line-height: 1.65;
+  padding: 16px 18px;
+  outline: none;
+  transition: border-color var(--transition), box-shadow var(--transition);
+}
+
+.notes-textarea:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(0, 122, 255, 0.12);
+  background: #FFFFFF;
+}
+
+.notes-textarea::placeholder {
+  color: var(--text-secondary);
+}
+
+/* Markdown Preview */
+.notes-preview {
+  width: 100%;
+  min-height: 280px;
+  background: var(--input-bg);
+  border-radius: 16px;
+  padding: 16px 18px;
+  line-height: 1.65;
+  font-size: 0.92rem;
+  overflow-y: auto;
+  max-height: 500px;
+}
+
+.notes-preview h1 { font-size: 1.5rem; font-weight: 700; margin: 12px 0 8px; color: var(--text-primary); }
+.notes-preview h2 { font-size: 1.25rem; font-weight: 700; margin: 10px 0 6px; color: var(--text-primary); }
+.notes-preview h3 { font-size: 1.1rem; font-weight: 600; margin: 8px 0 4px; color: var(--text-primary); }
+.notes-preview p { margin: 6px 0; }
+.notes-preview strong { font-weight: 700; }
+.notes-preview em { font-style: italic; }
+.notes-preview code {
+  background: var(--border);
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 0.85rem;
+  font-family: "SF Mono", Monaco, "Cascadia Code", monospace;
+}
+.notes-preview pre {
+  background: #2D2D2D;
+  color: #F8F8F2;
+  padding: 12px 16px;
+  border-radius: 10px;
+  overflow-x: auto;
+  margin: 8px 0;
+  font-size: 0.85rem;
+  font-family: "SF Mono", Monaco, "Cascadia Code", monospace;
+}
+.notes-preview pre code {
+  background: none;
+  padding: 0;
+  color: inherit;
+}
+.notes-preview ul, .notes-preview ol { margin: 6px 0; padding-left: 20px; }
+.notes-preview li { margin: 2px 0; }
+.notes-preview blockquote {
+  border-left: 3px solid var(--accent);
+  padding-left: 12px;
+  margin: 8px 0;
+  color: var(--text-secondary);
+  font-style: italic;
+}
+.notes-preview hr { border: none; border-top: 1px solid var(--border); margin: 12px 0; }
+.notes-preview a { color: var(--accent); text-decoration: underline; }
+
+.notes-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+/* ============================================================
+   MODAL
+   ============================================================ */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.3);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  display: none;
+  align-items: center;
+  justify-content: center;
+  z-index: 200;
+}
+
+.modal-overlay.visible {
+  display: flex;
+}
+
+.modal-box {
+  background: var(--surface);
+  border-radius: var(--card-radius);
+  box-shadow: var(--shadow-lg);
+  padding: 28px 24px;
+  max-width: 340px;
+  width: 90%;
+  text-align: center;
+}
+
+.modal-message {
+  font-size: 0.95rem;
+  margin-bottom: 20px;
+  color: var(--text-primary);
+  line-height: 1.5;
+}
+
+.modal-actions {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+}
+
+/* ============================================================
+   SCROLLBAR
+   ============================================================ */
+::-webkit-scrollbar {
+  width: 4px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 2px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--text-secondary);
+}
+
+/* ============================================================
+   RESPONSIVE
+   ============================================================ */
+@media (max-width: 480px) {
+  .pomodoro-ring-wrapper {
+    width: 180px;
+    height: 180px;
+  }
+
+  .pomodoro-time-display span:first-child {
+    font-size: 2rem;
+  }
+
+  .stopwatch-display {
+    font-size: 2.4rem;
+  }
+
+  .countdown-display {
+    font-size: 2.6rem;
+  }
+
+  .countdown-inputs {
+    flex-direction: row;
+    gap: 8px;
+  }
+
+  .clock-card {
+    padding: 12px 14px;
+  }
+}

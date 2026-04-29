@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Solitaire</title>
+    <link rel="stylesheet" href="../shared-animations.css">
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", sans-serif; }
+        body { background: #076324; color: white; min-height: 100vh; display: flex; flex-direction: column; overflow: hidden; user-select: none; }
+        
+        .top-nav { 
+            padding: 10px 16px; 
+            display: flex; 
+            justify-content: space-between; 
+            align-items: center; 
+            background: rgba(0,0,0,0.2);
+            backdrop-filter: blur(10px);
+        }
+        .nav-btn { color: #fff; text-decoration: none; font-size: 16px; font-weight: 500; opacity: 0.8; }
+        
+        .game-board { flex: 1; padding: 15px; display: flex; flex-direction: column; gap: 20px; }
+        
+        .top-row { display: flex; justify-content: space-between; height: 100px; }
+        .slots-left { display: flex; gap: 10px; }
+        .slots-right { display: flex; gap: 8px; }
+        
+        .slot { 
+            width: 55px; 
+            height: 80px; 
+            border: 1.5px solid rgba(255,255,255,0.2); 
+            border-radius: 6px; 
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .slot::after { font-size: 30px; opacity: 0.15; font-weight: 700; }
+        .slot.deck::after { content: "↺"; opacity: 0.4; }
+        .slot.suit-heart::after { content: "♥"; }
+        .slot.suit-spade::after { content: "♠"; }
+        .slot.suit-club::after { content: "♣"; }
+        .slot.suit-diamond::after { content: "♦"; }
+
+        .columns { display: flex; justify-content: space-between; flex: 1; margin-top: 10px; }
+        .column { width: 55px; height: 100%; position: relative; }
+
+        .card { 
+            width: 55px; 
+            height: 80px; 
+            background: #fff; 
+            border-radius: 6px; 
+            box-shadow: 0 2px 5px rgba(0,0,0,0.3); 
+            color: #000; 
+            display: flex; 
+            flex-direction: column; 
+            padding: 4px 6px; 
+            position: absolute; 
+            cursor: pointer; 
+            border: 0.5px solid #ccc;
+            transition: transform 0.2s, top 0.2s;
+        }
+        .card:active { transform: scale(1.05); z-index: 1000 !important; }
+        .card.red { color: #ff3b30; }
+        .card .rank { font-weight: 700; font-size: 14px; line-height: 1; }
+        .card .suit { font-size: 12px; }
+        .card .center-suit { flex: 1; display: flex; align-items: center; justify-content: center; font-size: 24px; }
+        
+        .card.face-down { 
+            background: #007aff; 
+            background-image: repeating-linear-gradient(45deg, transparent, transparent 5px, rgba(255,255,255,0.1) 5px, rgba(255,255,255,0.1) 10px);
+            border: 2.5px solid #fff; 
+        }
+        .card.face-down * { display: none; }
+
+        .footer { padding: 20px; text-align: center; font-size: 14px; opacity: 0.6; }
+    </style>
+</head>
+<body>
+    <div class="top-nav">
+        <a href="../index.html" class="nav-btn">‹ Exit</a>
+        <div style="font-weight: 700; letter-spacing: 0.5px;">SOLITAIRE</div>
+        <div class="nav-btn">New Game</div>
+    </div>
+
+    <div class="game-board">
+        <div class="top-row">
+            <div class="slots-left">
+                <div class="slot deck" onclick="drawCard()"></div>
+                <div class="slot" id="waste">
+                    <div class="card" style="z-index:10;"><span class="rank">A</span><span class="suit">♠</span><div class="center-suit">♠</div></div>
+                </div>
+            </div>
+            <div class="slots-right">
+                <div class="slot suit-heart"></div>
+                <div class="slot suit-spade"></div>
+                <div class="slot suit-club"></div>
+                <div class="slot suit-diamond"></div>
+            </div>
+        </div>
+
+        <div class="columns">
+            <div class="column" id="col0">
+                <div class="card" style="top: 0;"><span class="rank">K</span><span class="suit">♠</span><div class="center-suit">♠</div></div>
+            </div>
+            <div class="column" id="col1">
+                <div class="card face-down" style="top: 0;"></div>
+                <div class="card red" style="top: 20px;"><span class="rank">Q</span><span class="suit">♥</span><div class="center-suit">♥</div></div>
+            </div>
+            <div class="column" id="col2">
+                <div class="card face-down" style="top: 0;"></div>
+                <div class="card face-down" style="top: 20px;"></div>
+                <div class="card" style="top: 40px;"><span class="rank">J</span><span class="suit">♣</span><div class="center-suit">♣</div></div>
+            </div>
+            <div class="column" id="col3">
+                <div class="card face-down" style="top: 0;"></div>
+                <div class="card face-down" style="top: 20px;"></div>
+                <div class="card face-down" style="top: 40px;"></div>
+                <div class="card red" style="top: 60px;"><span class="rank">10</span><span class="suit">♦</span><div class="center-suit">♦</div></div>
+            </div>
+            <div class="column" id="col4">
+                <div class="card face-down" style="top: 0;"></div>
+                <div class="card face-down" style="top: 20px;"></div>
+                <div class="card face-down" style="top: 40px;"></div>
+                <div class="card face-down" style="top: 60px;"></div>
+                <div class="card" style="top: 80px;"><span class="rank">9</span><span class="suit">♠</span><div class="center-suit">♠</div></div>
+            </div>
+            <div class="column" id="col5">
+                <div class="card face-down" style="top: 0;"></div>
+                <div class="card face-down" style="top: 20px;"></div>
+                <div class="card face-down" style="top: 40px;"></div>
+                <div class="card face-down" style="top: 60px;"></div>
+                <div class="card face-down" style="top: 80px;"></div>
+                <div class="card red" style="top: 100px;"><span class="rank">8</span><span class="suit">♥</span><div class="center-suit">♥</div></div>
+            </div>
+            <div class="column" id="col6">
+                <div class="card face-down" style="top: 0;"></div>
+                <div class="card face-down" style="top: 20px;"></div>
+                <div class="card face-down" style="top: 40px;"></div>
+                <div class="card face-down" style="top: 60px;"></div>
+                <div class="card face-down" style="top: 80px;"></div>
+                <div class="card face-down" style="top: 100px;"></div>
+                <div class="card" style="top: 120px;"><span class="rank">7</span><span class="suit">♣</span><div class="center-suit">♣</div></div>
+            </div>
+        </div>
+    </div>
+
+    <div class="footer">
+        Score: 1450 • Time: 04:32
+    </div>
+
+    <script>
+        function drawCard() {
+            // Simple animation for drawing a card
+            const waste = document.getElementById('waste');
+            waste.style.transform = 'translateX(-10px)';
+            setTimeout(() => {
+                waste.style.transform = 'translateX(0)';
+            }, 100);
+        }
+
+        // Add some click listeners to cards to simulate "moving"
+        document.querySelectorAll('.card:not(.face-down)').forEach(card => {
+            card.addEventListener('click', () => {
+                card.style.transform = 'translateY(-10px)';
+                setTimeout(() => {
+                    card.style.transform = 'translateY(0)';
+                }, 200);
+            });
+        });
+    </script>
+    <script src="../shared-utils.js"></script>
+    <script src="script.js"></script>
+</body>
+</html>

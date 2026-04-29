@@ -1,0 +1,953 @@
+/* ============================================================
+   MicTab - Security & Dev Tools  |  iOS Cream Theme
+   ============================================================ */
+
+/* ---- CSS Custom Properties (Design Tokens) ---- */
+:root {
+  --bg:            #F9F8F3;
+  --surface:       #FFFFFF;
+  --input-bg:      #F5F5F0;
+  --border:        #E5E5EA;
+  --text:          #1C1C1E;
+  --text-sec:      #8E8E93;
+  --accent:        #007AFF;
+  --accent-hover:  #0062CC;
+  --accent-light:  rgba(0, 122, 255, 0.08);
+  --accent-purple: #5856D6;
+  --red:           #FF3B30;
+  --red-light:     rgba(255, 59, 48, 0.08);
+  --green:         #34C759;
+  --green-light:   rgba(52, 199, 89, 0.08);
+  --orange:        #FF9500;
+  --orange-light:  rgba(255, 149, 0, 0.08);
+  --yellow:        #FFCC00;
+  --teal:          #5AC8FA;
+  --card-radius:   20px;
+  --btn-radius:    12px;
+  --input-radius:  12px;
+  --font:          -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --mono:          "SF Mono", "Menlo", "Courier New", Courier, monospace;
+  --shadow-sm:     0 1px 3px rgba(0,0,0,0.04), 0 1px 2px rgba(0,0,0,0.06);
+  --shadow-md:     0 4px 12px rgba(0,0,0,0.06), 0 2px 4px rgba(0,0,0,0.04);
+  --shadow-lg:     0 8px 24px rgba(0,0,0,0.08), 0 4px 8px rgba(0,0,0,0.04);
+  --max-width:     450px;
+}
+
+/* ---- Reset / Base ---- */
+*, *::before, *::after {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html {
+  font-size: 15px;
+  scroll-behavior: smooth;
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  font-family: var(--font);
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* ---- Scrollbar Styling ---- */
+::-webkit-scrollbar {
+  width: 4px;
+  height: 4px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--text-sec);
+}
+
+/* ============================================================
+   NAVIGATION BAR
+   ============================================================ */
+.app-nav {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  background: rgba(249, 248, 243, 0.72);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border-bottom: 0.5px solid var(--border);
+  max-width: var(--max-width);
+  margin: 0 auto;
+}
+
+.nav-back,
+.nav-home {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--accent);
+  text-decoration: none;
+  font-size: 0.9rem;
+  font-weight: 500;
+  transition: opacity 0.2s;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.nav-back:active,
+.nav-home:active {
+  opacity: 0.5;
+}
+
+.nav-back svg,
+.nav-home svg {
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+}
+
+.nav-title {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text);
+  letter-spacing: -0.2px;
+}
+
+/* ============================================================
+   TAB STRIP
+   ============================================================ */
+.tab-strip-wrapper {
+  position: sticky;
+  top: 49px;
+  z-index: 99;
+  background: rgba(249, 248, 243, 0.72);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border-bottom: 0.5px solid var(--border);
+  max-width: var(--max-width);
+  margin: 0 auto;
+}
+
+.tab-strip {
+  display: flex;
+  overflow-x: auto;
+  gap: 0;
+  padding: 6px 12px 0;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.tab-strip::-webkit-scrollbar {
+  display: none;
+}
+
+.tab-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  padding: 8px 14px 10px;
+  border: none;
+  background: none;
+  cursor: pointer;
+  color: var(--text-sec);
+  font-family: var(--font);
+  font-size: 0.72rem;
+  font-weight: 500;
+  white-space: nowrap;
+  border-bottom: 2.5px solid transparent;
+  transition: color 0.2s, border-color 0.2s;
+  -webkit-tap-highlight-color: transparent;
+  flex-shrink: 0;
+}
+
+.tab-item svg {
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+}
+
+.tab-item:active {
+  transform: scale(0.98);
+}
+
+.tab-item.active {
+  color: var(--accent);
+  border-bottom-color: var(--accent);
+}
+
+/* ============================================================
+   MAIN CONTENT
+   ============================================================ */
+.app-content {
+  max-width: var(--max-width);
+  margin: 0 auto;
+  padding: 16px 16px 32px;
+}
+
+/* ============================================================
+   TOOL PANELS (show/hide)
+   ============================================================ */
+.tool-panel {
+  display: none;
+  animation: panelIn 0.3s ease;
+}
+
+.tool-panel.active {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+@keyframes panelIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.panel-header {
+  padding: 4px 0 0;
+}
+
+.panel-title {
+  font-size: 1.4rem;
+  font-weight: 700;
+  letter-spacing: -0.5px;
+  color: var(--text);
+}
+
+.panel-desc {
+  color: var(--text-sec);
+  font-size: 0.88rem;
+  margin-top: 2px;
+}
+
+/* ============================================================
+   CARD
+   ============================================================ */
+.card {
+  background: var(--surface);
+  border-radius: var(--card-radius);
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  box-shadow: var(--shadow-md);
+}
+
+/* ============================================================
+   FORM ELEMENTS
+   ============================================================ */
+.field-label {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--text-sec);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: -4px;
+}
+
+.text-input,
+.code-textarea {
+  width: 100%;
+  background: var(--input-bg);
+  border: 1.5px solid transparent;
+  border-radius: var(--input-radius);
+  color: var(--text);
+  font-family: var(--mono);
+  font-size: 0.88rem;
+  padding: 11px 14px;
+  outline: none;
+  transition: border-color 0.2s, box-shadow 0.2s;
+  resize: vertical;
+  -webkit-appearance: none;
+}
+
+.text-input:focus,
+.code-textarea:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(0, 122, 255, 0.15);
+}
+
+.text-input::placeholder,
+.code-textarea::placeholder {
+  color: var(--text-sec);
+  opacity: 0.5;
+}
+
+select.text-input {
+  cursor: pointer;
+}
+
+/* ============================================================
+   BUTTONS
+   ============================================================ */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  border: none;
+  border-radius: var(--btn-radius);
+  cursor: pointer;
+  font-family: var(--font);
+  font-weight: 600;
+  transition: background 0.2s, transform 0.1s, box-shadow 0.2s;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.btn:active {
+  transform: scale(0.98);
+}
+
+.btn-primary {
+  background: var(--accent);
+  color: #FFFFFF;
+  padding: 11px 22px;
+  font-size: 0.92rem;
+}
+
+.btn-primary:hover {
+  background: var(--accent-hover);
+  box-shadow: 0 4px 14px rgba(0, 122, 255, 0.3);
+}
+
+.btn-secondary {
+  background: var(--input-bg);
+  color: var(--text);
+  padding: 9px 16px;
+  font-size: 0.82rem;
+  border: 1.5px solid var(--border);
+}
+
+.btn-secondary:hover {
+  background: var(--border);
+}
+
+.btn-full {
+  width: 100%;
+}
+
+.btn-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border: none;
+  border-radius: 10px;
+  background: var(--input-bg);
+  cursor: pointer;
+  transition: background 0.2s, transform 0.1s;
+  -webkit-tap-highlight-color: transparent;
+  flex-shrink: 0;
+}
+
+.btn-icon:active {
+  transform: scale(0.98);
+}
+
+.btn-icon svg {
+  width: 18px;
+  height: 18px;
+  color: var(--text-sec);
+}
+
+.btn-icon:hover svg {
+  color: var(--accent);
+}
+
+.btn-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.btn-spacer {
+  flex: 1;
+}
+
+/* ============================================================
+   MODE TOGGLE (Password / Passphrase)
+   ============================================================ */
+.mode-toggle {
+  display: flex;
+  background: var(--input-bg);
+  border-radius: var(--btn-radius);
+  padding: 3px;
+  gap: 2px;
+}
+
+.mode-btn {
+  flex: 1;
+  padding: 9px 16px;
+  border: none;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--text-sec);
+  font-family: var(--font);
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.25s ease;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.mode-btn.active {
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: var(--shadow-sm);
+}
+
+.mode-btn:active {
+  transform: scale(0.98);
+}
+
+/* ============================================================
+   1. PASSWORD GENERATOR
+   ============================================================ */
+.password-display-wrapper {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.password-output {
+  flex: 1;
+  background: var(--input-bg);
+  border: 1.5px solid transparent;
+  border-radius: var(--input-radius);
+  color: var(--green);
+  font-family: var(--mono);
+  font-size: 1rem;
+  padding: 11px 14px;
+  outline: none;
+  letter-spacing: 0.5px;
+  min-width: 0;
+}
+
+/* Strength section */
+.strength-section {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.strength-bar-bg {
+  width: 100%;
+  height: 6px;
+  background: var(--input-bg);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.strength-bar-fill {
+  height: 100%;
+  width: 0%;
+  border-radius: 3px;
+  transition: width 0.4s ease, background 0.4s ease;
+}
+
+.strength-info {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.78rem;
+  color: var(--text-sec);
+}
+
+/* Slider */
+.control-row {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.control-label-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.control-label-row label {
+  font-size: 0.88rem;
+  color: var(--text-sec);
+  font-weight: 500;
+}
+
+.control-label-row strong {
+  color: var(--accent);
+  font-size: 1.1rem;
+  font-weight: 700;
+}
+
+input[type="range"] {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 5px;
+  border-radius: 3px;
+  background: var(--input-bg);
+  outline: none;
+}
+
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--accent);
+  cursor: pointer;
+  border: 3px solid var(--surface);
+  box-shadow: 0 1px 4px rgba(0,0,0,0.15);
+  transition: box-shadow 0.2s;
+}
+
+input[type="range"]::-webkit-slider-thumb:hover {
+  box-shadow: 0 0 0 4px rgba(0, 122, 255, 0.15);
+}
+
+/* Checkbox grid */
+.checkbox-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.85rem;
+  color: var(--text);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.checkbox-label.full-width {
+  grid-column: 1 / -1;
+}
+
+.checkbox-label input[type="checkbox"] {
+  display: none;
+}
+
+.checkbox-custom {
+  width: 20px;
+  height: 20px;
+  border-radius: 6px;
+  border: 1.5px solid var(--border);
+  background: var(--input-bg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: all 0.2s;
+  position: relative;
+}
+
+.checkbox-label input[type="checkbox"]:checked + .checkbox-custom {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
+.checkbox-label input[type="checkbox"]:checked + .checkbox-custom::after {
+  content: '';
+  width: 6px;
+  height: 10px;
+  border: 2px solid #fff;
+  border-top: none;
+  border-left: none;
+  transform: rotate(45deg) translate(-1px, -1px);
+  position: absolute;
+}
+
+/* ============================================================
+   2. JSON FORMATTER
+   ============================================================ */
+.json-output {
+  background: var(--input-bg);
+  border: 1.5px solid var(--border);
+  border-radius: var(--input-radius);
+  padding: 14px;
+  font-family: var(--mono);
+  font-size: 0.82rem;
+  line-height: 1.65;
+  overflow-x: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+  min-height: 60px;
+  color: var(--text);
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+/* Syntax highlighting colors applied via spans */
+.json-key     { color: var(--accent-purple); font-weight: 500; }
+.json-string  { color: #34C759; }
+.json-number  { color: #FF9500; }
+.json-bool    { color: #FF3B30; }
+.json-bracket { color: var(--text-sec); }
+
+.error-msg {
+  background: var(--red-light);
+  border: 1px solid rgba(255, 59, 48, 0.3);
+  border-radius: var(--input-radius);
+  padding: 12px 16px;
+  color: var(--red);
+  font-family: var(--mono);
+  font-size: 0.82rem;
+  line-height: 1.5;
+}
+
+/* Tree View */
+.tree-view {
+  background: var(--input-bg);
+  border: 1.5px solid var(--border);
+  border-radius: var(--input-radius);
+  padding: 14px;
+  font-family: var(--mono);
+  font-size: 0.82rem;
+  max-height: 400px;
+  overflow: auto;
+  line-height: 1.7;
+}
+
+.tree-toggle {
+  cursor: pointer;
+  user-select: none;
+  color: var(--accent-purple);
+  font-weight: 500;
+}
+
+.tree-toggle:hover {
+  text-decoration: underline;
+}
+
+.tree-children {
+  padding-left: 20px;
+  border-left: 1px solid var(--border);
+  margin-left: 4px;
+}
+
+.tree-key {
+  color: var(--accent-purple);
+  font-weight: 500;
+}
+
+.tree-string { color: #34C759; }
+.tree-number { color: #FF9500; }
+.tree-bool   { color: #FF3B30; }
+.tree-null   { color: var(--text-sec); font-style: italic; }
+
+.tree-collapsed > .tree-children {
+  display: none;
+}
+
+.tree-toggle::before {
+  content: '▼ ';
+  font-size: 0.7em;
+  display: inline-block;
+  transition: transform 0.15s;
+}
+
+.tree-collapsed > .tree-toggle::before {
+  transform: rotate(-90deg);
+}
+
+/* ============================================================
+   4. CREDIT CARD VALIDATOR RESULTS
+   ============================================================ */
+.cc-results {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.cc-card {
+  background: var(--input-bg);
+  border-radius: 14px;
+  padding: 12px 14px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--mono);
+  font-size: 0.82rem;
+  transition: transform 0.1s;
+}
+
+.cc-card:active {
+  transform: scale(0.98);
+}
+
+.cc-card .cc-number {
+  flex: 1;
+  min-width: 140px;
+  color: var(--text);
+  font-weight: 500;
+}
+
+.cc-badge {
+  font-size: 0.72rem;
+  font-weight: 600;
+  padding: 3px 10px;
+  border-radius: 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.cc-badge.visa       { background: rgba(0, 122, 255, 0.1); color: #007AFF; }
+.cc-badge.mastercard { background: rgba(255, 59, 48, 0.1); color: #FF3B30; }
+.cc-badge.amex       { background: rgba(88, 86, 214, 0.1); color: #5856D6; }
+.cc-badge.discover   { background: rgba(255, 149, 0, 0.1); color: #FF9500; }
+.cc-badge.diners     { background: rgba(255, 204, 0, 0.12); color: #CC8800; }
+.cc-badge.jcb        { background: rgba(52, 199, 89, 0.1); color: #34C759; }
+.cc-badge.unionpay   { background: rgba(255, 59, 48, 0.08); color: #D63031; }
+.cc-badge.unknown    { background: rgba(142, 142, 147, 0.1); color: var(--text-sec); }
+
+.cc-card .cc-status {
+  font-weight: 700;
+  font-size: 0.72rem;
+  padding: 3px 10px;
+  border-radius: 8px;
+}
+
+.cc-card .cc-status.valid {
+  background: var(--green-light);
+  color: var(--green);
+}
+
+.cc-card .cc-status.invalid {
+  background: var(--red-light);
+  color: var(--red);
+}
+
+/* ============================================================
+   5. IBAN VALIDATOR
+   ============================================================ */
+.iban-result {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.iban-result .iban-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+}
+
+.iban-result .iban-field {
+  font-size: 0.82rem;
+  color: var(--text-sec);
+}
+
+.iban-result .iban-field strong {
+  color: var(--text);
+}
+
+.iban-result .iban-status {
+  font-weight: 700;
+  font-size: 0.82rem;
+  padding: 5px 14px;
+  border-radius: 10px;
+}
+
+.iban-result .iban-status.valid {
+  background: var(--green-light);
+  color: var(--green);
+}
+
+.iban-result .iban-status.invalid {
+  background: var(--red-light);
+  color: var(--red);
+}
+
+.iban-steps {
+  background: var(--input-bg);
+  border-radius: 14px;
+  padding: 16px;
+  font-family: var(--mono);
+  font-size: 0.8rem;
+  line-height: 1.85;
+  overflow-x: auto;
+}
+
+.iban-steps .step-row {
+  padding: 4px 0;
+  border-bottom: 0.5px solid var(--border);
+}
+
+.iban-steps .step-row:last-child {
+  border-bottom: none;
+}
+
+.iban-steps .step-label {
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.iban-steps .step-value {
+  color: var(--green);
+  font-weight: 500;
+}
+
+/* ============================================================
+   6. BIN GENERATOR
+   ============================================================ */
+.disclaimer-box {
+  background: var(--orange-light);
+  border: 1px solid rgba(255, 149, 0, 0.25);
+  border-radius: 14px;
+  padding: 10px 16px;
+  font-size: 0.8rem;
+  color: var(--orange);
+  text-align: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  font-weight: 500;
+}
+
+.disclaimer-box svg {
+  flex-shrink: 0;
+}
+
+.input-row {
+  display: flex;
+  gap: 10px;
+}
+
+.input-group {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.input-group-sm {
+  flex: 0 0 90px;
+}
+
+.bin-results {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 360px;
+  overflow-y: auto;
+}
+
+.bin-row {
+  background: var(--input-bg);
+  border-radius: 12px;
+  padding: 10px 14px;
+  font-family: var(--mono);
+  font-size: 0.78rem;
+  display: flex;
+  align-items: center;
+  gap: 0;
+  color: var(--text);
+  transition: transform 0.1s;
+  cursor: default;
+}
+
+.bin-row:active {
+  transform: scale(0.98);
+}
+
+.bin-row .pipe-sep {
+  color: var(--border);
+  margin: 0 4px;
+  user-select: none;
+}
+
+.bin-row .bin-number { color: var(--text); font-weight: 500; }
+.bin-row .bin-month  { color: var(--accent-purple); }
+.bin-row .bin-year   { color: var(--accent); }
+.bin-row .bin-cvv    { color: var(--orange); }
+
+.bin-row .copy-single {
+  margin-left: auto;
+  background: none;
+  border: none;
+  padding: 4px;
+  cursor: pointer;
+  color: var(--text-sec);
+  border-radius: 6px;
+  transition: color 0.2s, background 0.2s;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+}
+
+.bin-row .copy-single:hover {
+  color: var(--accent);
+  background: var(--accent-light);
+}
+
+.bin-row .copy-single svg {
+  width: 14px;
+  height: 14px;
+}
+
+/* ============================================================
+   RESPONSIVE (tab strip already handles mobile)
+   ============================================================ */
+@media (max-width: 480px) {
+  .checkbox-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .btn-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .btn-spacer {
+    display: none;
+  }
+
+  .password-display-wrapper {
+    flex-direction: column;
+  }
+
+  .password-display-wrapper .btn-icon {
+    width: 100%;
+    border-radius: var(--btn-radius);
+  }
+
+  .cc-card {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6px;
+  }
+
+  .cc-card .cc-number {
+    min-width: 0;
+  }
+
+  .input-row {
+    flex-direction: column;
+  }
+
+  .input-group-sm {
+    flex: auto;
+  }
+}

@@ -546,17 +546,82 @@ async function loadApps() {
 // ── Import Dropdown ────────────────────────────────────────
 const importWrap = document.getElementById("import-dropdown-wrap");
 const importBtn = document.getElementById("btn-import");
+const backupWrap = document.getElementById("backup-dropdown-wrap");
+const backupBtn = document.getElementById("btn-backup-restore");
 
 importBtn.addEventListener("click", (e) => {
   e.stopPropagation();
   importWrap.classList.toggle("open");
+  if (backupWrap) backupWrap.classList.remove("open");
 });
+
+if (backupBtn && backupWrap) {
+  backupBtn.addEventListener("click", (e) => {
+    e.stopPropagation();
+    backupWrap.classList.toggle("open");
+    importWrap.classList.remove("open");
+  });
+}
 
 // Close dropdown when clicking outside
 document.addEventListener("click", (e) => {
   if (!importWrap.contains(e.target)) importWrap.classList.remove("open");
+  if (backupWrap && !backupWrap.contains(e.target)) backupWrap.classList.remove("open");
   if (devModeWrap && !devModeWrap.contains(e.target))
     devModeWrap.classList.remove("open");
+});
+
+// ── Backup & Restore Actions ───────────────────────────────
+document.getElementById("opt-backup").addEventListener("click", async () => {
+  if (backupWrap) backupWrap.classList.remove("open");
+  await window.appStoreAPI.exportAllApps();
+});
+
+let pendingRestoreFile = null;
+const restoreModeModal = document.getElementById("restore-mode-modal");
+
+document.getElementById("opt-restore").addEventListener("click", async () => {
+  if (backupWrap) backupWrap.classList.remove("open");
+  // First, pick the .MicApps file
+  const filePath = await window.appStoreAPI.pickFile();
+  if (filePath && filePath.endsWith(".MicApps")) {
+    pendingRestoreFile = filePath;
+    restoreModeModal.style.display = "flex";
+  } else if (filePath) {
+    alert("Please select a valid .MicApps file.");
+  }
+});
+
+document.getElementById("restore-mode-merge").addEventListener("click", async () => {
+  if (!pendingRestoreFile) return;
+  restoreModeModal.style.display = "none";
+  const result = await window.appStoreAPI.importAllApps("merge", pendingRestoreFile);
+  if (result && result.error) {
+    alert("Restore failed: " + result.error);
+  } else {
+    await loadApps();
+  }
+  pendingRestoreFile = null;
+});
+
+document.getElementById("restore-mode-replace").addEventListener("click", async () => {
+  if (!pendingRestoreFile) return;
+  restoreModeModal.style.display = "none";
+  const ok = confirm("Are you sure you want to completely wipe all current apps and replace them with the backup?");
+  if (ok) {
+    const result = await window.appStoreAPI.importAllApps("replace", pendingRestoreFile);
+    if (result && result.error) {
+      alert("Restore failed: " + result.error);
+    } else {
+      await loadApps();
+    }
+  }
+  pendingRestoreFile = null;
+});
+
+document.getElementById("restore-mode-cancel").addEventListener("click", () => {
+  restoreModeModal.style.display = "none";
+  pendingRestoreFile = null;
 });
 
 // ── Developer Mode / Web Security ──────────────────────────
@@ -1261,6 +1326,8 @@ aiSaveBtn.addEventListener("click", async () => {
   if (!currentAiHtml) return;
   aiModal.style.display = "none";
 
+  const isMultiFile = typeof currentAiHtml === "object" && currentAiHtml !== null;
+
   if (editingAppId) {
     // We are editing an existing app, save it directly!
     const res = await window.appStoreAPI.updateAppHtml(
@@ -1273,18 +1340,59 @@ aiSaveBtn.addEventListener("click", async () => {
       if (aiChatHistory && aiChatHistory.length > 0) {
         await window.appStoreAPI.saveAiChat(editingAppId, aiChatHistory);
       }
-      // Re-load apps to reflect any changes if needed
       await loadApps();
     }
   } else {
-    // New app flow
+    // New app flow — open paste modal pre-filled with AI output
     openPasteModal();
-    pasteCode.value = currentAiHtml;
-    const titleMatch = currentAiHtml.match(/<title>(.*?)<\/title>/i);
-    if (titleMatch) {
-      pasteName.value = titleMatch[1];
+
+    if (isMultiFile) {
+      // ── Separate tab ──
+      const separateRadio = document.querySelector('input[name="paste-mode"][value="separate"]');
+      if (separateRadio) {
+        separateRadio.checked = true;
+        separateRadio.dispatchEvent(new Event("change"));
+      }
+      pasteCodeHtml.value = currentAiHtml.html || "";
+      pasteCodeCss.value  = currentAiHtml.css  || "";
+      pasteCodeJs.value   = currentAiHtml.js   || "";
+
+      // ── Single tab — build a merged version automatically ──
+      let merged = currentAiHtml.html || "";
+      if (currentAiHtml.css) {
+        const styleTag = `\n<style>\n${currentAiHtml.css}\n</style>`;
+        if (merged.includes("</head>")) {
+          merged = merged.replace("</head>", styleTag + "\n</head>");
+        } else {
+          merged = styleTag + "\n" + merged;
+        }
+      }
+      if (currentAiHtml.js) {
+        const scriptTag = `\n<script>\n${currentAiHtml.js}\n<\/script>`;
+        if (merged.includes("</body>")) {
+          merged = merged.replace("</body>", scriptTag + "\n</body>");
+        } else {
+          merged = merged + "\n" + scriptTag;
+        }
+      }
+      pasteCode.value = merged;
+
+      // Title from html portion
+      const titleMatch = (currentAiHtml.html || "").match(/<title>(.*?)<\/title>/i);
+      if (titleMatch) pasteName.value = titleMatch[1];
+
+    } else {
+      // Single-file string — original behaviour
+      const singleRadio = document.querySelector('input[name="paste-mode"][value="single"]');
+      if (singleRadio) {
+        singleRadio.checked = true;
+        singleRadio.dispatchEvent(new Event("change"));
+      }
+      pasteCode.value = currentAiHtml;
+      const titleMatch = currentAiHtml.match(/<title>(.*?)<\/title>/i);
+      if (titleMatch) pasteName.value = titleMatch[1];
     }
-    // We'll save the chat history inside pasteSubmit
+    // Chat history will be saved inside pasteSubmit
   }
 });
 

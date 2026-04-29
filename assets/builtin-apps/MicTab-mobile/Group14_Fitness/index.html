@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Fitness</title>
+    <link rel="stylesheet" href="../shared-animations.css">
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", sans-serif; }
+        body { background: #000; color: #fff; min-height: 100vh; display: flex; flex-direction: column; overflow-x: hidden; }
+        
+        .top-nav { 
+            padding: 10px 16px; 
+            display: flex; 
+            justify-content: space-between; 
+            align-items: center; 
+            position: sticky;
+            top: 0;
+            background: rgba(0,0,0,0.8);
+            backdrop-filter: blur(10px);
+            z-index: 100;
+        }
+        .nav-btn { color: #34c759; text-decoration: none; font-size: 17px; font-weight: 500; }
+        .date-header { padding: 20px 16px 10px; }
+        .date-day { font-size: 13px; font-weight: 600; color: #8e8e93; text-transform: uppercase; }
+        .date-main { font-size: 34px; font-weight: 700; margin-top: 4px; }
+
+        /* Activity Rings */
+        .activity-card {
+            background: #1c1c1e;
+            border-radius: 16px;
+            margin: 16px;
+            padding: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .rings-wrap { position: relative; width: 140px; height: 140px; }
+        .ring-svg { transform: rotate(-90deg); width: 140px; height: 140px; }
+        .ring-bg { fill: none; stroke-width: 14; opacity: 0.15; }
+        .ring-fg { fill: none; stroke-width: 14; stroke-linecap: round; transition: stroke-dashoffset 1.5s cubic-bezier(0.4, 0, 0.2, 1); }
+        
+        .stats-wrap { flex: 1; margin-left: 24px; display: flex; flex-direction: column; gap: 16px; }
+        .stat-item { display: flex; flex-direction: column; gap: 2px; }
+        .stat-label { font-size: 13px; font-weight: 700; display: flex; align-items: center; gap: 6px; }
+        .stat-val { font-size: 24px; font-weight: 700; }
+        .stat-goal { font-size: 14px; font-weight: 500; color: #8e8e93; }
+        
+        .move-color { color: #fa114f; stroke: #fa114f; }
+        .exercise-color { color: #34c759; stroke: #34c759; }
+        .stand-color { color: #00d2ff; stroke: #00d2ff; }
+
+        /* Workouts */
+        .section-header { padding: 10px 16px; display: flex; justify-content: space-between; align-items: baseline; }
+        .section-title { font-size: 22px; font-weight: 700; }
+        .section-link { color: #34c759; font-size: 15px; text-decoration: none; }
+
+        .workout-item {
+            background: #1c1c1e;
+            border-radius: 12px;
+            margin: 8px 16px;
+            padding: 16px;
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+        .workout-icon {
+            width: 44px;
+            height: 44px;
+            background: rgba(52, 199, 89, 0.1);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            color: #34c759;
+        }
+        .workout-info { flex: 1; }
+        .workout-name { font-size: 17px; font-weight: 600; }
+        .workout-meta { font-size: 14px; color: #8e8e93; margin-top: 2px; }
+        .workout-kcal { text-align: right; font-size: 17px; font-weight: 600; color: #fa114f; }
+
+        /* Bottom Nav */
+        .tab-bar {
+            position: sticky;
+            bottom: 0;
+            background: rgba(28, 28, 30, 0.9);
+            backdrop-filter: blur(20px);
+            border-top: 1px solid #333;
+            display: flex;
+            justify-content: space-around;
+            padding: 10px 0 20px;
+        }
+        .tab-item { display: flex; flex-direction: column; align-items: center; gap: 4px; color: #8e8e93; text-decoration: none; }
+        .tab-item.active { color: #34c759; }
+        .tab-icon { font-size: 22px; }
+        .tab-label { font-size: 10px; font-weight: 600; }
+    </style>
+</head>
+<body>
+    <div class="top-nav">
+        <a href="../index.html" class="nav-btn">‹ Home</a>
+        <div style="width: 32px; height: 32px; border-radius: 50%; background: #333; display:flex; align-items:center; justify-content:center;">👤</div>
+    </div>
+
+    <div class="date-header">
+        <div class="date-day">Wednesday, April 29</div>
+        <div class="date-main">Summary</div>
+    </div>
+
+    <div class="activity-card">
+        <div class="rings-wrap">
+            <svg class="ring-svg" viewBox="0 0 100 100">
+                <!-- Move Ring -->
+                <circle class="ring-bg move-color" cx="50" cy="50" r="40" />
+                <circle id="moveRing" class="ring-fg move-color" cx="50" cy="50" r="40" stroke-dasharray="251.2" stroke-dashoffset="251.2" />
+                <!-- Exercise Ring -->
+                <circle class="ring-bg exercise-color" cx="50" cy="50" r="28" />
+                <circle id="exerciseRing" class="ring-fg exercise-color" cx="50" cy="50" r="28" stroke-dasharray="175.8" stroke-dashoffset="175.8" />
+                <!-- Stand Ring -->
+                <circle class="ring-bg stand-color" cx="50" cy="50" r="16" />
+                <circle id="standRing" class="ring-fg stand-color" cx="50" cy="50" r="16" stroke-dasharray="100.5" stroke-dashoffset="100.5" />
+            </svg>
+        </div>
+        <div class="stats-wrap">
+            <div class="stat-item">
+                <div class="stat-label move-color"><span>→</span> Move</div>
+                <div class="stat-val">450 <span class="stat-goal">/ 600 kcal</span></div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-label exercise-color"><span>↠</span> Exercise</div>
+                <div class="stat-val">22 <span class="stat-goal">/ 30 min</span></div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-label stand-color"><span>↑</span> Stand</div>
+                <div class="stat-val">9 <span class="stat-goal">/ 12 hr</span></div>
+            </div>
+        </div>
+    </div>
+
+    <div class="section-header">
+        <div class="section-title">Workouts</div>
+        <a href="#" class="section-link">Show More</a>
+    </div>
+
+    <div class="workout-item">
+        <div class="workout-icon">🏃</div>
+        <div class="workout-info">
+            <div class="workout-name">Outdoor Run</div>
+            <div class="workout-meta">4.20 mi • 32:15</div>
+        </div>
+        <div class="workout-kcal">342 kcal</div>
+    </div>
+
+    <div class="workout-item">
+        <div class="workout-icon">🧘</div>
+        <div class="workout-info">
+            <div class="workout-name">Yoga</div>
+            <div class="workout-meta">15 min • Morning Session</div>
+        </div>
+        <div class="workout-kcal">85 kcal</div>
+    </div>
+
+    <div class="section-header" style="margin-top: 10px;">
+        <div class="section-title">Trends</div>
+        <a href="#" class="section-link">Details</a>
+    </div>
+
+    <div class="workout-item" style="background: transparent; border: 1px solid #333;">
+        <div class="workout-icon" style="background: rgba(250, 17, 79, 0.1); color: #fa114f;">📈</div>
+        <div class="workout-info">
+            <div class="workout-name">Move</div>
+            <div class="workout-meta">Daily average is up this week</div>
+        </div>
+    </div>
+
+    <div class="tab-bar">
+        <a href="#" class="tab-item active">
+            <span class="tab-icon">📊</span>
+            <span class="tab-label">Summary</span>
+        </a>
+        <a href="#" class="tab-item">
+            <span class="tab-icon">🍎</span>
+            <span class="tab-label">Fitness+</span>
+        </a>
+        <a href="#" class="tab-item">
+            <span class="tab-icon">🏆</span>
+            <span class="tab-label">Sharing</span>
+        </a>
+    </div>
+
+    <script>
+        window.onload = () => {
+            // Animate rings
+            const movePercent = 450 / 600;
+            const exercisePercent = 22 / 30;
+            const standPercent = 9 / 12;
+
+            document.getElementById('moveRing').style.strokeDashoffset = 251.2 * (1 - movePercent);
+            document.getElementById('exerciseRing').style.strokeDashoffset = 175.8 * (1 - exercisePercent);
+            document.getElementById('standRing').style.strokeDashoffset = 100.5 * (1 - standPercent);
+        };
+    </script>
+    <script src="../shared-utils.js"></script>
+    <script src="script.js"></script>
+</body>
+</html>
