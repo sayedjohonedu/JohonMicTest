@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MicTab App</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      display: flex;
+      flex-direction: column;
+      width: 100vw;
+      height: 100vh;
+      overflow: hidden;
+      background: #1a1a1e;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    /* ── Title bar ─────────────────────────────────────────── */
+    #titlebar {
+      display: flex;
+      align-items: center;
+      height: 38px;
+      min-height: 38px;
+      padding: 0 10px;
+      background: #111114;
+      border-bottom: 1px solid rgba(255,255,255,0.07);
+      -webkit-app-region: drag;
+      user-select: none;
+      gap: 8px;
+      flex-shrink: 0;
+    }
+
+    #app-title {
+      flex: 1;
+      font-size: 12.5px;
+      font-weight: 500;
+      color: rgba(255,255,255,0.75);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .tb-btn {
+      -webkit-app-region: no-drag;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 30px;
+      height: 26px;
+      border: none;
+      border-radius: 6px;
+      background: transparent;
+      color: rgba(255,255,255,0.5);
+      cursor: pointer;
+      transition: background 0.15s, color 0.15s;
+      flex-shrink: 0;
+    }
+    .tb-btn:hover { background: rgba(255,255,255,0.1); color: #fff; }
+    .tb-btn.close-btn:hover { background: rgba(255, 80, 80, 0.25); color: #ff6b6b; }
+
+    /* ── App iframe ─────────────────────────────────────────── */
+    #app-frame {
+      flex: 1;
+      width: 100%;
+      border: none;
+      display: block;
+      min-height: 0;
+    }
+  </style>
+</head>
+<body>
+
+  <div id="titlebar">
+    <span id="app-title">Loading…</span>
+
+    <!-- Reload -->
+    <button class="tb-btn" id="btn-reload" title="Reload (⌘R)">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+        <polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-3.5"/>
+      </svg>
+    </button>
+
+    <!-- Close -->
+    <button class="tb-btn close-btn" id="btn-close" title="Close">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+      </svg>
+    </button>
+  </div>
+
+  <iframe id="app-frame" sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-modals allow-downloads"></iframe>
+
+  <script>
+    const api = window.miniappShellAPI;
+
+    // ── Populate from params passed via query string ────────
+    const params = new URLSearchParams(window.location.search);
+    const appUrl  = params.get('url');
+    const appName = params.get('name') || 'App';
+
+    document.title = appName;
+    document.getElementById('app-title').textContent = appName;
+
+    const frame = document.getElementById('app-frame');
+    if (appUrl) frame.src = appUrl;
+
+    // ── Reload ──────────────────────────────────────────────
+    function reloadApp() {
+      // Reset iframe src to force a clean reload
+      const src = frame.src;
+      frame.src = '';
+      requestAnimationFrame(() => { frame.src = src; });
+    }
+
+    document.getElementById('btn-reload').addEventListener('click', reloadApp);
+
+    // Keyboard shortcut Cmd/Ctrl + R
+    document.addEventListener('keydown', (e) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'r') {
+        e.preventDefault();
+        reloadApp();
+      }
+    });
+
+    // ── Close ───────────────────────────────────────────────
+    document.getElementById('btn-close').addEventListener('click', () => {
+      if (api && api.close) api.close();
+    });
+  </script>
+</body>
+</html>

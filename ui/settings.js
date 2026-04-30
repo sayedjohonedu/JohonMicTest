@@ -1718,11 +1718,13 @@ function renderVaultLlmProfiles() {
 
     div.innerHTML = `
       <div class="ai-profile-name">${escVaultHtml(p.name)}</div>
-      <div class="ai-profile-badge">${escVaultHtml(provLabel)}</div>
-      ${modelSelectHtml}
-      <div class="ai-profile-actions">
-        <button class="ai-profile-dup" title="Duplicate profile">⧉</button>
-        <button class="ai-profile-del" title="Delete">✕</button>
+      <div class="ai-profile-meta">
+        <div class="ai-profile-badge">${escVaultHtml(provLabel)}</div>
+        ${modelSelectHtml}
+        <div class="ai-profile-actions">
+          <button class="ai-profile-dup" title="Duplicate profile">⧉</button>
+          <button class="ai-profile-del" title="Delete">✕</button>
+        </div>
       </div>
     `;
 
@@ -1752,24 +1754,8 @@ function renderVaultLlmProfiles() {
         renderVaultLlmProfiles();
         showVaultLlmStatus('✓ Profile deleted');
       } else if (e.target.classList.contains('ai-profile-dup')) {
-        // Duplicate this profile
-        const clone = {
-          id: Date.now().toString(),
-          name: p.name + ' (Copy)',
-          provider: p.provider,
-          model: p.model,
-          apiKey: p.apiKey || '',
-          baseUrl: p.baseUrl || '',
-        };
-        try {
-          await window.electronAPI.vaultAddLlmProfile(clone);
-          _vaultLlmProfiles.push(clone);
-          renderVaultLlmProfiles();
-          showVaultLlmStatus('✓ Duplicated: ' + clone.name);
-        } catch (err) {
-          console.error('[Vault] Failed to duplicate profile:', err);
-          showVaultLlmStatus('⚠ Failed to duplicate', '#f87171');
-        }
+        // Show rename modal pre-filled with "Name (Copy)"
+        openDupRenameModal(p);
       } else {
         // Set as default for ALL LLM features (ai-dictation, translator, whisper-polish)
         await window.electronAPI.vaultSetDefault('ai-dictation', p.id);
@@ -1783,6 +1769,58 @@ function renderVaultLlmProfiles() {
     container.appendChild(div);
   });
 }
+
+// ── Duplicate Profile Rename Modal ────────────────────────────────
+let _dupRenameSourceProfile = null;
+
+function openDupRenameModal(sourceProfile) {
+  _dupRenameSourceProfile = sourceProfile;
+  const input = document.getElementById('dup-rename-input');
+  input.value = sourceProfile.name + ' (Copy)';
+  document.getElementById('dup-rename-modal').classList.add('open');
+  // Select all text so user can immediately type a new name
+  setTimeout(() => { input.focus(); input.select(); }, 60);
+}
+
+window.closeDupRenameModal = function() {
+  document.getElementById('dup-rename-modal').classList.remove('open');
+  _dupRenameSourceProfile = null;
+};
+
+window.confirmDupRename = async function() {
+  const input = document.getElementById('dup-rename-input');
+  const name = input.value.trim();
+  if (!name) { input.focus(); return; }
+
+  const p = _dupRenameSourceProfile;
+  if (!p) { closeDupRenameModal(); return; }
+
+  const clone = {
+    id: Date.now().toString(),
+    name,
+    provider: p.provider,
+    model: p.model,
+    apiKey: p.apiKey || '',
+    baseUrl: p.baseUrl || '',
+  };
+
+  closeDupRenameModal();
+
+  try {
+    const saved = await window.electronAPI.vaultAddLlmProfile(clone);
+    _vaultLlmProfiles.push(saved?.profile || saved);
+    renderVaultLlmProfiles();
+    showVaultLlmStatus('✓ Duplicated: ' + clone.name);
+  } catch (err) {
+    console.error('[Vault] Failed to duplicate profile:', err);
+    showVaultLlmStatus('⚠ Failed to duplicate', '#f87171');
+  }
+};
+
+// Close modal on backdrop click
+document.getElementById('dup-rename-modal')?.addEventListener('click', function(e) {
+  if (e.target === this) closeDupRenameModal();
+});
 
 // ── Whisper STT Profile Rendering ─────────────────────────────────
 function renderVaultWhisperProfiles() {
@@ -1803,8 +1841,12 @@ function renderVaultWhisperProfiles() {
     const provLabel = p.provider === 'groq' ? '⚡ Groq' : '🟢 OpenAI';
     div.innerHTML = `
       <div class="ai-profile-name">${escVaultHtml(p.name)}</div>
-      <div class="ai-profile-badge">${provLabel} · ${escVaultHtml(p.model || '')}</div>
-      <button class="ai-profile-del" title="Delete">✕</button>
+      <div class="ai-profile-meta">
+        <div class="ai-profile-badge">${provLabel} · ${escVaultHtml(p.model || '')}</div>
+        <div class="ai-profile-actions">
+          <button class="ai-profile-del" title="Delete">✕</button>
+        </div>
+      </div>
     `;
     div.addEventListener('click', async (e) => {
       if (e.target.classList.contains('ai-profile-del')) {
@@ -1892,13 +1934,14 @@ window.vaultAddLlmProfile = async function() {
 
   try {
     const saved = await window.electronAPI.vaultAddLlmProfile(profile);
-    _vaultLlmProfiles.push(saved);
+    const newProfile = saved?.profile || saved;
+    _vaultLlmProfiles.push(newProfile);
 
     // If this is the first profile, auto-set as default for all LLM features
     if (_vaultLlmProfiles.length === 1) {
-      await window.electronAPI.vaultSetDefault('ai-dictation', saved.id);
-      await window.electronAPI.vaultSetDefault('translator', saved.id);
-      await window.electronAPI.vaultSetDefault('whisper-polish', saved.id);
+      await window.electronAPI.vaultSetDefault('ai-dictation', newProfile.id);
+      await window.electronAPI.vaultSetDefault('translator', newProfile.id);
+      await window.electronAPI.vaultSetDefault('whisper-polish', newProfile.id);
     }
     _vaultDefaults = await window.electronAPI.vaultGetDefaults();
 
@@ -2020,11 +2063,12 @@ window.vaultAddWhisperProfile = async function() {
 
   try {
     const saved = await window.electronAPI.vaultAddWhisperProfile(profile);
-    _vaultWhisperProfiles.push(saved);
+    const newProfile = saved?.profile || saved;
+    _vaultWhisperProfiles.push(newProfile);
 
     // If first profile, auto-set as default
     if (_vaultWhisperProfiles.length === 1) {
-      await window.electronAPI.vaultSetDefault('whisper-stt', saved.id);
+      await window.electronAPI.vaultSetDefault('whisper-stt', newProfile.id);
     }
     _vaultDefaults = await window.electronAPI.vaultGetDefaults();
 

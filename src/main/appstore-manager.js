@@ -225,33 +225,75 @@ function launchMiniApp(appId) {
   );
   if (!fs.existsSync(entryFile)) return;
 
-  const win = new BrowserWindow({
-    width: appEntry.width || 900,
-    height: appEntry.height || 750,
-    useContentSize: true,
+  // ── Restore saved bounds (or fall back to defaults) ─────
+  const boundsKey = `miniapp.bounds.${appId}`;
+  const savedBounds = store.get(boundsKey, null);
+  const defaultW = appEntry.width  || 900;
+  const defaultH = appEntry.height || 750;
+
+  const winOpts = {
+    width:  savedBounds ? savedBounds.width  : defaultW,
+    height: savedBounds ? savedBounds.height : defaultH,
     minWidth: 320,
-    minHeight: 240,
-    frame: true,
+    minHeight: 200,
+    frame: false,           // custom title bar in the shell HTML
+    transparent: false,
+    titleBarStyle: 'hidden',
     title: appEntry.name || "Mini App",
+    backgroundColor: '#111114',
     webPreferences: {
-      // ─── SANDBOX: No Node, full context isolation ───
       partition: "persist:app_" + appId,
       contextIsolation: true,
       nodeIntegration: false,
-      sandbox: true,
+      sandbox: false,       // shell needs preload contextBridge
       webSecurity: !isWebSecurityDisabled(),
-      // Expose a tiny safe bridge for file picker & download
       preload: path.join(__dirname, "../../ui/miniapp-preload.js"),
     },
-  });
+  };
 
-  win.loadFile(entryFile);
+  // Restore position only if it was explicitly saved
+  if (savedBounds && savedBounds.x != null) {
+    winOpts.x = savedBounds.x;
+    winOpts.y = savedBounds.y;
+  }
+
+  const win = new BrowserWindow(winOpts);
+
+  // ── Load the shell wrapper, passing app info as query params ─
+  const shellPath = path.join(__dirname, "../../ui/miniapp-shell.html");
+  const fileUrl   = "file://" + shellPath +
+    "?url="  + encodeURIComponent("file://" + entryFile) +
+    "&name=" + encodeURIComponent(appEntry.name || "App");
+
+  win.loadURL(fileUrl);
   sandboxWindows.set(appId, win);
+
+  // ── Persist bounds on resize / move (debounced 600 ms) ──
+  let boundsTimer = null;
+  function saveBounds() {
+    if (boundsTimer) clearTimeout(boundsTimer);
+    boundsTimer = setTimeout(() => {
+      if (!win.isDestroyed() && !win.isMinimized() && !win.isMaximized()) {
+        store.set(boundsKey, win.getBounds());
+      }
+    }, 600);
+  }
+  win.on("resize", saveBounds);
+  win.on("move",   saveBounds);
+
+  // ── Shell close button → close window (cleaned up on close) ─
+  function onShellClose(evt) {
+    if (evt.sender === win.webContents) win.close();
+  }
+  ipcMain.on("miniapp-shell-close", onShellClose);
 
   win.on("closed", () => {
     sandboxWindows.delete(appId);
+    ipcMain.removeListener("miniapp-shell-close", onShellClose);
+    if (boundsTimer) clearTimeout(boundsTimer);
   });
 }
+
 
 // ── Pick file for import (returns path without installing) ──
 async function pickFileForImport() {
@@ -777,9 +819,9 @@ function installBuiltInApps() {
     const destDir = path.join(getAppsDir(), `builtin_${dir.name}`);
     fs.mkdirSync(destDir, { recursive: true });
 
-    // Copy all files and folders recursively
+    // Copy all files
     for (const file of fs.readdirSync(srcDir)) {
-      fs.cpSync(path.join(srcDir, file), path.join(destDir, file), { recursive: true });
+      fs.copyFileSync(path.join(srcDir, file), path.join(destDir, file));
     }
 
     // Read manifest
@@ -967,77 +1009,234 @@ function setupAppStoreIpc() {
     }
   });
 
-  ipcMain.handle("appstore-sync-games", async () => {
+  // ── KNOWN COLLECTIONS (server-side registry) ──────────────────────────
+  // Each entry mirrors the COLLECTIONS_REGISTRY in appstore.js.
+  const KNOWN_COLLECTIONS = [
+    {
+      id: "game-collection-1",
+      name: "Game Collection 1",
+      category: "games",
+      zipUrl: "https://github.com/he-is-talha/html-css-javascript-games/archive/refs/heads/main.zip",
+      commitApiUrl: "https://api.github.com/repos/he-is-talha/html-css-javascript-games/commits/main",
+    },
+    // Add more collections here in the future
+  ];
+
+  // Helper: get folderId stored for a collection
+  function getCollectionFolderId(id) {
+    return store.get(`collection.${id}.folderId`) || null;
+  }
+  function setCollectionFolderId(id, folderId) {
+    store.set(`collection.${id}.folderId`, folderId);
+  }
+  function clearCollectionData(id) {
+    store.delete(`collection.${id}.folderId`);
+    store.delete(`collection.${id}.sha`);
+  }
+
+  // ── GET COLLECTIONS STATUS ────────────────────────────────────
+  ipcMain.handle("appstore-get-collections", () => {
+    const result = {};
+    const registry = loadRegistry();
+    for (const col of KNOWN_COLLECTIONS) {
+      const folderId = getCollectionFolderId(col.id);
+      // Check if the folder still actually exists in the registry
+      const folderExists = folderId && registry.some(a => a.id === folderId);
+      result[col.id] = {
+        downloaded: !!folderExists,
+        folderId: folderExists ? folderId : null,
+        sha: store.get(`collection.${col.id}.sha`) || null,
+      };
+    }
+    return result;
+  });
+
+  // ── Shared download+install helper ──────────────────────────────
+  async function downloadAndInstallCollection(col, existingFolderId) {
+    // Fetch latest SHA
+    let latestSha = null;
     try {
+      const resp = await fetch(col.commitApiUrl);
+      if (resp.ok) {
+        const data = await resp.json();
+        latestSha = data.sha;
+      }
+    } catch (err) {
+      console.error(`Failed to fetch commit sha for ${col.id}:`, err);
+    }
+
+    // Download ZIP
+    const zipResp = await fetch(col.zipUrl);
+    if (!zipResp.ok) return { error: `Failed to download ${col.name}` };
+
+    const zipBuffer = Buffer.from(await zipResp.arrayBuffer());
+    const tempZipPath = path.join(app.getPath("temp"), `${col.id}.zip`);
+    fs.writeFileSync(tempZipPath, zipBuffer);
+
+    const extractDir = path.join(app.getPath("temp"), `${col.id}_extract_${Date.now()}`);
+    const AdmZip = require("adm-zip");
+    const zip = new AdmZip(tempZipPath);
+    zip.extractAllTo(extractDir, true);
+
+    const entries = fs.readdirSync(extractDir);
+    let rootFolder = extractDir;
+    if (entries.length === 1 && fs.statSync(path.join(extractDir, entries[0])).isDirectory()) {
+      rootFolder = path.join(extractDir, entries[0]);
+    }
+
+    // If we already have a folder (reload case), collect existing game IDs
+    const registry = loadRegistry();
+    const existingGameIds = existingFolderId
+      ? registry.filter(a => a.folderId === existingFolderId && !a.isFolder).map(a => a.id)
+      : [];
+
+    // Create or reuse folder entry
+    let folderId = existingFolderId;
+    if (!folderId) {
+      folderId = `collection_${col.id}_${Date.now()}`;
+      registry.push({
+        id: folderId,
+        isFolder: true,
+        name: col.name,
+        category: col.category,
+        collectionId: col.id,
+      });
+      saveRegistry(registry);
+    }
+
+    // Install each game sub-folder
+    const items = fs.readdirSync(rootFolder);
+    let newCount = 0;
+    for (const item of items) {
+      const itemPath = path.join(rootFolder, item);
+      if (!fs.statSync(itemPath).isDirectory()) continue;
+
+      const gameName = item.replace(/^\d+-/, "").replace(/-/g, " ");
+      // Generate a stable deterministic ID so duplicates aren't created on reload
+      const stableId = `collection_${col.id}_${item}`;
+
+      // Skip if already installed with this stable ID
+      const freshRegistry = loadRegistry();
+      if (freshRegistry.some(a => a.id === stableId)) continue;
+
+      newCount++;
+
+      // Copy to apps dir with the stable ID first
+      const destDir = path.join(getAppsDir(), stableId);
+      fs.mkdirSync(destDir, { recursive: true });
+      for (const f of fs.readdirSync(itemPath)) {
+        try { fs.copyFileSync(path.join(itemPath, f), path.join(destDir, f)); } catch {}
+      }
+
+      // Now use _finalizeInstall which handles:
+      //   1. appicon.* detection inside the copied folder
+      //   2. Random squircle icon from assets/icons if no appicon found
+      // We call it then extract the icon it saved.
+      const tempResult = _finalizeInstall(stableId, destDir, gameName, col.category);
+      // _finalizeInstall registers the entry — but it won't set folderId/collectionId.
+      // Remove that auto-registered entry and re-add with folderId.
+      const reg2 = loadRegistry();
+      const autoIdx = reg2.findIndex(a => a.id === stableId);
+      let savedIconName = null;
+      if (autoIdx !== -1) {
+        savedIconName = reg2[autoIdx].icon || null;
+        reg2.splice(autoIdx, 1);
+        saveRegistry(reg2);
+      }
+
+      const entry = {
+        id: stableId,
+        name: gameName,
+        entry: "index.html",
+        category: col.category,
+        folderId,
+        installedAt: Date.now(),
+      };
+      if (savedIconName) entry.icon = savedIconName;
+
+      reg2.push(entry);
+      saveRegistry(reg2);
+    }
+
+    // Save SHA and folder ID
+    if (latestSha) store.set(`collection.${col.id}.sha`, latestSha);
+    setCollectionFolderId(col.id, folderId);
+
+    // Cleanup temp
+    try { fs.rmSync(tempZipPath, { force: true }); } catch {}
+    try { fs.rmSync(extractDir, { recursive: true, force: true }); } catch {}
+
+    return { updated: true, newCount, folderId };
+  }
+
+  // ── DOWNLOAD COLLECTION (first time) ─────────────────────────────
+  ipcMain.handle("appstore-download-collection", async (_, id) => {
+    try {
+      const col = KNOWN_COLLECTIONS.find(c => c.id === id);
+      if (!col) return { error: "Unknown collection" };
+      // Make sure it's not already downloaded (idempotent guard)
+      const folderId = getCollectionFolderId(id);
+      const registry = loadRegistry();
+      const folderExists = folderId && registry.some(a => a.id === folderId);
+      return await downloadAndInstallCollection(col, folderExists ? folderId : null);
+    } catch (err) {
+      return { error: err.message };
+    }
+  });
+
+  // ── RELOAD COLLECTION (check for updates) ────────────────────────
+  ipcMain.handle("appstore-reload-collection", async (_, id) => {
+    try {
+      const col = KNOWN_COLLECTIONS.find(c => c.id === id);
+      if (!col) return { error: "Unknown collection" };
+
+      // Check latest SHA first
       let latestSha = null;
       try {
-        const resp = await fetch(
-          "https://api.github.com/repos/he-is-talha/html-css-javascript-games/commits/main",
-        );
+        const resp = await fetch(col.commitApiUrl);
         if (resp.ok) {
           const data = await resp.json();
           latestSha = data.sha;
         }
-      } catch (err) {
-        console.error("Failed to fetch commit sha:", err);
+      } catch {}
+
+      const savedSha = store.get(`collection.${id}.sha`);
+      if (latestSha && savedSha === latestSha) {
+        return { updated: false }; // Up to date
       }
+
+      // Has updates (or couldn't check SHA) — re-download using existing folder
+      const folderId = getCollectionFolderId(id);
+      const registry = loadRegistry();
+      const folderExists = folderId && registry.some(a => a.id === folderId);
+      return await downloadAndInstallCollection(col, folderExists ? folderId : null);
+    } catch (err) {
+      return { error: err.message };
+    }
+  });
+
+  // ── DELETE COLLECTION ───────────────────────────────────────────
+  ipcMain.handle("appstore-delete-collection", async (_, id) => {
+    try {
+      const folderId = getCollectionFolderId(id);
+      if (!folderId) return { success: true }; // Nothing to delete
 
       const registry = loadRegistry();
-      const games = registry.filter((a) => a.category === "games");
-
-      if (latestSha) {
-        const savedSha = store.get("gamesRepoCommit");
-        if (savedSha === latestSha && games.length > 0) {
-          return { updated: false };
-        }
-      } else {
-        // If we couldn't fetch SHA (e.g. rate limit) but we already have games, skip to prevent spam
-        if (games.length > 0) return { updated: false };
+      // Find all apps in this folder
+      const appsToDelete = registry.filter(a => a.folderId === folderId && !a.isFolder);
+      for (const a of appsToDelete) {
+        // Remove files from disk
+        const appDir = path.join(getAppsDir(), a.id);
+        try { if (fs.existsSync(appDir)) fs.rmSync(appDir, { recursive: true, force: true }); } catch {}
       }
 
-      const zipUrl =
-        "https://github.com/he-is-talha/html-css-javascript-games/archive/refs/heads/main.zip";
-      const zipResp = await fetch(zipUrl);
-      if (!zipResp.ok) return { error: "Failed to download games" };
+      // Remove folder entry and all app entries from registry
+      const idsToRemove = new Set([folderId, ...appsToDelete.map(a => a.id)]);
+      const newRegistry = registry.filter(a => !idsToRemove.has(a.id));
+      saveRegistry(newRegistry);
 
-      const zipBuffer = Buffer.from(await zipResp.arrayBuffer());
-      const tempZipPath = path.join(app.getPath("temp"), "games.zip");
-      fs.writeFileSync(tempZipPath, zipBuffer);
-
-      const extractDir = path.join(
-        app.getPath("temp"),
-        "games_extract_" + Date.now(),
-      );
-
-      const AdmZip = require("adm-zip");
-      const zip = new AdmZip(tempZipPath);
-      zip.extractAllTo(extractDir, true);
-
-      const entries = fs.readdirSync(extractDir);
-      let rootFolder = extractDir;
-      if (
-        entries.length === 1 &&
-        fs.statSync(path.join(extractDir, entries[0])).isDirectory()
-      ) {
-        rootFolder = path.join(extractDir, entries[0]);
-      }
-
-      const items = fs.readdirSync(rootFolder);
-      for (const item of items) {
-        const itemPath = path.join(rootFolder, item);
-        if (fs.statSync(itemPath).isDirectory()) {
-          const gameName = item.replace(/^\d+-/, "").replace(/-/g, " ");
-          installFromPath(itemPath, gameName, null, "games");
-        }
-      }
-
-      if (latestSha) {
-        store.set("gamesRepoCommit", latestSha);
-      }
-      fs.rmSync(tempZipPath, { force: true });
-      fs.rmSync(extractDir, { recursive: true, force: true });
-
-      return { updated: true };
+      clearCollectionData(id);
+      return { success: true };
     } catch (err) {
       return { error: err.message };
     }
@@ -1507,6 +1706,96 @@ function setupAppStoreIpc() {
       return { error: err.message };
     }
   });
+
+  // ── One-time migration: remove old auto-downloaded games ─────────
+  // The old `appstore-sync-games` handler installed games with category:"games"
+  // but no folderId. Purge them so users see a clean slate before using Collections.
+  if (!store.get("collections.migrationDone")) {
+    try {
+      const reg = loadRegistry();
+      const toDelete = reg.filter(a => a.category === "games" && !a.folderId && !a.isFolder && !a.builtIn);
+      for (const a of toDelete) {
+        const appDir = path.join(getAppsDir(), a.id);
+        try { if (fs.existsSync(appDir)) fs.rmSync(appDir, { recursive: true, force: true }); } catch {}
+      }
+      const idsToRemove = new Set(toDelete.map(a => a.id));
+      const cleaned = reg.filter(a => !idsToRemove.has(a.id));
+      if (toDelete.length > 0) {
+        saveRegistry(cleaned);
+        console.log(`[AppStore] Purged ${toDelete.length} legacy auto-downloaded game(s)`);
+      }
+      store.delete("gamesRepoCommit"); // clear old SHA key
+      store.set("collections.migrationDone", true);
+    } catch (e) {
+      console.error("[AppStore] Migration cleanup failed:", e);
+    }
+  }
+
+  // ── One-time migration: assign random icons to existing collection games ──
+  // Games already in the registry from an earlier download have no icon set.
+  // Walk them and generate the same squircle random icon _finalizeInstall would give.
+  if (!store.get("collections.iconMigrationDone")) {
+    try {
+      const reg = loadRegistry();
+      const iconsDir = path.join(__dirname, "../../assets/icons");
+      const iconFiles = fs.existsSync(iconsDir)
+        ? fs.readdirSync(iconsDir).filter(f => /\.(webp|png|jpe?g)$/i.test(f))
+        : [];
+
+      const squirclePath = "M100,68.7182051 C100,69.9139093 100,71.1074395 99.9913043,72.3009696 C99.9847826,73.3075351 99.973913,74.3141006 99.9478261,75.3184921 C99.920129,77.5191265 99.7268293,79.7145543 99.3695652,81.886169 C98.9978261,84.0601765 98.3043478,86.1646159 97.3108696,88.1320927 C95.2972476,92.0852921 92.0834623,95.2992171 88.1304348,97.3129266 C86.1638623,98.305079 84.0602691,98.9982471 81.8891304,99.3695378 C79.7152174,99.7282491 77.5195652,99.9217357 75.3195652,99.9478238 C74.3139596,99.9737988 73.308105,99.9890177 72.3021739,99.993478 C71.1065217,100 69.9130435,100 68.7195652,100 L31.2804348,100 C30.0869565,100 28.8934783,100 27.6978261,99.993478 C26.6919027,99.9897456 25.6860481,99.9752514 24.6804348,99.9499978 C22.4791037,99.9219121 20.2830235,99.7278754 18.1108696,99.3695378 C15.9391304,98.9999565 13.8347826,98.3042741 11.8695652,97.3129266 C7.91695765,95.2996615 4.70324405,92.0865692 2.68913043,88.1342667 C1.69595654,86.1655631 1.00208487,84.0596773 0.630434783,81.886169 C0.273173217,79.7152845 0.079873167,77.5205795 0.052173913,75.3206661 C0.0260869565,74.3141006 0.0130434783,73.3075351 0.00869565217,72.3009696 C0,71.1052654 0,69.9139093 0,68.7182051 L0,31.2817949 C0,30.0860907 0,28.8903865 0.00869565217,27.6946824 C0.0130434783,26.6902909 0.0260869565,25.6837254 0.052173913,24.6793339 C0.0799060567,22.4794222 0.273205889,20.2847196 0.630434783,18.113831 C1.00217391,15.9398235 1.69565217,13.8353841 2.68913043,11.8657333 C4.7027524,7.91253387 7.91653768,4.69860886 11.8695652,2.68489934 C13.8355813,1.69325138 15.9383812,1.00010324 18.1086957,0.628288186 C20.2826087,0.271750946 22.4782609,0.0782642724 24.6782609,0.050002174 C25.6847826,0.0239140832 26.6913043,0.0108700378 27.6956522,0.0065220227 C28.8913043,0 30.0869565,0 31.2782609,0 L68.7173913,0 C69.9130435,0 71.1086957,0 72.3021739,0.0065220227 C73.3080973,0.0102577353 74.3139519,0.0247519479 75.3195652,0.050002174 C77.5195652,0.0782642724 79.7152174,0.271750946 81.8869565,0.628288186 C84.0608696,1.00004348 86.1630435,1.69355189 88.1304348,2.68489934 C92.0844481,4.69799461 95.2990996,7.91202483 97.3130435,11.8657333 C98.305381,13.8338276 98.9985196,15.9389795 99.3695652,18.111657 C99.7268538,20.2832686 99.9201536,22.4786983 99.9478261,24.6793339 C99.973913,25.6858994 99.9869565,26.6924649 99.9913043,27.6968564 C100,28.8925605 100,30.0860907 100,31.2796209 L100,68.7182051 Z";
+
+      let fixedCount = 0;
+      const updatedReg = reg.map(a => {
+        // Only fix collection games with no icon
+        if (!a.folderId || a.isFolder || a.icon) return a;
+        if (iconFiles.length === 0) return a;
+
+        const appDir = path.join(getAppsDir(), a.id);
+        if (!fs.existsSync(appDir)) return a;
+
+        // Check if appicon.* already exists on disk (maybe just not in registry)
+        const existingIcon = fs.readdirSync(appDir).find(f => /^appicon\.(png|jpe?g|webp|gif|svg)$/i.test(f));
+        if (existingIcon) return { ...a, icon: existingIcon };
+
+        // Generate random squircle icon
+        try {
+          const randomFile = iconFiles[Math.floor(Math.random() * iconFiles.length)];
+          const filePath = path.join(iconsDir, randomFile);
+          const ext = path.extname(randomFile).toLowerCase().substring(1);
+          const mimeType = ext === "jpg" ? "jpeg" : ext;
+          const base64 = fs.readFileSync(filePath).toString("base64");
+          const dataUri = `data:image/${mimeType};base64,${base64}`;
+          const svgId = Math.random().toString(36).substr(2, 9);
+          const svgStr = `<svg width="100%" height="100%" viewBox="0 0 100 100" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+  <defs>
+      <path d="${squirclePath}" id="path-${svgId}"></path>
+      <clipPath id="clip-${svgId}">
+          <use xlink:href="#path-${svgId}"></use>
+      </clipPath>
+      <mask id="mask-${svgId}" fill="white">
+          <use xlink:href="#path-${svgId}"></use>
+      </mask>
+  </defs>
+  <image href="${dataUri}" width="100" height="100" clip-path="url(#clip-${svgId})" preserveAspectRatio="xMidYMid slice" />
+  <g stroke="none" stroke-width="1" fill="none" fill-rule="evenodd">
+      <path d="${squirclePath}" stroke-opacity="0.25" stroke="#000000" stroke-width="2" mask="url(#mask-${svgId})" stroke-linejoin="round" stroke-miterlimit="1.41" vector-effect="non-scaling-stroke"></path>
+  </g>
+</svg>`;
+          fs.writeFileSync(path.join(appDir, "appicon.svg"), svgStr, "utf-8");
+          fixedCount++;
+          return { ...a, icon: "appicon.svg" };
+        } catch { return a; }
+      });
+
+      if (fixedCount > 0) {
+        saveRegistry(updatedReg);
+        console.log(`[AppStore] Assigned random icons to ${fixedCount} collection game(s)`);
+      }
+      store.set("collections.iconMigrationDone", true);
+    } catch (e) {
+      console.error("[AppStore] Icon migration failed:", e);
+    }
+  }
 
   // Install built-in apps on first run
   installBuiltInApps();

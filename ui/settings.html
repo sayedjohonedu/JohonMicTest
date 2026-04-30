@@ -1067,6 +1067,46 @@
   </div>
 </div>
 
+<!-- ── Duplicate Profile Rename Modal ────────────────────────────── -->
+<div id="dup-rename-modal">
+  <div class="dup-rename-modal-content">
+    <div style="display:flex; align-items:center; gap:10px; margin-bottom:6px;">
+      <div style="width:32px; height:32px; background:rgba(108,99,255,0.15); border-radius:8px; display:flex; align-items:center; justify-content:center; flex-shrink:0;">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--accent2)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>
+      </div>
+      <div>
+        <div style="font-size:14px; font-weight:700; color:var(--text);">Duplicate Profile</div>
+        <div style="font-size:11px; color:var(--muted); margin-top:1px;">Give your copy a name</div>
+      </div>
+    </div>
+    <p style="font-size:12px; color:var(--muted); margin:12px 0 10px; line-height:1.5;">
+      Edit the name below or click <strong style="color:var(--text);">Create</strong> to keep the default.
+    </p>
+    <input
+      type="text"
+      id="dup-rename-input"
+      class="replace-input"
+      placeholder="Profile name…"
+      style="width:100%; font-size:13px; margin-bottom:14px;"
+      onkeydown="if(event.key==='Enter') confirmDupRename(); if(event.key==='Escape') closeDupRenameModal();"
+    >
+    <div style="display:flex; gap:8px;">
+      <button onclick="closeDupRenameModal()" style="
+        flex:1; background:transparent; border:1px solid var(--border2);
+        border-radius:9px; padding:9px; cursor:pointer; color:var(--muted);
+        font-size:12.5px; font-family:var(--font); transition:background 0.15s;
+      " onmouseover="this.style.background='rgba(255,255,255,0.04)'" onmouseout="this.style.background='transparent'">Cancel</button>
+      <button onclick="confirmDupRename()" style="
+        flex:2; background:linear-gradient(135deg, var(--accent), #9C6FFF);
+        border:none; border-radius:9px; padding:9px;
+        cursor:pointer; color:white; font-size:12.5px; font-weight:600;
+        font-family:var(--font); box-shadow:0 4px 14px rgba(108,99,255,0.35);
+        transition:box-shadow 0.15s;
+      " onmouseover="this.style.boxShadow='0 6px 20px rgba(108,99,255,0.5)'" onmouseout="this.style.boxShadow='0 4px 14px rgba(108,99,255,0.35)'">Create</button>
+    </div>
+  </div>
+</div>
+
 <script src="model-registry.js"></script>
 <script src="settings.js"></script>
 </body>

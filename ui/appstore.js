@@ -86,37 +86,15 @@ if (isWin) {
 
 // ── Tab Switching ──────────────────────────────────────────
 document.querySelectorAll(".tab-btn").forEach((btn) => {
-  btn.addEventListener("click", async () => {
+  btn.addEventListener("click", () => {
     document
       .querySelectorAll(".tab-btn")
       .forEach((b) => b.classList.remove("active"));
     btn.classList.add("active");
     currentTab = btn.dataset.tab;
     renderApps();
-
-    if (currentTab === "games") {
-      const origHtml = btn.innerHTML;
-      btn.innerHTML = `<span class="spinner" style="width:12px; height:12px; border-width:2px; display:inline-block; margin-right:6px;"></span> Syncing...`;
-      isSyncingGames = true;
-      renderApps(); // Update UI to show loading if no games are loaded yet
-      
-      try {
-        const result = await window.appStoreAPI.syncGames();
-        if (result && result.updated) {
-          await loadApps();
-        }
-      } catch (err) {
-        console.error("Failed to sync games", err);
-      } finally {
-        isSyncingGames = false;
-        renderApps(); // Re-render to clear loading state if it was shown
-        btn.innerHTML = origHtml;
-      }
-    }
   });
 });
-
-let isSyncingGames = false;
 
 // ── Render Apps ────────────────────────────────────────────
 function renderApps() {
@@ -128,25 +106,15 @@ function renderApps() {
   if (currentTab !== "all") {
     filtered = apps.filter((a) => a.category === currentTab);
   } else {
-    // Hide imported games from "All Apps"
-    filtered = apps.filter((a) => a.category !== "games");
+    // Show everything at the top level — individual games inside collection
+    // folders are already hidden by the folderId check below (line 114).
+    filtered = apps;
   }
 
   // Only show top level items in main grid
   const topLevelItems = filtered.filter((a) => !a.folderId);
 
   if (topLevelItems.length === 0) {
-    if (currentTab === "games" && isSyncingGames) {
-      empty.style.display = "none";
-      grid.innerHTML = `
-        <div style="grid-column: 1/-1; display:flex; flex-direction:column; align-items:center; justify-content:center; height:100%; min-height: 300px; color: var(--text);">
-          <span class="spinner" style="width: 32px; height: 32px; border-width: 3px; margin-bottom: 16px;"></span>
-          <h3 style="margin:0; font-size:16px; font-weight:500;">Downloading Games...</h3>
-          <p style="margin-top:8px; font-size:13px; max-width:300px; text-align:center; color:var(--muted);">Checking for new games and downloading from the repository. This may take a moment depending on your connection.</p>
-        </div>
-      `;
-      return;
-    }
     empty.style.display = "flex";
     return;
   }
@@ -548,11 +516,14 @@ const importWrap = document.getElementById("import-dropdown-wrap");
 const importBtn = document.getElementById("btn-import");
 const backupWrap = document.getElementById("backup-dropdown-wrap");
 const backupBtn = document.getElementById("btn-backup-restore");
+const collectionsWrap = document.getElementById("collections-dropdown-wrap");
+const collectionsBtn = document.getElementById("btn-collections");
 
 importBtn.addEventListener("click", (e) => {
   e.stopPropagation();
   importWrap.classList.toggle("open");
   if (backupWrap) backupWrap.classList.remove("open");
+  if (collectionsWrap) collectionsWrap.classList.remove("open");
 });
 
 if (backupBtn && backupWrap) {
@@ -560,6 +531,186 @@ if (backupBtn && backupWrap) {
     e.stopPropagation();
     backupWrap.classList.toggle("open");
     importWrap.classList.remove("open");
+    if (collectionsWrap) collectionsWrap.classList.remove("open");
+  });
+}
+
+// ── Collections Dropdown ───────────────────────────────────
+if (collectionsBtn && collectionsWrap) {
+  collectionsBtn.addEventListener("click", async (e) => {
+    e.stopPropagation();
+    const wasOpen = collectionsWrap.classList.contains("open");
+    importWrap.classList.remove("open");
+    if (backupWrap) backupWrap.classList.remove("open");
+    if (devModeWrap) devModeWrap.classList.remove("open");
+    if (wasOpen) {
+      collectionsWrap.classList.remove("open");
+    } else {
+      collectionsWrap.classList.add("open");
+      await renderCollections();
+    }
+  });
+}
+
+// ── COLLECTIONS REGISTRY ──────────────────────────────────
+// To add a new collection in the future, just push a new entry here.
+const COLLECTIONS_REGISTRY = [
+  {
+    id: "game-collection-1",
+    name: "Game Collection 1",
+    description: "HTML/CSS/JS browser games",
+    category: "games",
+    icon: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="6" y1="12" x2="10" y2="12"/><line x1="8" y1="10" x2="8" y2="14"/><line x1="15" y1="13" x2="15.01" y2="13"/><line x1="18" y1="11" x2="18.01" y2="11"/><rect x="2" y="6" width="20" height="12" rx="2"/></svg>`,
+    zipUrl: "https://github.com/he-is-talha/html-css-javascript-games/archive/refs/heads/main.zip",
+    commitApiUrl: "https://api.github.com/repos/he-is-talha/html-css-javascript-games/commits/main",
+  },
+  // ← Add more collections here in the future
+];
+
+// Per-collection in-progress state
+const collectionBusy = {}; // id → true if busy
+
+async function renderCollections() {
+  const listEl = document.getElementById("collections-list");
+  if (!listEl) return;
+
+  // Fetch current status from main process
+  let statuses = {};
+  try {
+    statuses = await window.appStoreAPI.getCollections();
+  } catch (e) {
+    console.error("getCollections failed", e);
+  }
+
+  listEl.innerHTML = "";
+
+  for (const col of COLLECTIONS_REGISTRY) {
+    const status = statuses[col.id] || { downloaded: false };
+    const isDownloaded = !!status.downloaded;
+    const isBusy = !!collectionBusy[col.id];
+
+    const row = document.createElement("div");
+    row.className = "collection-row";
+    row.dataset.id = col.id;
+
+    let actionHtml;
+    if (isBusy) {
+      actionHtml = `
+        <div class="coll-busy">
+          <span class="spinner" style="width:14px;height:14px;border-width:2px;"></span>
+          <span class="coll-busy-label" id="coll-busy-${col.id}">Working…</span>
+        </div>`;
+    } else if (isDownloaded) {
+      actionHtml = `
+        <div class="coll-actions">
+          <button class="coll-btn coll-reload" data-id="${col.id}" title="Check for updates">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+            Update
+          </button>
+          <button class="coll-btn coll-delete" data-id="${col.id}" title="Remove collection">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/></svg>
+          </button>
+        </div>`;
+    } else {
+      actionHtml = `
+        <button class="coll-btn coll-download" data-id="${col.id}" title="Download collection">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          Download
+        </button>`;
+    }
+
+    row.innerHTML = `
+      <div class="coll-info">
+        <span class="coll-icon">${col.icon}</span>
+        <div class="coll-text">
+          <div class="coll-name">${escHtml(col.name)}</div>
+          <div class="coll-desc">${escHtml(col.desc || col.description || "")}</div>
+        </div>
+      </div>
+      <div class="coll-right">${actionHtml}</div>
+    `;
+    listEl.appendChild(row);
+  }
+
+  // Wire up buttons
+  listEl.querySelectorAll(".coll-download").forEach((btn) => {
+    btn.addEventListener("click", async (e) => {
+      e.stopPropagation();
+      const id = btn.dataset.id;
+      collectionBusy[id] = true;
+      await renderCollections();
+      const busyLabel = document.getElementById(`coll-busy-${id}`);
+      if (busyLabel) busyLabel.textContent = "Downloading…";
+      try {
+        const res = await window.appStoreAPI.downloadCollection(id);
+        if (res && res.error) {
+          alert("Download failed: " + res.error);
+        } else {
+          await loadApps();
+        }
+      } catch (err) {
+        console.error("downloadCollection error", err);
+        alert("Download failed: " + err.message);
+      } finally {
+        delete collectionBusy[id];
+        await renderCollections();
+      }
+    });
+  });
+
+  listEl.querySelectorAll(".coll-reload").forEach((btn) => {
+    btn.addEventListener("click", async (e) => {
+      e.stopPropagation();
+      const id = btn.dataset.id;
+      collectionBusy[id] = true;
+      await renderCollections();
+      const busyLabel = document.getElementById(`coll-busy-${id}`);
+      if (busyLabel) busyLabel.textContent = "Checking for updates…";
+      try {
+        const res = await window.appStoreAPI.reloadCollection(id);
+        if (res && res.error) {
+          alert("Update failed: " + res.error);
+        } else if (res && res.updated) {
+          await loadApps();
+        }
+        // If not updated, just show "Up to date" briefly
+        if (res && !res.updated && !res.error) {
+          const bl = document.getElementById(`coll-busy-${id}`);
+          if (bl) bl.textContent = "Already up to date";
+          await new Promise(r => setTimeout(r, 1500));
+        }
+      } catch (err) {
+        console.error("reloadCollection error", err);
+        alert("Update failed: " + err.message);
+      } finally {
+        delete collectionBusy[id];
+        await renderCollections();
+      }
+    });
+  });
+
+  listEl.querySelectorAll(".coll-delete").forEach((btn) => {
+    btn.addEventListener("click", async (e) => {
+      e.stopPropagation();
+      const id = btn.dataset.id;
+      const col = COLLECTIONS_REGISTRY.find(c => c.id === id);
+      const ok = confirm(`Remove "${col ? col.name : id}" and all its games/apps?`);
+      if (!ok) return;
+      collectionBusy[id] = true;
+      await renderCollections();
+      const busyLabel = document.getElementById(`coll-busy-${id}`);
+      if (busyLabel) busyLabel.textContent = "Removing…";
+      try {
+        await window.appStoreAPI.deleteCollection(id);
+        await loadApps();
+      } catch (err) {
+        console.error("deleteCollection error", err);
+        alert("Delete failed: " + err.message);
+      } finally {
+        delete collectionBusy[id];
+        await renderCollections();
+      }
+    });
   });
 }
 
@@ -569,6 +720,8 @@ document.addEventListener("click", (e) => {
   if (backupWrap && !backupWrap.contains(e.target)) backupWrap.classList.remove("open");
   if (devModeWrap && !devModeWrap.contains(e.target))
     devModeWrap.classList.remove("open");
+  if (collectionsWrap && !collectionsWrap.contains(e.target))
+    collectionsWrap.classList.remove("open");
 });
 
 // ── Backup & Restore Actions ───────────────────────────────
@@ -660,11 +813,11 @@ async function updateDevModeUI() {
   const remaining = await window.appStoreAPI.getWebSecurity();
   if (remaining > 0) {
     if (remaining === Infinity) {
-      devModeText.textContent = "Security: OFF";
+      if (devModeText) devModeText.textContent = "Security: OFF";
       btnDevMode.style.color = "var(--danger, #ff4d4f)";
     } else {
       const mins = Math.ceil(remaining / 60000);
-      devModeText.textContent = `Security: OFF (${mins}m)`;
+      if (devModeText) devModeText.textContent = `Security: OFF (${mins}m)`;
       btnDevMode.style.color = "var(--danger, #ff4d4f)";
 
       if (!devModeInterval) {
@@ -672,7 +825,7 @@ async function updateDevModeUI() {
       }
     }
   } else {
-    devModeText.textContent = "Security: ON";
+    if (devModeText) devModeText.textContent = "Security: ON";
     btnDevMode.style.color = "";
     if (devModeInterval) {
       clearInterval(devModeInterval);

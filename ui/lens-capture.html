@@ -77,23 +77,27 @@
     background: var(--lc-panel);
     backdrop-filter: blur(60px) saturate(200%);
     -webkit-backdrop-filter: blur(60px) saturate(200%);
-    border: 1px solid var(--lc-border);
-    border-radius: 14px;
-    box-shadow: 0 16px 40px rgba(0,0,0,0.35), inset 0 0.5px 0.5px rgba(255,255,255,0.12);
+    border: 1px solid rgba(255,255,255,0.18);
+    border-radius: 18px;
+    box-shadow:
+      0 24px 60px rgba(0,0,0,0.5),
+      0 8px 20px rgba(0,0,0,0.3),
+      inset 0 0.5px 0.5px rgba(255,255,255,0.14);
     display: flex;
     flex-direction: column;
-    padding: 8px 10px;
-    gap: 6px;
+    padding: 12px 14px;
+    gap: 8px;
     transition: opacity 0.2s ease;
   }
   [data-theme="light"] #tip, [data-theme="arctic"] #tip {
-    box-shadow: 0 12px 32px rgba(0,0,0,0.12), inset 0 0.5px 0.5px rgba(255,255,255,0.7);
+    border: 1px solid rgba(0,0,0,0.1);
+    box-shadow: 0 12px 40px rgba(0,0,0,0.15), inset 0 0.5px 0.5px rgba(255,255,255,0.7);
   }
 
   .bar-main {
     display: flex;
     flex-direction: column;
-    gap: 6px;
+    gap: 8px;
     pointer-events: auto;
   }
 
@@ -101,7 +105,7 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 4px;
+    gap: 8px;
   }
 
   .bar-btn {
@@ -109,14 +113,14 @@
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: 5px;
-    width: 64px;
-    height: 56px;
-    border-radius: 8px;
+    gap: 8px;
+    width: 72px;
+    height: 66px;
+    border-radius: 10px;
     background: transparent;
     border: 1px solid transparent;
     color: var(--lc-text);
-    font: 400 10px/1.15 inherit;
+    font: 500 11px/1.35 inherit;
     letter-spacing: 0.01em;
     text-align: center;
     cursor: pointer;
@@ -124,8 +128,8 @@
     flex-shrink: 0;
   }
   .bar-btn svg {
-    opacity: 0.85;
-    width: 18px; height: 18px;
+    opacity: 1;
+    width: 24px; height: 24px;
     flex-shrink: 0;
   }
 
@@ -154,13 +158,13 @@
 
   .group-divider {
     width: 1px;
-    height: 36px;
-    background: rgba(255, 255, 255, 0.07);
+    height: 44px;
+    background: rgba(255, 255, 255, 0.15);
     border-radius: 0.5px;
-    margin: 0 2px;
+    margin: 0 4px;
   }
   [data-theme="light"] .group-divider, [data-theme="arctic"] .group-divider {
-    background: rgba(0, 0, 0, 0.07);
+    background: rgba(0, 0, 0, 0.12);
   }
 
   /* Bottom Settings Row */
@@ -168,26 +172,26 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 4px;
-    padding: 0;
+    gap: 6px;
+    padding-top: 2px;
   }
 
   .split-btn {
     display: flex;
     align-items: stretch;
-    background: rgba(255, 255, 255, 0.04);
-    border-radius: 4px;
-    border: 1px solid rgba(255, 255, 255, 0.04);
+    background: rgba(255, 255, 255, 0.06);
+    border-radius: 6px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
     color: var(--lc-muted);
-    height: 18px;
+    height: 24px;
     transition: all 0.15s;
   }
   [data-theme="light"] .split-btn, [data-theme="arctic"] .split-btn {
-    background: rgba(0, 0, 0, 0.03);
-    border-color: rgba(0, 0, 0, 0.04);
+    background: rgba(0, 0, 0, 0.04);
+    border-color: rgba(0, 0, 0, 0.07);
   }
-  .split-btn:hover { background: rgba(255, 255, 255, 0.07); }
-  [data-theme="light"] .split-btn:hover, [data-theme="arctic"] .split-btn:hover { background: rgba(0, 0, 0, 0.05); }
+  .split-btn:hover { background: rgba(255, 255, 255, 0.10); }
+  [data-theme="light"] .split-btn:hover, [data-theme="arctic"] .split-btn:hover { background: rgba(0, 0, 0, 0.07); }
   
   .split-btn.on {
     color: var(--lc-text);
@@ -199,18 +203,18 @@
   .split-left {
     display: flex;
     align-items: center;
-    gap: 3px;
-    padding: 0 5px;
+    gap: 4px;
+    padding: 0 7px;
     cursor: pointer;
     font-size: 11px;
     font-weight: 500;
     line-height: 1;
     letter-spacing: 0.01em;
-    border-radius: 4px 0 0 4px;
+    border-radius: 6px 0 0 6px;
     transition: background 0.15s;
   }
-  .split-left:hover { background: rgba(255, 255, 255, 0.05); color: var(--lc-text); }
-  [data-theme="light"] .split-left:hover, [data-theme="arctic"] .split-left:hover { background: rgba(0, 0, 0, 0.04); color: var(--lc-text); }
+  .split-left:hover { background: rgba(255, 255, 255, 0.07); color: var(--lc-text); }
+  [data-theme="light"] .split-left:hover, [data-theme="arctic"] .split-left:hover { background: rgba(0, 0, 0, 0.05); color: var(--lc-text); }
 
   .split-divider {
     width: 1px;
@@ -225,39 +229,39 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    padding: 0 2.5px;
+    padding: 0 5px;
     cursor: pointer;
-    border-radius: 0 4px 4px 0;
+    border-radius: 0 6px 6px 0;
     position: relative;
     transition: background 0.15s;
   }
-  .split-right:hover { background: rgba(255, 255, 255, 0.05); color: var(--lc-text); }
-  [data-theme="light"] .split-right:hover, [data-theme="arctic"] .split-right:hover { background: rgba(0, 0, 0, 0.04); color: var(--lc-text); }
+  .split-right:hover { background: rgba(255, 255, 255, 0.07); color: var(--lc-text); }
+  [data-theme="light"] .split-right:hover, [data-theme="arctic"] .split-right:hover { background: rgba(0, 0, 0, 0.05); color: var(--lc-text); }
 
   .single-btn {
     display: flex;
     align-items: center;
-    gap: 3px;
-    padding: 0 5px 0 4px;
-    background: rgba(255, 255, 255, 0.04);
-    border-radius: 4px;
-    border: 1px solid rgba(255, 255, 255, 0.04);
+    gap: 4px;
+    padding: 0 8px;
+    background: rgba(255, 255, 255, 0.06);
+    border-radius: 6px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
     color: var(--lc-muted);
     font-size: 11px;
     font-weight: 500;
     line-height: 1;
     letter-spacing: 0.01em;
-    height: 20px;
+    height: 24px;
     cursor: pointer;
     position: relative;
     transition: all 0.15s;
   }
   [data-theme="light"] .single-btn, [data-theme="arctic"] .single-btn {
-    background: rgba(0, 0, 0, 0.03);
-    border-color: rgba(0, 0, 0, 0.04);
+    background: rgba(0, 0, 0, 0.04);
+    border-color: rgba(0, 0, 0, 0.07);
   }
-  .single-btn:hover { background: rgba(255, 255, 255, 0.08); color: var(--lc-text); }
-  [data-theme="light"] .single-btn:hover, [data-theme="arctic"] .single-btn:hover { background: rgba(0, 0, 0, 0.06); color: var(--lc-text); }
+  .single-btn:hover { background: rgba(255, 255, 255, 0.10); color: var(--lc-text); }
+  [data-theme="light"] .single-btn:hover, [data-theme="arctic"] .single-btn:hover { background: rgba(0, 0, 0, 0.07); color: var(--lc-text); }
   .single-btn.on {
     color: var(--lc-text);
     background: var(--lc-accent-bg);
@@ -313,14 +317,14 @@
     <div class="bar-main">
       <div class="bar-top">
         <button class="bar-btn" id="btn-ss-hint" title="Drag to Select Region">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
             <path d="M6 8V6a2 2 0 0 1 2-2h2M18 8V6a2 2 0 0 0-2-2h-2M6 16v2a2 2 0 0 0 2 2h2M18 16v2a2 2 0 0 1-2 2h-2"/>
             <path d="M15 9l-6 6m0 0v-3m0 3h3"/>
           </svg>
           <span>Screenshot<br>Area</span>
         </button>
         <button class="bar-btn" id="btn-ss-full" title="Capture Full Screen">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
             <rect x="2" y="5" width="20" height="12" rx="2"/>
             <path d="M8 21h8M12 17v4"/>
           </svg>
@@ -330,16 +334,16 @@
         <div class="group-divider"></div>
 
         <button class="bar-btn bar-btn-rec" id="btn-rec-region" title="Record Region">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
             <rect x="3" y="3" width="18" height="18" rx="4"/>
             <path d="M9 8H8a1 1 0 0 0-1 1v1m8-2h1a1 1 0 0 1 1 1v1M7 14v1a1 1 0 0 0 1 1h1m8-2v1a1 1 0 0 1-1 1h-1"/>
           </svg>
           <span>Record<br>Area</span>
         </button>
         <button class="bar-btn" id="btn-rec-full" title="Record Full Screen">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
             <rect x="2" y="5" width="20" height="14" rx="2"/>
-            <polygon points="10 10 15 12 10 14 10 10" fill="none" stroke="currentColor"/>
+            <polygon points="10 10 15 12 10 14 10 10" fill="none" stroke="currentColor" stroke-width="1.5"/>
           </svg>
           <span>Record<br>Screen</span>
         </button>
@@ -347,7 +351,7 @@
         <div class="group-divider"></div>
 
         <button class="bar-btn btn-gallery" id="btn-gallery" title="Open Media Gallery">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
             <rect x="3" y="4" width="18" height="16" rx="2"/>
             <circle cx="8.5" cy="8.5" r="1.5" fill="none"/>
             <path d="M21 15l-5-5L5 20"/>

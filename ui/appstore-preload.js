@@ -26,7 +26,11 @@ contextBridge.exposeInMainWorld("appStoreAPI", {
   uninstall: (id) => ipcRenderer.invoke("appstore-uninstall", id),
   launch: (id) => ipcRenderer.send("appstore-launch", id),
   getIcons: () => ipcRenderer.invoke("appstore-get-icons"),
-  syncGames: () => ipcRenderer.invoke("appstore-sync-games"),
+  // Collections
+  getCollections: () => ipcRenderer.invoke("appstore-get-collections"),
+  downloadCollection: (id) => ipcRenderer.invoke("appstore-download-collection", id),
+  reloadCollection: (id) => ipcRenderer.invoke("appstore-reload-collection", id),
+  deleteCollection: (id) => ipcRenderer.invoke("appstore-delete-collection", id),
 
   setWebSecurity: (durationMs) =>
     ipcRenderer.invoke("appstore-set-web-security", durationMs),

@@ -228,9 +228,41 @@ function normaliseLangCode(code) {
   return MAP[code] || code;
 }
 
+// Singleton reference so only one bridge-error window can exist at a time
+let _bridgeErrorWin = null;
+
 function toggleListening(forceLang = null, fromTranslator = false, forceStart = false, skipAiProcessing = false) {
   if (!wsClient || wsClient.readyState !== WebSocket.OPEN) {
-    dialog.showErrorBox('MicTab Needs a Browser', 'Install Google Chrome, Microsoft Edge, or Brave and restart the computer.\n\nIf you have already installed one of these browsers, restart the computer.');
+    // If the bridge-error window is already open, just bring it to focus
+    if (_bridgeErrorWin && !_bridgeErrorWin.isDestroyed()) {
+      _bridgeErrorWin.focus();
+      isListening = false;
+      if (sttMode === 'overlay') {
+        const overlayWindow = getOverlayWindow();
+        if (overlayWindow) overlayWindow.hide();
+      }
+      updateTrayMenu(toggleListening, showSettings, app, switchTrayLanguage, isListening);
+      return;
+    }
+
+    const { BrowserWindow } = require('electron');
+    _bridgeErrorWin = new BrowserWindow({
+      width: 520,
+      height: 580,
+      webPreferences: {
+        nodeIntegration: true,
+        contextIsolation: false
+      },
+      frame: false,
+      transparent: true,
+      vibrancy: 'popover',
+      visualEffectState: 'active',
+      alwaysOnTop: true,
+      resizable: false
+    });
+    _bridgeErrorWin.loadFile(path.join(__dirname, 'ui', 'bridge-error.html'));
+    _bridgeErrorWin.on('closed', () => { _bridgeErrorWin = null; });
+    
     isListening = false;
     if (sttMode === 'overlay') {
       const overlayWindow = getOverlayWindow();
