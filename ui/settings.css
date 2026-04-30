@@ -571,3 +571,56 @@ textarea.replace-input:focus {
   to   { opacity: 1; transform: translateY(0) scale(1); }
 }
 
+
+/* ── SHORTCUTS SECTION ── */
+.shortcuts-section {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+  margin-top: 4px;
+}
+.shortcuts-section-header {
+  display: flex; align-items: center; gap: 8px;
+  padding: 11px 18px;
+  border-bottom: 1px solid var(--border);
+  background: rgba(108,99,255,0.06);
+}
+.shortcuts-section-header span {
+  font-size: 10.5px; font-weight: 700; letter-spacing: 0.8px;
+  text-transform: uppercase; color: var(--accent2);
+}
+.sc-row {
+  display: grid;
+  grid-template-columns: 1fr 170px 170px;
+  align-items: center;
+  padding: 11px 18px;
+  border-bottom: 1px solid var(--border);
+  transition: background 0.12s;
+}
+.sc-row:last-child { border-bottom: none; }
+.sc-row:nth-child(even) { background: rgba(255,255,255,0.018); }
+.sc-row:hover { background: rgba(108,99,255,0.05); }
+.sc-action { display: flex; flex-direction: column; gap: 2px; }
+.sc-name { font-size: 12.5px; font-weight: 600; color: var(--text); }
+.sc-desc { font-size: 11px; color: var(--muted); font-weight: 400; }
+.sc-keys { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; }
+.sc-keys kbd {
+  display: inline-flex; align-items: center; justify-content: center;
+  background: var(--card2);
+  border: 1px solid var(--border2);
+  border-bottom: 2px solid rgba(0,0,0,0.28);
+  border-radius: 5px;
+  padding: 3px 8px;
+  font-size: 11px; font-weight: 600;
+  font-family: 'SF Mono', 'Fira Code', 'Courier New', monospace;
+  color: var(--accent2);
+  letter-spacing: 0.2px;
+  white-space: nowrap;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.18);
+  user-select: none;
+}
+.sc-plus {
+  font-size: 10px; color: var(--muted); font-weight: 700;
+  line-height: 1; flex-shrink: 0;
+}

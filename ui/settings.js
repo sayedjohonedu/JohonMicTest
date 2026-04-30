@@ -167,6 +167,9 @@ window.switchPanel = function(id, el) {
   document.getElementById('panel-' + id).classList.add('active'); el.classList.add('active');
   document.getElementById('panel-title').textContent = PANELS[id].title;
   document.getElementById('panel-desc').textContent = PANELS[id].desc;
+  // Reset scroll to top so each tab starts fresh, independent of other tabs
+  const contentBody = document.querySelector('.content-body');
+  if (contentBody) contentBody.scrollTop = 0;
   if (id === 'stats') loadStats();
   if (id === 'whisper') loadWhisperPanel();
   if (id === 'api-vault') loadVaultPanel();

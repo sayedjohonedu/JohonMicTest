@@ -755,77 +755,111 @@
         </div>
 
         <!-- Default Shortcuts Table -->
-        <div class="shortcuts-table-container">
-          <div class="shortcuts-table-header">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20"/></svg>
-            <h3 style="margin:0; font-size:13px; font-weight:600; color:var(--text); letter-spacing:0.3px;">System Default Shortcuts</h3>
+        <div class="shortcuts-section">
+          <div class="shortcuts-section-header">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="16" x="2" y="4" rx="2"/><path d="M6 8h.01M10 8h.01M14 8h.01M18 8h.01M8 12h.01M12 12h.01M16 12h.01M7 16h10"/></svg>
+            <span>Default Keyboard Shortcuts</span>
           </div>
-          <table class="shortcuts-table">
-            <thead>
-              <tr>
-                <th>Action</th>
-                <th>macOS</th>
-                <th>Windows</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr>
-                <td><strong>Toggle Global Dictation</strong><small>Start or stop listening</small></td>
-                <td><span class="sc-kbd">⌥ C</span></td>
-                <td><span class="sc-kbd">Alt + C</span></td>
-              </tr>
-              <tr>
-                <td><strong>Push-to-Talk</strong><small>Hold to dictate</small></td>
-                <td><span class="sc-kbd">⌃ Control</span></td>
-                <td><span class="sc-kbd">F8</span></td>
-              </tr>
-              <tr>
-                <td><strong>Toggle AI Mode</strong><small>Switch to AI-processed dictation</small></td>
-                <td><span class="sc-kbd">⌥ ⇧ C</span></td>
-                <td><span class="sc-kbd">Alt + Shift + C</span></td>
-              </tr>
-              <tr>
-                <td><strong>AI Instant Process</strong><small>Send AI text instantly</small></td>
-                <td><span class="sc-kbd">Right ⇧ Shift</span></td>
-                <td><span class="sc-kbd">Right Shift</span></td>
-              </tr>
-              <tr>
-                <td><strong>Whisper Engine Hold</strong><small>Cloud dictation</small></td>
-                <td><span class="sc-kbd">Right ⌘ Cmd</span></td>
-                <td><span class="sc-kbd">Right Ctrl</span></td>
-              </tr>
-              <tr>
-                <td><strong>Whisper+LLM turn on/ off</strong><small>( Jervis wont work if ai turned off)</small></td>
-                <td><span class="sc-kbd">Right ⌥ ⇧ /</span></td>
-                <td><span class="sc-kbd">Right Alt ⇧ /</span></td>
-              </tr>
-              <tr>
-                <td><strong>Open/ close Translator Panel</strong><small>Toggle Translator window</small></td>
-                <td><span class="sc-kbd">⌥ ⇧ T</span></td>
-                <td><span class="sc-kbd">Alt + Shift + T</span></td>
-              </tr>
-              <tr>
-                <td><strong>Translator Quick Paste</strong><small>Paste translated text</small></td>
-                <td><span class="sc-kbd">⌥ ⇧ P</span></td>
-                <td><span class="sc-kbd">Alt + Shift + P</span></td>
-              </tr>
-              <tr>
-                <td><strong>Clipboard Manager</strong><small>View recent clips</small></td>
-                <td><span class="sc-kbd">⌥ V</span></td>
-                <td><span class="sc-kbd">Alt + V</span></td>
-              </tr>
-              <tr>
-                <td><strong>Screen Capture (Lens)</strong><small>Annotation tool</small></td>
-                <td><span class="sc-kbd">⌥ ⇧ S</span></td>
-                <td><span class="sc-kbd">Alt + Shift + S</span></td>
-              </tr>
-              <tr>
-                <td><strong>App Store</strong><small>Open Mini-apps</small></td>
-                <td><span class="sc-kbd">⌥ ⇧ A</span></td>
-                <td><span class="sc-kbd">Alt + Shift + A</span></td>
-              </tr>
-            </tbody>
-          </table>
+
+          <div class="sc-row">
+            <div class="sc-action">
+              <span class="sc-name">Toggle Global Dictation</span>
+              <span class="sc-desc">Start or stop listening</span>
+            </div>
+            <div class="sc-keys"><kbd>⌥</kbd><span class="sc-plus">+</span><kbd>C</kbd></div>
+            <div class="sc-keys"><kbd>Alt</kbd><span class="sc-plus">+</span><kbd>C</kbd></div>
+          </div>
+
+          <div class="sc-row">
+            <div class="sc-action">
+              <span class="sc-name">Push-to-Talk</span>
+              <span class="sc-desc">Hold to dictate</span>
+            </div>
+            <div class="sc-keys"><kbd>⌃ Control</kbd></div>
+            <div class="sc-keys"><kbd>F8</kbd></div>
+          </div>
+
+          <div class="sc-row">
+            <div class="sc-action">
+              <span class="sc-name">Toggle AI Mode</span>
+              <span class="sc-desc">Switch to AI-processed dictation</span>
+            </div>
+            <div class="sc-keys"><kbd>⌥</kbd><span class="sc-plus">+</span><kbd>⇧</kbd><span class="sc-plus">+</span><kbd>C</kbd></div>
+            <div class="sc-keys"><kbd>Alt</kbd><span class="sc-plus">+</span><kbd>Shift</kbd><span class="sc-plus">+</span><kbd>C</kbd></div>
+          </div>
+
+          <div class="sc-row">
+            <div class="sc-action">
+              <span class="sc-name">AI Instant Process</span>
+              <span class="sc-desc">Send AI text instantly</span>
+            </div>
+            <div class="sc-keys"><kbd>Right ⇧</kbd></div>
+            <div class="sc-keys"><kbd>Right Shift</kbd></div>
+          </div>
+
+          <div class="sc-row">
+            <div class="sc-action">
+              <span class="sc-name">Whisper Engine Hold</span>
+              <span class="sc-desc">Cloud dictation</span>
+            </div>
+            <div class="sc-keys"><kbd>Right ⌘</kbd></div>
+            <div class="sc-keys"><kbd>Right Ctrl</kbd></div>
+          </div>
+
+          <div class="sc-row">
+            <div class="sc-action">
+              <span class="sc-name">Whisper + LLM Toggle</span>
+              <span class="sc-desc">Enable/disable Whisper+LLM together</span>
+            </div>
+            <div class="sc-keys"><kbd>Right ⌥</kbd><span class="sc-plus">+</span><kbd>⇧</kbd><span class="sc-plus">+</span><kbd>/</kbd></div>
+            <div class="sc-keys"><kbd>Right Alt</kbd><span class="sc-plus">+</span><kbd>⇧</kbd><span class="sc-plus">+</span><kbd>/</kbd></div>
+          </div>
+
+          <div class="sc-row">
+            <div class="sc-action">
+              <span class="sc-name">Translator Panel</span>
+              <span class="sc-desc">Toggle Translator window</span>
+            </div>
+            <div class="sc-keys"><kbd>⌥</kbd><span class="sc-plus">+</span><kbd>⇧</kbd><span class="sc-plus">+</span><kbd>T</kbd></div>
+            <div class="sc-keys"><kbd>Alt</kbd><span class="sc-plus">+</span><kbd>Shift</kbd><span class="sc-plus">+</span><kbd>T</kbd></div>
+          </div>
+
+          <div class="sc-row">
+            <div class="sc-action">
+              <span class="sc-name">Translator Quick Paste</span>
+              <span class="sc-desc">Paste translated text</span>
+            </div>
+            <div class="sc-keys"><kbd>⌥</kbd><span class="sc-plus">+</span><kbd>⇧</kbd><span class="sc-plus">+</span><kbd>P</kbd></div>
+            <div class="sc-keys"><kbd>Alt</kbd><span class="sc-plus">+</span><kbd>Shift</kbd><span class="sc-plus">+</span><kbd>P</kbd></div>
+          </div>
+
+          <div class="sc-row">
+            <div class="sc-action">
+              <span class="sc-name">Clipboard Manager</span>
+              <span class="sc-desc">View recent clips</span>
+            </div>
+            <div class="sc-keys"><kbd>⌥</kbd><span class="sc-plus">+</span><kbd>V</kbd></div>
+            <div class="sc-keys"><kbd>Alt</kbd><span class="sc-plus">+</span><kbd>V</kbd></div>
+          </div>
+
+          <div class="sc-row">
+            <div class="sc-action">
+              <span class="sc-name">Screen Capture (Lens)</span>
+              <span class="sc-desc">Annotation tool</span>
+            </div>
+            <div class="sc-keys"><kbd>⌥</kbd><span class="sc-plus">+</span><kbd>⇧</kbd><span class="sc-plus">+</span><kbd>S</kbd></div>
+            <div class="sc-keys"><kbd>Alt</kbd><span class="sc-plus">+</span><kbd>Shift</kbd><span class="sc-plus">+</span><kbd>S</kbd></div>
+          </div>
+
+          <div class="sc-row">
+            <div class="sc-action">
+              <span class="sc-name">App Store</span>
+              <span class="sc-desc">Open Mini-apps</span>
+            </div>
+            <div class="sc-keys"><kbd>⌥</kbd><span class="sc-plus">+</span><kbd>⇧</kbd><span class="sc-plus">+</span><kbd>A</kbd></div>
+            <div class="sc-keys"><kbd>Alt</kbd><span class="sc-plus">+</span><kbd>Shift</kbd><span class="sc-plus">+</span><kbd>A</kbd></div>
+          </div>
+
         </div>
 
         <!-- Reset Section -->
