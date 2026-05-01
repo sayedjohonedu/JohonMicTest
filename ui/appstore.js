@@ -1162,13 +1162,74 @@ function generateId() {
 
 async function loadAiHistoryList() {
   const list = document.getElementById("ai-history-list");
-  const sessions = await window.appStoreAPI.getAiSessions();
+  let sessions = await window.appStoreAPI.getAiSessions();
+  const allApps = typeof apps !== 'undefined' ? apps : (await window.appStoreAPI.getApps());
+  
   list.innerHTML = "";
 
-  if (sessions.length === 0) {
-    list.innerHTML =
-      '<div style="padding: 12px; font-size: 11px; color: var(--text-muted); text-align: center;">No history yet.</div>';
-    return;
+  // ── Context header (only when inside an app) ──────────────────
+  if (editingAppId) {
+    const appRef = allApps.find(a => a.id === editingAppId);
+    const appName = appRef ? appRef.name : "App";
+
+    const header = document.createElement("div");
+    header.style.cssText = `
+      padding: 8px 10px 6px;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 4px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 6px;
+    `;
+
+    const label = document.createElement("div");
+    label.style.cssText = "font-size: 10px; color: var(--text-muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0;";
+    label.textContent = `📁 ${appName}`;
+
+    const exitBtn = document.createElement("button");
+    exitBtn.style.cssText = `
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      padding: 2px 7px;
+      font-size: 10px;
+      font-family: var(--font);
+      font-weight: 500;
+      color: var(--text-secondary);
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      cursor: pointer;
+      transition: all 0.15s ease;
+      white-space: nowrap;
+    `;
+    exitBtn.innerHTML = `<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg> All Chats`;
+    exitBtn.title = "Exit app context — view all sessions";
+    exitBtn.onmouseenter = () => { exitBtn.style.background = "var(--bg-card-hover)"; exitBtn.style.color = "var(--text)"; };
+    exitBtn.onmouseleave = () => { exitBtn.style.background = "var(--bg-card)"; exitBtn.style.color = "var(--text-secondary)"; };
+    exitBtn.onclick = (e) => {
+      e.stopPropagation();
+      resetAiBuilder(true); // Full reset — clear app context
+      document.getElementById("ai-session-dropdown-wrap").classList.remove("open");
+    };
+
+    header.appendChild(label);
+    header.appendChild(exitBtn);
+    list.appendChild(header);
+
+    // Filter sessions to this app only
+    sessions = sessions.filter(s => s.appId === editingAppId);
+  }
+
+  sessions.sort((a, b) => b.updatedAt - a.updatedAt);
+
+  if (sessions.length === 0 && !editingAppId) {
+    const empty = document.createElement("div");
+    empty.style.cssText = "padding: 12px; font-size: 11px; color: var(--text-muted); text-align: center;";
+    empty.textContent = "No history yet.";
+    list.appendChild(empty);
   }
 
   sessions.forEach((sess) => {
@@ -1179,8 +1240,14 @@ async function loadAiHistoryList() {
     let titleText =
       sess.name ||
       (sess.messages && sess.messages.length > 0
-        ? sess.messages[0].content
+        ? (sess.messages[0].summary || sess.messages[0].content)
         : "New App");
+
+    // Add app context prefix if in global (all-apps) view
+    const appRef = allApps.find(a => a.id === sess.appId);
+    if (!editingAppId && appRef) {
+      titleText = `[${appRef.name}] ${titleText}`;
+    }
 
     const title = document.createElement("div");
     title.className = "ai-history-item-title";
@@ -1198,18 +1265,57 @@ async function loadAiHistoryList() {
       e.stopPropagation();
       await window.appStoreAPI.deleteAiSession(sess.id);
       if (sess.id === currentAiSessionId) {
-        resetAiBuilder();
+        resetAiBuilder(false);
       } else {
         loadAiHistoryList();
       }
     };
 
-    item.onclick = () => loadAiSession(sess);
+    item.onclick = () => {
+      loadAiSession(sess);
+      document.getElementById("ai-session-dropdown-wrap").classList.remove("open");
+    };
     item.appendChild(title);
     item.appendChild(date);
     item.appendChild(delBtn);
     list.appendChild(item);
   });
+
+  // ── Footer: New Project (always visible) ─────────────────────
+  const divider = document.createElement("div");
+  divider.style.cssText = "height: 1px; background: var(--border); margin: 4px 8px;";
+  list.appendChild(divider);
+
+  const newProjectBtn = document.createElement("button");
+  newProjectBtn.style.cssText = `
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    padding: 8px 10px;
+    font-size: 11.5px;
+    font-family: var(--font);
+    font-weight: 500;
+    color: var(--text-secondary);
+    background: transparent;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    text-align: left;
+  `;
+  newProjectBtn.innerHTML = `
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+    New Project
+  `;
+  newProjectBtn.title = "Start a completely new AI app project";
+  newProjectBtn.onmouseenter = () => { newProjectBtn.style.background = "var(--bg-card-hover)"; newProjectBtn.style.color = "var(--text)"; };
+  newProjectBtn.onmouseleave = () => { newProjectBtn.style.background = "transparent"; newProjectBtn.style.color = "var(--text-secondary)"; };
+  newProjectBtn.onclick = () => {
+    resetAiBuilder(true);
+    document.getElementById("ai-session-dropdown-wrap").classList.remove("open");
+  };
+  list.appendChild(newProjectBtn);
 }
 
 function loadAiSession(sess) {
@@ -1218,11 +1324,7 @@ function loadAiSession(sess) {
   aiChatHistory = sess.messages || [];
   currentAiHtml = sess.html || null;
 
-  const headerTitle = document.getElementById("ai-current-title");
-  if (headerTitle) {
-    headerTitle.textContent =
-      sess.name || (editingAppId ? "Modifying App" : "AI App Builder");
-  }
+  updateAiHeader();
 
   renderChat();
   loadAiHistoryList();
@@ -1243,15 +1345,45 @@ function loadAiSession(sess) {
   }
 }
 
+function updateAiHeader() {
+  const headerTitle = document.getElementById("ai-current-title");
+  const headerIcon = document.getElementById("ai-header-icon");
+  const appStatus = document.getElementById("ai-app-status");
+  
+  if (editingAppId) {
+    const appRef = apps && apps.find(a => a.id === editingAppId);
+    if (appRef) {
+      headerTitle.textContent = appRef.name;
+      appStatus.textContent = "Modifying Existing App";
+      if (appRef.iconBase64) {
+        headerIcon.innerHTML = `<img src="${appRef.iconBase64}" style="width:100%; height:100%; object-fit:cover;">`;
+        headerIcon.style.background = "transparent";
+      } else {
+        const cSvg = CATEGORY_ICONS[appRef.category] || CATEGORY_ICONS.tools;
+        headerIcon.innerHTML = cSvg;
+        headerIcon.style.background = "var(--bg-card)";
+      }
+      return;
+    }
+  }
+  
+  // Default fallback
+  headerTitle.textContent = "AI App Builder";
+  appStatus.textContent = "New Project";
+  headerIcon.innerHTML = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.5 2A2.5 2.5 0 0 1 12 4.5v15a2.5 2.5 0 0 1-4.96.44 2.5 2.5 0 0 1-2.96-3.08 3 3 0 0 1-.34-5.58 2.5 2.5 0 0 1 1.32-4.24 2.5 2.5 0 0 1 1.44-4.04Z"/><path d="M14.5 2A2.5 2.5 0 0 0 12 4.5v15a2.5 2.5 0 0 0 4.96.44 2.5 2.5 0 0 0 2.96-3.08 3 3 0 0 0 .34-5.58 2.5 2.5 0 0 0-1.32-4.24 2.5 2.5 0 0 0-1.44-4.04Z"/></svg>`;
+  headerIcon.style.background = "var(--accent-dim)";
+}
+
 async function saveCurrentAiSession() {
   if (!currentAiSessionId) {
     currentAiSessionId = generateId();
   }
 
+  const firstUserMsg = aiChatHistory.find(m => m.role === "user");
   const title = editingAppId
-    ? "Modifying App"
+    ? (firstUserMsg ? firstUserMsg.content.slice(0, 60) : "Editing App")
     : aiChatHistory.length > 0
-      ? aiChatHistory[0].content
+      ? (aiChatHistory[0].summary || aiChatHistory[0].content).slice(0, 60)
       : "New App";
 
   await window.appStoreAPI.saveAiSession({
@@ -1264,21 +1396,26 @@ async function saveCurrentAiSession() {
   loadAiHistoryList();
 }
 
+function extractSummary(text) {
+  const match = text && text.match(/<summary>([\s\S]*?)<\/summary>/i);
+  return match ? match[1].trim() : null;
+}
+
 function renderChat() {
   aiChatContainer.innerHTML = "";
   aiChatHistory.forEach((msg, index) => {
     if (msg.role === "system") return;
     const div = document.createElement("div");
     div.className = `ai-msg ai-msg-${msg.role}`;
-    div.textContent =
-      msg.role === "assistant"
-        ? "✓ " +
-          (msg.content.includes("<<<<")
-            ? "Modifications applied."
-            : "App generated.")
-        : msg.content;
 
     if (msg.role === "assistant") {
+      // Show the AI's real summary if available, fallback to generic
+      const displayText = msg.summary ||
+        (msg.content && msg.content.includes("<<<<")
+          ? "Applied modifications to the app."
+          : "App generated.");
+      div.textContent = displayText;
+
       const restoreBtn = document.createElement("div");
       restoreBtn.className = "ai-msg-restore";
       restoreBtn.title = "Restore to this state";
@@ -1296,7 +1433,10 @@ function renderChat() {
         }
       };
       div.appendChild(restoreBtn);
+    } else {
+      div.textContent = msg.content;
     }
+
     aiChatContainer.appendChild(div);
   });
   aiChatContainer.scrollTop = aiChatContainer.scrollHeight;
@@ -1321,7 +1461,7 @@ window.appStoreAPI.onChatAI(async (appId) => {
   }
 
   const sessions = await window.appStoreAPI.getAiSessions();
-  const appSessions = sessions.filter((s) => s.appId === appId);
+  const appSessions = sessions.filter((s) => s.appId === appId).sort((a, b) => b.updatedAt - a.updatedAt);
   const currentHtml = await window.appStoreAPI.readAppHtml(appId);
 
   let targetSession = null;
@@ -1348,23 +1488,31 @@ window.appStoreAPI.onChatAI(async (appId) => {
   loadAiSession(targetSession);
 });
 
-function resetAiBuilder() {
+function resetAiBuilder(clearApp = true) {
   aiPrompt.value = "";
   aiStatus.textContent = "";
   aiStatus.className = "ai-status";
-  currentAiHtml = null;
   isAiTesting = false;
-  editingAppId = null;
   currentAiSessionId = null;
   aiChatHistory = [];
+  
+  if (clearApp) {
+    editingAppId = null;
+    currentAiHtml = null;
+  }
+  
+  updateAiHeader();
   renderChat();
 
-  const headerTitle = document.getElementById("ai-current-title");
-  if (headerTitle) headerTitle.textContent = "AI App Builder";
-
-  aiTestBtn.style.display = "none";
-  aiSaveBtn.style.display = "none";
-  aiSubmit.querySelector("span").textContent = "Generate";
+  if (currentAiHtml) {
+    aiTestBtn.style.display = "block";
+    aiSaveBtn.style.display = "block";
+    aiSubmit.querySelector("span").textContent = "Modify App";
+  } else {
+    aiTestBtn.style.display = "none";
+    aiSaveBtn.style.display = "none";
+    aiSubmit.querySelector("span").textContent = "Generate";
+  }
   loadAiHistoryList();
   setTimeout(() => aiPrompt.focus(), 100);
 }
@@ -1389,14 +1537,29 @@ document.getElementById("btn-ai-build").addEventListener("click", async () => {
 
   loadAiHistoryList();
   if (aiChatHistory.length === 0 && !currentAiHtml) {
-    resetAiBuilder();
+    resetAiBuilder(true);
   } else {
     setTimeout(() => aiPrompt.focus(), 100);
   }
 });
 
-document.getElementById("ai-new-chat-btn").addEventListener("click", () => {
-  resetAiBuilder();
+document.getElementById("btn-ai-sessions").addEventListener("click", () => {
+  document.getElementById("ai-session-dropdown-wrap").classList.toggle("open");
+});
+
+document.addEventListener("click", (e) => {
+  if (!e.target.closest("#ai-session-dropdown-wrap")) {
+    document.getElementById("ai-session-dropdown-wrap").classList.remove("open");
+  }
+});
+
+document.getElementById("ai-new-chat-btn").addEventListener("click", async () => {
+  // If editing an app, refresh the code from disk before starting new chat
+  if (editingAppId) {
+    const freshHtml = await window.appStoreAPI.readAppHtml(editingAppId);
+    if (freshHtml) currentAiHtml = freshHtml;
+  }
+  resetAiBuilder(false); // Keep current app context, just new chat
 });
 
 document.getElementById("ai-modal-close").addEventListener("click", () => {
@@ -1426,7 +1589,14 @@ aiSubmit.addEventListener("click", async () => {
   try {
     const profileId = document.getElementById("ai-builder-profile")?.value || "default";
     const result = await window.appStoreAPI.buildWithAI(
-      aiChatHistory.map((m) => ({ role: m.role, content: m.content })),
+      aiChatHistory.map((m) => ({
+        role: m.role,
+        content: m.role === "assistant"
+          ? (m.summary || (m.content.includes("<<<<")
+              ? "[Applied search/replace modifications to the app]"
+              : "[Generated/rebuilt the full app code]"))
+          : m.content,
+      })),
       currentAiHtml,
       profileId
     );
@@ -1440,9 +1610,11 @@ aiSubmit.addEventListener("click", async () => {
     }
 
     currentAiHtml = result.html;
+    const aiSummary = extractSummary(result.text);
     aiChatHistory.push({
       role: "assistant",
       content: result.text,
+      summary: aiSummary,
       html: currentAiHtml,
     });
     renderChat();

@@ -8,6 +8,8 @@ let uiohookRunning  = false;
 let middleMouseTimer = null;
 let middleMousePressed = false;
 let pttStartedSession = false;
+let pttGraceTimer = null;   // Grace period timer: delays stop after PTT key release
+let _pttToggleListening = null; // Stored reference to toggleListening for grace timer callback
 
 const registeredHotkeys = { keydown: [], keyup: [], mousedown: [], mouseup: [] };
 function clearHotkeys() {
@@ -42,6 +44,9 @@ let _lensCaptureCallback = null;
 // App Store callback (Alt+Shift+A)
 let _appStoreCallback = null;
 
+// Pending text checker — returns true if Chrome has unfinalized interim text
+let _hasPendingText = null;
+
 function setTranslatorCtx(ctx) {
   _translatorCtx = ctx;
 }
@@ -73,6 +78,10 @@ function setLensCaptureCallback(fn) {
 
 function setAppStoreCallback(fn) {
   _appStoreCallback = fn;
+}
+
+function setHasPendingText(fn) {
+  _hasPendingText = fn;
 }
 
 function uiohookKeyName(keycode) {
@@ -298,10 +307,17 @@ function registerHotkeys(toggleListening) {
     const uioName = getUioName(holdKeyName);
     const holdKeyCodeValue = UiohookKey[uioName];
 
+    _pttToggleListening = toggleListening; // Store for grace timer callback
     if (holdKeyCodeValue) {
       addHotkey('keydown', (e) => {
         if (e.keycode === holdKeyCodeValue && !holdKeyPressed) {
           holdKeyPressed = true;
+          // Cancel any pending grace period stop — user re-pressed the key
+          if (pttGraceTimer) {
+            clearTimeout(pttGraceTimer);
+            pttGraceTimer = null;
+            return; // Session is still alive, just keep listening
+          }
           const isCurrentlyListening = _getIsListening ? _getIsListening() : false;
           if (!isCurrentlyListening) {
             pttStartedSession = true;
@@ -317,9 +333,26 @@ function registerHotkeys(toggleListening) {
           holdKeyPressed = false;
           const isCurrentlyListening = _getIsListening ? _getIsListening() : true;
           if (isCurrentlyListening && pttStartedSession) {
-            toggleListening();
+            const hasPending = _hasPendingText ? _hasPendingText() : false;
+            if (hasPending) {
+              // Grace period: Chrome has unfinalized interim text — keep bridge
+              // alive so it can finalize before we stop and paste.
+              if (pttGraceTimer) clearTimeout(pttGraceTimer);
+              pttGraceTimer = setTimeout(() => {
+                pttGraceTimer = null;
+                if (pttStartedSession) {
+                  toggleListening();
+                  pttStartedSession = false;
+                }
+              }, 1500);
+            } else {
+              // No pending text — stop instantly like normal
+              toggleListening();
+              pttStartedSession = false;
+            }
+          } else {
+            pttStartedSession = false;
           }
-          pttStartedSession = false;
         }
       });
     } else {
@@ -329,6 +362,12 @@ function registerHotkeys(toggleListening) {
         if (pressed !== holdKeyName) return;
         if (holdKeyPressed) return;
         holdKeyPressed = true;
+        // Cancel any pending grace period stop — user re-pressed the key
+        if (pttGraceTimer) {
+          clearTimeout(pttGraceTimer);
+          pttGraceTimer = null;
+          return; // Session is still alive, just keep listening
+        }
         const isCurrentlyListening = _getIsListening ? _getIsListening() : false;
         if (!isCurrentlyListening) {
           pttStartedSession = true;
@@ -344,8 +383,26 @@ function registerHotkeys(toggleListening) {
         if (holdKeyPressed) {
           holdKeyPressed = false;
           const isCurrentlyListening = _getIsListening ? _getIsListening() : true;
-          if (isCurrentlyListening && pttStartedSession) toggleListening();
-          pttStartedSession = false;
+          if (isCurrentlyListening && pttStartedSession) {
+            const hasPending = _hasPendingText ? _hasPendingText() : false;
+            if (hasPending) {
+              // Grace period: Chrome has unfinalized interim text
+              if (pttGraceTimer) clearTimeout(pttGraceTimer);
+              pttGraceTimer = setTimeout(() => {
+                pttGraceTimer = null;
+                if (pttStartedSession) {
+                  toggleListening();
+                  pttStartedSession = false;
+                }
+              }, 1500);
+            } else {
+              // No pending text — stop instantly
+              toggleListening();
+              pttStartedSession = false;
+            }
+          } else {
+            pttStartedSession = false;
+          }
         }
       });
     }
@@ -429,6 +486,20 @@ module.exports = {
   setWhisperAiModeToggle,
   setLensCaptureCallback,
   setAppStoreCallback,
+  setHasPendingText,
   setGetIsListening,
-  isPttSessionActive: () => pttStartedSession
+  isPttSessionActive: () => pttStartedSession,
+  /** True when PTT key was released but we're waiting for Chrome to finalize speech */
+  isPttGraceActive: () => !!pttGraceTimer,
+  /** Cancel grace timer and immediately stop the PTT session */
+  clearPttGrace: () => {
+    if (pttGraceTimer) {
+      clearTimeout(pttGraceTimer);
+      pttGraceTimer = null;
+    }
+    if (pttStartedSession && _pttToggleListening) {
+      _pttToggleListening();
+      pttStartedSession = false;
+    }
+  }
 };

@@ -466,12 +466,20 @@ html, body {
   background-position: 0 0, 0 10px, 10px -10px, -10px 0px;
 }
 
-/* Background layer (sits behind canvas-wrap) */
+/* AR frame: sized explicitly when AR is active, just wraps canvas-wrap otherwise */
+#ar-frame {
+  position: relative;
+  display: flex; align-items: center; justify-content: center;
+  /* default: no explicit size — shrinks to canvas-wrap */
+}
+
+/* Background layer (fills the ar-frame) */
 .canvas-bg-layer {
   position: absolute; inset: 0; z-index: 0;
   background-size: cover; background-position: center;
-  display: none; /* hidden by default */
+  display: none;
   transition: filter 0.3s ease;
+  border-radius: inherit;
 }
 .canvas-bg-layer.active { display: block; }
 
@@ -479,6 +487,7 @@ html, body {
   position: relative; box-shadow: 0 8px 32px rgba(0,0,0,0.5);
   border-radius: 4px; overflow: hidden;
   z-index: 1;
+  flex-shrink: 0;
   transition: border-radius 0.3s, box-shadow 0.3s;
 }
 /* When background is on — screenshot "floats" */
@@ -579,3 +588,76 @@ html, body {
 /* Layout */
 .main-layout { display: flex; flex: 1; overflow: hidden; }
 .app-shell { display: flex; flex-direction: column; height: 100vh; }
+
+/* ── Font Picker ── */
+.font-picker-wrap {
+  position: relative;
+  display: flex; align-items: center;
+}
+.font-picker-trigger {
+  height: 22px; padding: 0 7px; border-radius: 6px; cursor: pointer;
+  border: 1px solid var(--border); background: rgba(255,255,255,0.04);
+  color: var(--text); font: 500 10px/1 'Inter', sans-serif;
+  display: flex; align-items: center; gap: 4px; transition: all 0.15s;
+  white-space: nowrap; max-width: 100px; overflow: hidden;
+}
+.font-picker-trigger:hover { background: rgba(255,255,255,0.08); border-color: rgba(255,255,255,0.14); }
+.font-picker-trigger.open { background: rgba(165,180,252,0.1); border-color: rgba(165,180,252,0.3); color: var(--accent); }
+.font-picker-trigger #font-picker-label { overflow: hidden; text-overflow: ellipsis; max-width: 72px; }
+.font-picker-trigger svg { flex-shrink: 0; color: var(--muted); transition: transform 0.15s; }
+.font-picker-trigger.open svg { transform: rotate(180deg); color: var(--accent); }
+
+.font-picker-dropdown {
+  display: none; position: fixed;
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 12px; padding: 6px;
+  box-shadow: 0 10px 36px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.04) inset;
+  z-index: 9999; width: 200px;
+  backdrop-filter: blur(16px);
+  animation: fontPickerIn 0.14s ease;
+  flex-direction: column; gap: 4px;
+}
+.font-picker-dropdown.open { display: flex; }
+@keyframes fontPickerIn {
+  from { opacity: 0; transform: translateY(-5px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.font-picker-search-wrap {
+  padding: 2px 2px 4px;
+}
+.font-picker-search-wrap input {
+  width: 100%; height: 26px; padding: 0 8px;
+  border: 1px solid var(--border); border-radius: 7px;
+  background: var(--surface2); color: var(--text);
+  font: 12px 'Inter', sans-serif; outline: none;
+  transition: border-color 0.15s;
+}
+.font-picker-search-wrap input:focus { border-color: rgba(165,180,252,0.4); }
+.font-picker-search-wrap input::placeholder { color: var(--muted); }
+
+.font-picker-list {
+  overflow-y: auto; max-height: 220px;
+  display: flex; flex-direction: column; gap: 1px;
+  scrollbar-width: thin;
+}
+.font-picker-list::-webkit-scrollbar { width: 4px; }
+.font-picker-list::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 2px; }
+
+.font-item {
+  display: flex; align-items: center;
+  padding: 5px 8px; border-radius: 7px; cursor: pointer;
+  border: none; background: transparent; color: var(--text);
+  font-size: 13px; text-align: left; width: 100%;
+  transition: background 0.1s; white-space: nowrap; overflow: hidden;
+  gap: 6px;
+}
+.font-item:hover { background: rgba(255,255,255,0.07); }
+.font-item.active { background: rgba(165,180,252,0.14); color: var(--accent); }
+.font-item .font-preview {
+  flex: 1; font-size: 14px; overflow: hidden; text-overflow: ellipsis;
+}
+.font-item .font-name-label {
+  font: 500 9px/1 'Inter', sans-serif;
+  color: var(--muted); opacity: 0.7; flex-shrink: 0;
+  max-width: 72px; overflow: hidden; text-overflow: ellipsis;
+}

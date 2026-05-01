@@ -68,8 +68,15 @@ async function callLlmRaw({ text, profile, systemPrompt, systemInstructions, mes
       custom:     (baseUrl || '').replace(/\/$/, '') + '/chat/completions',
     };
     const endpoint = ENDPOINTS[provider] || ENDPOINTS.custom;
-    const body = JSON.stringify({ model: model || modelName, messages, max_tokens: 4096, temperature: temp });
-    const result = await httpPost(endpoint, body, { Authorization: `Bearer ${apiKey}` });
+    const requestHeaders = { Authorization: `Bearer ${apiKey}` };
+    // OpenRouter requires these headers for proper routing and to avoid model rejection
+    if (provider === 'openrouter') {
+      requestHeaders['HTTP-Referer'] = 'https://mictab.app';
+      requestHeaders['X-Title'] = 'MicTab';
+    }
+    const usedModel = model || modelName;
+    const body = JSON.stringify({ model: usedModel, messages, max_tokens: 4096, temperature: temp });
+    const result = await httpPost(endpoint, body, requestHeaders);
     
     let parsed;
     try {
@@ -79,7 +86,7 @@ async function callLlmRaw({ text, profile, systemPrompt, systemInstructions, mes
       return { error: `Invalid JSON response from provider: ${result.substring(0, 100)}` };
     }
 
-    if (parsed.error) return { error: parsed.error.message || JSON.stringify(parsed.error) };
+    if (parsed.error) return { error: `[${provider}/${usedModel}] ${parsed.error.message || JSON.stringify(parsed.error)}` };
     
     // Nvidia NIM and some others might return standard HTTP errors with a detail field
     if (parsed.detail || parsed.status) {

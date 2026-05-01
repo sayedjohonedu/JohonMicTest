@@ -1725,6 +1725,7 @@ function renderVaultLlmProfiles() {
         <div class="ai-profile-badge">${escVaultHtml(provLabel)}</div>
         ${modelSelectHtml}
         <div class="ai-profile-actions">
+          <button class="ai-profile-test" title="Test connection">⚡</button>
           <button class="ai-profile-dup" title="Duplicate profile">⧉</button>
           <button class="ai-profile-del" title="Delete">✕</button>
         </div>
@@ -1750,7 +1751,24 @@ function renderVaultLlmProfiles() {
     }
 
     div.addEventListener('click', async (e) => {
-      if (e.target.classList.contains('ai-profile-del')) {
+      if (e.target.classList.contains('ai-profile-test')) {
+        const btn = e.target;
+        btn.disabled = true;
+        btn.textContent = '…';
+        try {
+          const result = await window.electronAPI.aiTestConnection(p);
+          const ok = result?.text && !result?.error;
+          div.style.boxShadow = ok
+            ? '0 0 0 2px #4ade80, 0 0 14px 2px rgba(74,222,128,0.4)'
+            : '0 0 0 2px #f87171, 0 0 14px 2px rgba(248,113,113,0.4)';
+          btn.textContent = ok ? '✓' : '✕';
+          setTimeout(() => { div.style.boxShadow = ''; btn.textContent = '⚡'; btn.disabled = false; }, 4000);
+        } catch (err) {
+          div.style.boxShadow = '0 0 0 2px #f87171, 0 0 14px 2px rgba(248,113,113,0.4)';
+          btn.textContent = '✕';
+          setTimeout(() => { div.style.boxShadow = ''; btn.textContent = '⚡'; btn.disabled = false; }, 4000);
+        }
+      } else if (e.target.classList.contains('ai-profile-del')) {
         await window.electronAPI.vaultRemoveLlmProfile(p.id);
         _vaultLlmProfiles = _vaultLlmProfiles.filter(x => x.id !== p.id);
         _vaultDefaults = await window.electronAPI.vaultGetDefaults();
@@ -1847,12 +1865,30 @@ function renderVaultWhisperProfiles() {
       <div class="ai-profile-meta">
         <div class="ai-profile-badge">${provLabel} · ${escVaultHtml(p.model || '')}</div>
         <div class="ai-profile-actions">
+          <button class="ai-profile-test" title="Test connection">⚡</button>
           <button class="ai-profile-del" title="Delete">✕</button>
         </div>
       </div>
     `;
     div.addEventListener('click', async (e) => {
-      if (e.target.classList.contains('ai-profile-del')) {
+      if (e.target.classList.contains('ai-profile-test')) {
+        const btn = e.target;
+        btn.disabled = true;
+        btn.textContent = '…';
+        try {
+          const result = await window.electronAPI.aiTestConnection(p);
+          const ok = result?.text && !result?.error;
+          div.style.boxShadow = ok
+            ? '0 0 0 2px #4ade80, 0 0 14px 2px rgba(74,222,128,0.4)'
+            : '0 0 0 2px #f87171, 0 0 14px 2px rgba(248,113,113,0.4)';
+          btn.textContent = ok ? '✓' : '✕';
+          setTimeout(() => { div.style.boxShadow = ''; btn.textContent = '⚡'; btn.disabled = false; }, 4000);
+        } catch (err) {
+          div.style.boxShadow = '0 0 0 2px #f87171, 0 0 14px 2px rgba(248,113,113,0.4)';
+          btn.textContent = '✕';
+          setTimeout(() => { div.style.boxShadow = ''; btn.textContent = '⚡'; btn.disabled = false; }, 4000);
+        }
+      } else if (e.target.classList.contains('ai-profile-del')) {
         await window.electronAPI.vaultRemoveWhisperProfile(p.id);
         _vaultWhisperProfiles = _vaultWhisperProfiles.filter(x => x.id !== p.id);
         _vaultDefaults = await window.electronAPI.vaultGetDefaults();
@@ -1886,6 +1922,10 @@ window.onVaultLlmProviderChange = function() {
   if (ollamaBtn) ollamaBtn.style.display = isCustom ? 'inline-block' : 'none';
   if (apiKeyRow) apiKeyRow.style.display = 'flex'; // Always show API key
 
+  // Reset inline custom model input when provider changes
+  const inlineCustomInput = document.getElementById('vault-llm-model-inline-custom');
+  if (inlineCustomInput) { inlineCustomInput.style.display = 'none'; inlineCustomInput.value = ''; }
+
   if (isCustom) {
     refreshVaultOllamaModels();
   } else if (ollamaStatus) {
@@ -1908,11 +1948,37 @@ function populateVaultLlmModels(provider, currentValue) {
     sel.appendChild(opt);
   });
 
+  // Always add a sentinel at the bottom for custom model entry
+  if (provider !== 'custom') {
+    const sep = document.createElement('option');
+    sep.value = '__custom__';
+    sep.textContent = '— Enter custom model —';
+    sel.appendChild(sep);
+  }
+
+  // Bind the show/hide logic for the inline input
+  sel.onchange = function() {
+    const inlineInput = document.getElementById('vault-llm-model-inline-custom');
+    const inlineRow   = document.getElementById('row-vault-llm-model-inline');
+    if (inlineInput) {
+      const isCustomSentinel = sel.value === '__custom__';
+      inlineInput.style.display = isCustomSentinel ? 'block' : 'none';
+      if (inlineRow) inlineRow.style.display = isCustomSentinel ? 'flex' : 'none';
+      if (isCustomSentinel) { inlineInput.focus(); }
+    }
+  };
+
   if (currentValue && [...sel.options].some(o => o.value === currentValue)) {
     sel.value = currentValue;
   } else if (models.length > 0) {
     sel.value = models[0];
   }
+
+  // Ensure inline input and row are hidden on populate
+  const inlineInput = document.getElementById('vault-llm-model-inline-custom');
+  const inlineRow   = document.getElementById('row-vault-llm-model-inline');
+  if (inlineInput) { inlineInput.style.display = 'none'; inlineInput.value = ''; }
+  if (inlineRow)   { inlineRow.style.display = 'none'; }
 }
 
 // ── Add LLM Profile ───────────────────────────────────────────────
@@ -1928,7 +1994,13 @@ window.vaultAddLlmProfile = async function() {
   if (provider === 'custom') {
     model = document.getElementById('vault-llm-model-custom')?.value.trim() || document.getElementById('vault-llm-model')?.value || '';
   } else {
-    model = document.getElementById('vault-llm-model')?.value || '';
+    const selVal = document.getElementById('vault-llm-model')?.value || '';
+    if (selVal === '__custom__') {
+      model = document.getElementById('vault-llm-model-inline-custom')?.value.trim() || '';
+      if (!model) { showVaultLlmStatus('⚠ Enter a custom model name', '#fb923c'); return; }
+    } else {
+      model = selVal;
+    }
   }
 
   const baseUrl = document.getElementById('vault-llm-baseurl')?.value.trim() || '';
@@ -1970,7 +2042,10 @@ window.vaultTestLlmConnection = async function() {
   if (provider === 'custom') {
     model = document.getElementById('vault-llm-model-custom')?.value.trim() || document.getElementById('vault-llm-model')?.value || '';
   } else {
-    model = document.getElementById('vault-llm-model')?.value || '';
+    const selVal = document.getElementById('vault-llm-model')?.value || '';
+    model = (selVal === '__custom__')
+      ? (document.getElementById('vault-llm-model-inline-custom')?.value.trim() || '')
+      : selVal;
   }
   const baseUrl = document.getElementById('vault-llm-baseurl')?.value.trim() || '';
 
@@ -2038,17 +2113,33 @@ window.onVaultWhisperProviderChange = function(providerVal) {
   if (!modelSel) return;
 
   modelSel.innerHTML = '';
-  if (provider === 'groq') {
-    ['whisper-large-v3-turbo', 'whisper-large-v3', 'distil-whisper-large-v3-en'].forEach(m => {
-      const opt = document.createElement('option');
-      opt.value = m; opt.textContent = m;
-      modelSel.appendChild(opt);
-    });
-  } else {
+  const whisperModels = provider === 'groq'
+    ? ['whisper-large-v3-turbo', 'whisper-large-v3', 'distil-whisper-large-v3-en']
+    : ['whisper-1'];
+  whisperModels.forEach(m => {
     const opt = document.createElement('option');
-    opt.value = 'whisper-1'; opt.textContent = 'whisper-1';
+    opt.value = m; opt.textContent = m;
     modelSel.appendChild(opt);
-  }
+  });
+
+  // Sentinel for custom whisper model
+  const sep = document.createElement('option');
+  sep.value = '__custom__';
+  sep.textContent = '— Enter custom model —';
+  modelSel.appendChild(sep);
+
+  modelSel.onchange = function() {
+    const inlineInput = document.getElementById('vault-whisper-model-inline-custom');
+    if (inlineInput) {
+      const show = modelSel.value === '__custom__';
+      inlineInput.style.display = show ? 'block' : 'none';
+      if (show) inlineInput.focus();
+    }
+  };
+
+  // Reset inline input on provider change
+  const inlineInput = document.getElementById('vault-whisper-model-inline-custom');
+  if (inlineInput) { inlineInput.style.display = 'none'; inlineInput.value = ''; }
 };
 
 // ── Add Whisper Profile ───────────────────────────────────────────
@@ -2060,7 +2151,11 @@ window.vaultAddWhisperProfile = async function() {
   const apiKey = document.getElementById('vault-whisper-apikey')?.value.trim();
   if (!apiKey) { showVaultWhisperStatus('⚠ Enter an API key', '#fb923c'); return; }
 
-  const model = document.getElementById('vault-whisper-model')?.value || 'whisper-1';
+  const whisperSelVal = document.getElementById('vault-whisper-model')?.value || 'whisper-1';
+  const model = (whisperSelVal === '__custom__')
+    ? (document.getElementById('vault-whisper-model-inline-custom')?.value.trim() || '')
+    : whisperSelVal;
+  if (!model) { showVaultWhisperStatus('⚠ Enter a custom model name', '#fb923c'); return; }
 
   const profile = { name, provider, model, apiKey };
 

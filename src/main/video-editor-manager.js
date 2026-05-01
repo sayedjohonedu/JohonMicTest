@@ -59,8 +59,9 @@ function openEditor(filePath) {
 
 function closeEditor() {
   if (editorWindow && !editorWindow.isDestroyed()) {
-    editorWindow.destroy();
-    editorWindow = null;
+    // Use close() not destroy() — this fires the renderer's beforeunload event,
+    // which triggers saveProject() so zoom regions / viewport are persisted.
+    editorWindow.close();
   }
 }
 
@@ -131,6 +132,36 @@ function setupEditorIpc() {
 
   // Cancel export
   
+  // Get hardware info for export dialog
+  let hardwareInfoCache = null;
+  ipcMain.handle('veditor-get-hardware-info', async () => {
+    if (hardwareInfoCache) return hardwareInfoCache;
+    const os = require('os');
+    
+    let gpuName = 'Unknown GPU';
+    try {
+      const gpuInfo = await app.getGPUInfo('complete');
+      if (gpuInfo && gpuInfo.gpuDevice && gpuInfo.gpuDevice.length > 0) {
+        const activeGpu = gpuInfo.gpuDevice.find(g => g.active) || gpuInfo.gpuDevice[0];
+        if (activeGpu) {
+          gpuName = activeGpu.deviceString || (activeGpu.vendorString ? activeGpu.vendorString + ' GPU' : 'GPU');
+        }
+      }
+    } catch (err) {
+      console.error('Failed to get GPU info:', err);
+    }
+
+    const cpus = os.cpus();
+    const cpuName = (cpus && cpus.length > 0 && cpus[0].model) ? cpus[0].model.trim() : 'Unknown CPU';
+
+    hardwareInfoCache = {
+      gpu: gpuName,
+      cpu: cpuName,
+      platform: process.platform
+    };
+    return hardwareInfoCache;
+  });
+
   ipcMain.handle('veditor-pick-append-video', async (event) => {
     const { dialog } = require('electron');
     const bw = BrowserWindow.fromWebContents(event.sender);
@@ -529,21 +560,32 @@ function setupEditorIpc() {
         }
       }
 
-      // Build FFmpeg args
-      const args = [
-        '-i', filePath,
-        '-filter_complex', filterComplex,
-        ...mapArgs,
-      ];
-
       // Hardware acceleration selection
       const hw = hwaccel || 'auto';
       const isMac = process.platform === 'darwin';
       const isWin = process.platform === 'win32';
 
+      // Build FFmpeg args
+      const args = [];
+      
+      if (hw === 'gpu' || hw === 'auto') {
+        if (isMac) {
+          args.push('-hwaccel', 'videotoolbox');
+        } else if (isWin && hw === 'gpu') {
+          args.push('-hwaccel', 'd3d11va');
+        }
+      }
+
+      args.push(
+        '-i', filePath,
+        '-filter_complex', filterComplex,
+        ...mapArgs,
+      );
+
       // Format-specific encoding options (with hwaccel support)
       if (format === 'webm') {
-        args.push('-c:v', 'libvpx-vp9', '-crf', '30', '-b:v', '0');
+        // Use speed 4-8 for much faster VP9 encoding
+        args.push('-c:v', 'libvpx-vp9', '-crf', '30', '-b:v', '0', '-row-mt', '1', '-threads', '8', '-speed', '4');
         if (hasAudio) args.push('-c:a', 'libopus');
       } else if (format === 'mp4') {
         if (hw === 'gpu' || (hw === 'auto' && isMac)) {
@@ -690,6 +732,7 @@ function setupEditorIpc() {
   // ═══════════════════════════════════════════════════════════
   let frameExportProc = null;
   let frameExportOutPath = null;
+  let frameExportClosePromise = null; // resolves with {ok, path?, error?} when FFmpeg exits
 
   ipcMain.handle('veditor-start-frame-export', async (_, opts) => {
     try {
@@ -791,12 +834,14 @@ function setupEditorIpc() {
           '-map', '0:v',
         );
       } else if (format === 'webm') {
-        args.push('-c:v', 'libvpx-vp9', '-crf', '30', '-b:v', '0');
+        // Use speed 4-8 for much faster VP9 encoding
+        args.push('-c:v', 'libvpx-vp9', '-crf', '30', '-b:v', '0', '-row-mt', '1', '-threads', '8', '-speed', '4');
         if (hasAudio) args.push('-c:a', 'libopus');
       } else if (format === 'mp4') {
-        if (hw === 'gpu' || (hw === 'auto' && isMac)) {
+        args.push('-pix_fmt', 'yuv420p'); // Required for h264_videotoolbox and general MP4 player compatibility from MJPEG input
+        if (hw === 'gpu' || hw === 'auto') {
           if (isMac) args.push('-c:v', 'h264_videotoolbox', '-q:v', '65');
-          else if (isWin) args.push('-c:v', 'h264_nvenc', '-preset', 'p4', '-cq', '23');
+          else if (isWin && hw === 'gpu') args.push('-c:v', 'h264_nvenc', '-preset', 'p4', '-cq', '23');
           else args.push('-c:v', 'libx264', '-preset', 'fast', '-crf', '23');
         } else {
           args.push('-c:v', 'libx264', '-preset', 'fast', '-crf', '23');
@@ -825,10 +870,20 @@ function setupEditorIpc() {
       });
       activeExportProc = frameExportProc;
 
+      // Prevent EPIPE crashes if FFmpeg exits prematurely
+      frameExportProc.stdin.on('error', (err) => {
+        if (err.code === 'EPIPE') {
+          console.warn('[VEditor Frame Export] FFmpeg closed stdin early (EPIPE).');
+        } else {
+          console.error('[VEditor Frame Export] FFmpeg stdin error:', err.message);
+        }
+      });
+
       // Log stderr for debugging (don't block)
+      let stderrBuf = '';
       frameExportProc.stderr.on('data', (chunk) => {
         const msg = chunk.toString();
-        // Only log errors, not progress spam
+        stderrBuf += msg;
         if (msg.includes('Error') || msg.includes('error') || msg.includes('Invalid')) {
           console.error('[VEditor Frame Export] FFmpeg stderr:', msg.trim());
         }
@@ -836,6 +891,30 @@ function setupEditorIpc() {
 
       frameExportProc.on('error', (err) => {
         console.error('[VEditor Frame Export] FFmpeg process error:', err.message);
+      });
+
+      // Build a single promise that resolves when FFmpeg closes for ANY reason.
+      // finishFrameExport will await this instead of re-attaching a listener to a dead process.
+      frameExportClosePromise = new Promise((resolve) => {
+        frameExportProc.on('close', (code) => {
+          activeExportProc = null;
+          frameExportProc = null;
+
+          if (code !== 0 && code !== null) {
+            const errMsg = `FFmpeg exited with code ${code}`;
+            console.error('[VEditor Frame Export] Failed:', errMsg);
+            try { if (fs.existsSync(outPath)) fs.unlinkSync(outPath); } catch (_e) {}
+            resolve({ ok: false, error: errMsg });
+          } else if (code === null) {
+            // Killed (cancelled)
+            try { if (fs.existsSync(outPath)) fs.unlinkSync(outPath); } catch (_e) {}
+            resolve({ ok: false, cancelled: true });
+          } else {
+            console.log('[VEditor Frame Export] Success:', outPath);
+            shell.showItemInFolder(outPath);
+            resolve({ ok: true, path: outPath });
+          }
+        });
       });
 
       return { ok: true };
@@ -846,62 +925,46 @@ function setupEditorIpc() {
 
   ipcMain.handle('veditor-send-frame', async (_, frameData) => {
     if (!frameExportProc || !frameExportProc.stdin || !frameExportProc.stdin.writable) {
-      return { ok: false };
+      // FFmpeg died early — skip frame silently (finishFrameExport will handle cleanup)
+      return { ok: true };
     }
     try {
       const buf = Buffer.from(frameData);
-      // Write with backpressure handling
       const canContinue = frameExportProc.stdin.write(buf);
       if (!canContinue) {
-        // Wait for drain before allowing next frame
-        await new Promise(resolve => frameExportProc.stdin.once('drain', resolve));
+        // Wait for drain with a 2s timeout so a dead stdin never freezes the loop
+        await Promise.race([
+          new Promise(resolve => frameExportProc && frameExportProc.stdin ? frameExportProc.stdin.once('drain', resolve) : resolve()),
+          new Promise(resolve => setTimeout(resolve, 2000)),
+        ]);
       }
       return { ok: true };
     } catch (e) {
-      return { ok: false, error: e.message };
+      // EPIPE or other write error — FFmpeg died, skip frame
+      return { ok: true };
     }
   });
 
   ipcMain.handle('veditor-finish-frame-export', async () => {
-    if (!frameExportProc) return { ok: false, error: 'No active export' };
+    // If the process died early (EPIPE), frameExportClosePromise already resolved — await it directly.
+    // If FFmpeg is still running, close stdin to signal end of input, then await the close.
+    if (frameExportProc && frameExportProc.stdin && !frameExportProc.stdin.destroyed) {
+      try { frameExportProc.stdin.end(); } catch (_e) {}
+    }
 
-    const outPath = frameExportOutPath;
+    // Always await the pre-built close promise — avoids re-registering on a dead process
+    if (frameExportClosePromise) {
+      const result = await frameExportClosePromise;
+      frameExportClosePromise = null;
 
-    return new Promise((resolve) => {
-      // Close stdin to signal end of input
-      frameExportProc.stdin.end();
+      // Notify renderer via event as well (belt & suspenders)
+      if (editorWindow && !editorWindow.isDestroyed()) {
+        editorWindow.webContents.send('veditor-export-done', result);
+      }
+      return result;
+    }
 
-      frameExportProc.on('close', (code) => {
-        activeExportProc = null;
-        frameExportProc = null;
-
-        if (code !== 0) {
-          const errMsg = code === null ? 'Export cancelled' : `FFmpeg exited with code ${code}`;
-          console.error('[VEditor Frame Export] Failed:', errMsg);
-          try { if (fs.existsSync(outPath)) fs.unlinkSync(outPath); } catch (_e) {}
-          if (editorWindow && !editorWindow.isDestroyed()) {
-            editorWindow.webContents.send('veditor-export-done', { ok: false, error: errMsg });
-          }
-          resolve({ ok: false, error: errMsg });
-          return;
-        }
-
-        console.log('[VEditor Frame Export] Success:', outPath);
-        shell.showItemInFolder(outPath);
-        if (editorWindow && !editorWindow.isDestroyed()) {
-          editorWindow.webContents.send('veditor-export-done', { ok: true, path: outPath });
-        }
-        resolve({ ok: true, path: outPath });
-      });
-
-      // Safety timeout — if FFmpeg hangs, kill it after 5 minutes
-      setTimeout(() => {
-        if (frameExportProc) {
-          console.warn('[VEditor Frame Export] Timeout — killing FFmpeg');
-          frameExportProc.kill('SIGKILL');
-        }
-      }, 5 * 60 * 1000);
-    });
+    return { ok: false, error: 'No active export' };
   });
 }
 

@@ -299,8 +299,15 @@ function easeInOutCubic(t) { return t < 0.5 ? 4*t*t*t : 1 - Math.pow(-2*t+2, 3) 
 
 // Smooth camera position with spring physics for cinematic motion
 let camX = 0.5, camY = 0.5; // current camera target (smoothed)
+let _exportMode = false; // when true, skip spring and snap directly to cursor
 function smoothCameraTarget(targetX, targetY, dt) {
-  // Exponential decay lerp — creates that cinematic "lag" feel
+  if (_exportMode) {
+    // During export: snap directly to cursor — no spring lag, perfectly accurate tracking
+    camX = targetX;
+    camY = targetY;
+    return { x: camX, y: camY };
+  }
+  // Exponential decay lerp — creates that cinematic "lag" feel for live preview
   const speed = 3.0; // lower = more cinematic lag
   const factor = 1 - Math.exp(-speed * Math.max(dt, 1/60));
   camX += (targetX - camX) * factor;
@@ -497,17 +504,19 @@ function renderFrame(canvas, video) {
   ctx.restore();
 }
 
-/* ── Export-specific renderer: deterministic dt for consistent spring physics ── */
+/* ── Export-specific renderer: snaps camera directly to cursor for pixel-perfect tracking ── */
 function renderFrameForExport(canvas, video, fps) {
-  // Force a deterministic dt = 1/fps so spring physics produce consistent results
+  _exportMode = true; // disable spring lag — snap camera directly to cursor position
   lastRenderTime = performance.now() - (1000 / (fps || 30));
   renderFrame(canvas, video);
+  _exportMode = false;
 }
 
 /* Reset camera state (call before starting export) */
 function resetCameraState() {
   camX = 0.5; camY = 0.5;
   lastRenderTime = 0;
+  _exportMode = false;
 }
 
 /* ── Waveform Generator ── */

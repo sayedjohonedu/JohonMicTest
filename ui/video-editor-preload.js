@@ -29,4 +29,7 @@ contextBridge.exposeInMainWorld('veditor', {
   // Theme / config
   getConfig:        ()   => ipcRenderer.invoke('get-config'),
   onConfigUpdate:   (cb) => ipcRenderer.on('config-updated', (_, data) => cb(data)),
+  
+  // Hardware info
+  getHardwareInfo:  ()   => ipcRenderer.invoke('veditor-get-hardware-info'),
 });

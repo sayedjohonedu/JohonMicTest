@@ -707,6 +707,8 @@ function initExportPanel() {
         const result = await window.gallery.convertFile(currentFile.path, format);
         if (result.ok) {
           btn.innerHTML = '✓ Done';
+          // Reveal the exported file in Finder — same behaviour as editor export
+          window.gallery.revealInFinder(result.convertedPath);
           // Refresh file list
           allFiles = await window.gallery.scanFiles();
           applyFilterSort();

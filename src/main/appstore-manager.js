@@ -645,9 +645,17 @@ async function buildAppWithAI(messages, currentFiles, profileId) {
         "No AI API profile configured. Go to Settings → API Vault to add one.",
     };
 
-  const systemPrompt = `You are an expert web app builder AI. The user will ask you to create or modify a web app.
+  const systemPrompt = `You are an expert web app builder AI embedded in a mini app store. The user will ask you to create or modify a web app.
 The app MUST be built using three separate files: index.html, style.css, and script.js.
 Do NOT use external dependencies or CDN links. Use modern, beautiful CSS (dark theme, vibrant colors).
+
+ALWAYS start your response with a brief, plain-English chat message wrapped in <summary> tags. This is shown to the user in the chat UI.
+Write it like a real IDE assistant — conversational, honest, and concise (2-4 sentences max).
+Examples:
+- <summary>Built a simple to-do app with add/delete/complete functionality. Used a dark purple theme with smooth animations.</summary>
+- <summary>Added a dark mode toggle to the top-right corner. Updated the CSS variables and added a toggle button in index.html.</summary>
+- <summary>Couldn't find the exact lines you described — the button might have different text. I've updated the nearest match instead. Let me know if it looks right.</summary>
+- <summary>Fixed the timer bug by clearing the interval before starting a new one. Also tightened up the button spacing in the CSS.</summary>
 
 If you are generating a NEW app from scratch, or doing a major rewrite, output the FULL code for all three files wrapped in their respective markdown blocks:
 \`\`\`html
@@ -669,9 +677,31 @@ FILE: index.html (or style.css or script.js)
 [new lines to insert]
 >>>>
 
-You can output multiple blocks for different files. Be precise. If you must rewrite an entire file, use the markdown wrapper for that file.`;
+You can output multiple blocks for different files. Be precise about indentation. If you must rewrite an entire file, use the markdown wrapper for that file.`;
 
-  const fullMessages = [{ role: "system", content: systemPrompt }, ...messages];
+  // Inject current code context (with line numbers) so the AI can write exact search/replace blocks
+  function addLineNumbers(code) {
+    return code.split("\n").map((line, i) => `${String(i + 1).padStart(4, " ")}: ${line}`).join("\n");
+  }
+  let currentCodeContext = "";
+  if (currentFiles) {
+    if (typeof currentFiles === "object") {
+      currentCodeContext = `\n\nHere is the CURRENT code of the app (with line numbers for reference):\n\nFILE: index.html\n\`\`\`html\n${addLineNumbers(currentFiles.html || "")}\n\`\`\`\n\nFILE: style.css\n\`\`\`css\n${addLineNumbers(currentFiles.css || "")}\n\`\`\`\n\nFILE: script.js\n\`\`\`javascript\n${addLineNumbers(currentFiles.js || "")}\n\`\`\``;
+    } else {
+      currentCodeContext = `\n\nHere is the CURRENT code of the app (with line numbers for reference):\n\nFILE: index.html\n\`\`\`html\n${addLineNumbers(currentFiles)}\n\`\`\``;
+    }
+  }
+
+  // Detect if this is a fresh session on an existing app (no prior messages, but code exists)
+  const isFreshSessionOnExistingApp = currentFiles && messages.length === 1;
+  const freshSessionNote = isFreshSessionOnExistingApp
+    ? `\n\nNOTE: This is a NEW chat session. The user is starting a fresh conversation about this existing app. Do NOT rewrite the entire app unless explicitly asked. Prefer targeted edits (SEARCH/REPLACE blocks) unless the user requests a full rebuild.`
+    : "";
+
+  const fullMessages = [
+    { role: "system", content: systemPrompt + currentCodeContext + freshSessionNote }, 
+    ...messages
+  ];
 
   const result = await callLlmRaw({
     messages: fullMessages,

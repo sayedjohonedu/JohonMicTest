@@ -16,7 +16,7 @@ const { setupClipboardIpc } = require('./src/main/clipboard-ipc');
 // Import modules
 const { createOverlay, showSettings, showLicensePopup, showWordLimitPopup, showTranslatorLockedPopup, showAiTrialExpiredPopup, applyOverlaySize, getOverlayWindow, getSettingsWindow, showUpdateReminderPopup, getUpdateReminderPopupWindow, createOfflinePill } = require('./src/main/window-manager');
 const { onOverlayShow, onOverlayHide } = require('./src/main/floating-browser-manager');
-const { registerHotkeys, stopUiohook, setTranslatorCtx, setAiSendNow, setAiModeToggle, setWhisperApiCallbacks, setWhisperAiModeToggle, setLensCaptureCallback, setAppStoreCallback, setGetIsListening, isPttSessionActive } = require('./src/main/hotkey-manager');
+const { registerHotkeys, stopUiohook, setTranslatorCtx, setAiSendNow, setAiModeToggle, setWhisperApiCallbacks, setWhisperAiModeToggle, setLensCaptureCallback, setAppStoreCallback, setGetIsListening, setHasPendingText, isPttSessionActive, isPttGraceActive, clearPttGrace } = require('./src/main/hotkey-manager');
 const { checkAuthStatus, checkAndResetDailyWords, checkAiTrialExpiry } = require('./src/main/licensing');
 const { setupUpdater } = require('./src/main/updater');
 const { setupIpcHandlers, aiDictationManager } = require('./src/main/ipc-handlers');
@@ -685,6 +685,12 @@ function setupWebSocketServer(server) {
           lastPhraseTimestamp = Date.now();
           if (isPttSessionActive && isPttSessionActive()) {
             pttBuffer += (pttBuffer ? ' ' : '') + textToInject.trimStart();
+            // Early-stop: if we're in PTT grace period (key already released)
+            // and Chrome just finalized text, stop immediately instead of
+            // waiting the remaining grace timer. This makes pasting feel snappy.
+            if (isPttGraceActive && isPttGraceActive()) {
+              clearPttGrace();
+            }
           } else {
             clipboardManager.injectText(textToInject);
           }
@@ -814,6 +820,7 @@ app.whenReady().then(() => {
   // Wire Whisper AI Polish mode toggle (Right Alt+Right Shift+/) into hotkey-manager
   setWhisperAiModeToggle(toggleWhisperAiMode);
   setGetIsListening(() => isListening);
+  setHasPendingText(() => !!(latestInterimText && latestInterimText.trim()));
   registerHotkeys(toggleListening);
 
   // ── Wire translator shortcuts into hotkey-manager so they survive unregisterAll()

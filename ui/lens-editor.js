@@ -23,6 +23,20 @@ let redoStack     = [];
 let currentTool   = localStorage.getItem('lens-current-tool') || 'rect';
 let currentColor  = '#ef4444';
 let currentStroke = 3;
+
+// Per-tool stroke memory: each tool independently remembers its last size
+const TOOL_STROKE_KEY = 'lens-tool-strokes';
+const DEFAULT_TOOL_STROKES = {
+  select: 3, crop: 3, rect: 3, fillrect: 3, squarehighlight: 3,
+  circle: 3, line: 3, arrow: 3, text: 2, freehand: 4, highlighter: 8,
+  blur: 2, circleblur: 2, spotlight: 2, circlespotlight: 2,
+  eraser: 3, number: 2,
+};
+let toolStrokes = { ...DEFAULT_TOOL_STROKES };
+try {
+  const saved = JSON.parse(localStorage.getItem(TOOL_STROKE_KEY));
+  if (saved && typeof saved === 'object') Object.assign(toolStrokes, saved);
+} catch {}
 let isDrawing     = false;
 let drawStartX    = 0, drawStartY = 0;
 let freehandPoints = [];
@@ -50,6 +64,7 @@ let textGlowSize     = parseInt(localStorage.getItem('lens-text-glow'), 10);
 if (isNaN(textGlowSize)) textGlowSize = 0;          // text glow size (px at displayScale)
 let textBoxOpacity   = parseInt(localStorage.getItem('lens-text-box-opacity'), 10);
 if (isNaN(textBoxOpacity)) textBoxOpacity = 3;
+let textFont         = localStorage.getItem('lens-text-font') || 'Inter';  // chosen font family name
 // ── Crop state ──
 let cropBox = null;
 let cropActiveHandle = null;
@@ -58,12 +73,13 @@ let bgEnabled       = false;
 let bgBlurLevel     = 30;    // 0–100 (percentage mapped to px)
 let bgType          = 'solid';   // 'solid' | 'image' | 'gradient'
 let bgValue         = '#1a1a2e'; // color, src, or gradient CSS
+let canvasWrapScale = 1;         // CSS transform:scale on canvas-wrap (zoom preview)
 let bgImageObj      = null;      // loaded Image for image backgrounds
 let customBgDataUrl = null;      // data URL for user-uploaded background
 let spotlightDarkness = 55;  // spotlight overlay opacity (10–90%)
 // ── Aspect Ratio state ──
 let bgAspectRatio   = 'free';    // 'free' | '16:9' | '1:1' | '4:3' | '9:16' | '4:5' | '3:2' | '21:9'
-let bgPadPercent    = 6;         // padding percentage (2–25%)
+let bgZoomPercent   = 85;        // zoom: 50–100 (100=screenshot fills AR frame, lower=more background)
 let bgCornerRadius  = 12;        // 0-48px
 let bgShadow        = 40;        // 0-80px
 
@@ -122,12 +138,13 @@ window.lensEditor.onLoadImage((dataUrl) => {
     // Draw at full resolution — no quality loss
     imgCtx.drawImage(img, 0, 0, fullW, fullH);
 
-    // Scale annotation stroke so it looks correct at any resolution
-    let savedStroke = parseInt(localStorage.getItem('lens-stroke-width'), 10);
-    if (isNaN(savedStroke) || savedStroke < 1 || savedStroke > 12) savedStroke = 3;
-    currentStroke = savedStroke * displayScale;
+    // Scale annotation stroke from the current tool's remembered size
+    const initToolVal = toolStrokes[currentTool] ?? DEFAULT_TOOL_STROKES[currentTool] ?? 3;
+    currentStroke = initToolVal * displayScale;
     const slider = document.getElementById('stroke-width');
-    if (slider) slider.value = savedStroke;
+    if (slider) slider.value = initToolVal;
+    const strokeValEl = document.getElementById('stroke-value');
+    if (strokeValEl) strokeValEl.textContent = initToolVal + 'px';
 
     // Reset cropBox because canvas dimensions just changed
     cropBox = null;
@@ -208,6 +225,14 @@ function redraw() {
   }
 
   // ── Render all non-spotlight annotations ──
+  // Pass 1: blur/circleblur always drawn first so all other annotations sit on top
+  for (let i = 0; i < annotations.length; i++) {
+    const a = annotations[i];
+    if (a.type === 'blur' || a.type === 'circleblur') {
+      renderAnnotation(drawCtx, a, i === selectedIdx);
+    }
+  }
+  // Pass 2: all other non-spotlight annotations on top of blur layers
   for (let i = 0; i < annotations.length; i++) {
     const a = annotations[i];
     if (a.type === 'spotlight' || a.type === 'circlespotlight') {
@@ -228,7 +253,8 @@ function redraw() {
       }
       continue;
     }
-    renderAnnotation(drawCtx, annotations[i], i === selectedIdx);
+    if (a.type === 'blur' || a.type === 'circleblur') continue; // already drawn in pass 1
+    renderAnnotation(drawCtx, a, i === selectedIdx);
   }
   
   // ── Render Crop Overlay ──
@@ -330,6 +356,11 @@ function updateContextSliders() {
     const isBox = textStyle === 'box';
     document.querySelectorAll('.box-opacity-label, .box-opacity-slider, .box-opacity-value').forEach(el => el.style.display = isBox ? 'inline-block' : 'none');
   }
+  // Sync font picker label to the active annotation's font or the tool-level textFont
+  if (showText) {
+    const activeFont = (sel && sel.type === 'text' && sel.fontFamily) ? sel.fontFamily : textFont;
+    syncFontPickerLabel(activeFont);
+  }
 }
 
 function renderAnnotation(ctx, ann, isSelected) {
@@ -408,9 +439,13 @@ function renderAnnotation(ctx, ann, isSelected) {
       const fs = ann.fontSize || 16;
       const ts = ann.textStyle || 'standard';
       const isMono = (ts === 'mono');
-      const fontFam = isMono ? '"SF Mono", "Fira Code", "Consolas", monospace' : 'Inter, sans-serif';
+      // Use per-annotation fontFamily if set, else fall back to tool-level textFont
+      const storedFont = ann.fontFamily || textFont;
+      const fontFam = isMono ? '"SF Mono", "Fira Code", "Consolas", monospace'
+                             : `"${storedFont}", Inter, -apple-system, sans-serif`;
       ctx.font = `600 ${fs}px ${fontFam}`;
-      
+
+
       const lines = ann.text.split('\n');
       let maxW = 0;
       for (const line of lines) {
@@ -478,7 +513,7 @@ function renderAnnotation(ctx, ann, isSelected) {
       if (bw < 2 || bh < 2) break;
       const bStyle = ann.blurStyle || 'pixelate';
 
-      const blurRR = Math.max(6, Math.min(bw, bh) * 0.04);
+      const blurRR = 6; // subtle fixed corner radius
       if (bStyle === 'blackout') {
         // Solid black fill
         ctx.fillStyle = '#000';
@@ -488,50 +523,41 @@ function renderAnnotation(ctx, ann, isSelected) {
       } else if (bStyle === 'smooth') {
         // True Gaussian blur using canvas filter API
         const bs = (ann.blurSize || 12);
-        const blurPx = Math.round(bs * 2.5); // map slider value to a strong blur radius
+        // Scale slider value to a strong, visible blur radius
+        const blurPx = Math.max(4, Math.round(bs * 1.8));
+        // Padding ensures the blur kernel has real pixels at the region edges
+        // (avoids the dark/transparent-border artifact)
+        const pad = Math.min(blurPx * 2, 80);
 
-        // Step 1: grab the raw source pixels from the original image
-        const srcData = imgCtx.getImageData(bx, by, bw, bh);
+        // Step 1: grab raw pixels (enlarged by pad on all sides) from the source image
+        const srcX = Math.max(0, bx - pad);
+        const srcY = Math.max(0, by - pad);
+        const srcW = Math.min(imgCanvas.width  - srcX, bw + pad * 2);
+        const srcH = Math.min(imgCanvas.height - srcY, bh + pad * 2);
+        const srcData = imgCtx.getImageData(srcX, srcY, srcW, srcH);
+
+        // Step 2: put padded source into a temp canvas
         const tmpC = document.createElement('canvas');
-        tmpC.width = bw; tmpC.height = bh;
+        tmpC.width = srcW; tmpC.height = srcH;
         const tmpX = tmpC.getContext('2d');
         tmpX.putImageData(srcData, 0, 0);
 
-        // Step 2: apply Gaussian blur via canvas filter into a blurred canvas
-        // For strong blurs (>100px limit), we do multi-pass at reduced size first
+        // Step 3: apply Gaussian blur into a same-size blur canvas
         const blurC = document.createElement('canvas');
-        blurC.width = bw; blurC.height = bh;
+        blurC.width = srcW; blurC.height = srcH;
         const blurX = blurC.getContext('2d');
+        blurX.filter = `blur(${Math.min(blurPx, 100)}px)`;
+        blurX.drawImage(tmpC, 0, 0);
 
-        if (blurPx <= 100) {
-          // Single pass — browser handles it natively
-          blurX.filter = `blur(${blurPx}px)`;
-          // Draw with overflow padding to avoid dark edges at the blur boundary
-          const pad = blurPx;
-          blurX.drawImage(tmpC, -pad, -pad, bw + pad * 2, bh + pad * 2);
-        } else {
-          // Multi-pass for very strong blur: scale down → blur → scale back up
-          const passes = 3;
-          const passBlur = Math.round(blurPx / passes);
-          let srcCanvas = tmpC;
-          for (let pass = 0; pass < passes; pass++) {
-            const passC = document.createElement('canvas');
-            passC.width = bw; passC.height = bh;
-            const passX = passC.getContext('2d');
-            passX.filter = `blur(${passBlur}px)`;
-            const pad = passBlur;
-            passX.drawImage(srcCanvas, -pad, -pad, bw + pad * 2, bh + pad * 2);
-            srcCanvas = passC;
-          }
-          blurX.drawImage(srcCanvas, 0, 0);
-        }
-
-        // Step 3: paint the blurred result clipped to a rounded rect
+        // Step 4: paint the blurred result clipped to the rounded rect,
+        // offset so the padded region aligns with bx/by
+        const offX = bx - srcX;
+        const offY = by - srcY;
         ctx.save();
         ctx.beginPath();
         ctx.roundRect(bx, by, bw, bh, blurRR);
         ctx.clip();
-        ctx.drawImage(blurC, bx, by, bw, bh);
+        ctx.drawImage(blurC, offX, offY, bw, bh, bx, by, bw, bh);
         ctx.restore();
 
       } else {
@@ -590,35 +616,69 @@ function renderAnnotation(ctx, ann, isSelected) {
       break;
     }
     case 'circleblur': {
-      // Pixelate an elliptical region
+      // Elliptical blur — supports pixelate / smooth / blackout (same as rect blur)
       const ebx = Math.min(ann.x, ann.x + ann.w), eby = Math.min(ann.y, ann.y + ann.h);
       const ebw = Math.abs(ann.w), ebh = Math.abs(ann.h);
       if (ebw < 2 || ebh < 2) break;
+      const ebStyle = ann.blurStyle || 'pixelate';
       const ebs = ann.blurSize || 12;
       const erx = ebw / 2, ery = ebh / 2;
       const ecx = ebx + erx, ecy = eby + ery;
+
       // Clip to ellipse
       ctx.save();
       ctx.beginPath();
       ctx.ellipse(ecx, ecy, Math.max(erx, 1), Math.max(ery, 1), 0, 0, Math.PI * 2);
       ctx.clip();
-      // Pixelate inside
-      const srcData2 = imgCtx.getImageData(ebx, eby, ebw, ebh);
-      const tmpC2 = document.createElement('canvas');
-      tmpC2.width = ebw; tmpC2.height = ebh;
-      const tmpX2 = tmpC2.getContext('2d');
-      tmpX2.putImageData(srcData2, 0, 0);
-      const smW2 = Math.max(1, Math.round(ebw / ebs));
-      const smH2 = Math.max(1, Math.round(ebh / ebs));
-      const smC2 = document.createElement('canvas');
-      smC2.width = smW2; smC2.height = smH2;
-      const smX2 = smC2.getContext('2d');
-      smX2.imageSmoothingEnabled = false;
-      smX2.drawImage(tmpC2, 0, 0, smW2, smH2);
-      ctx.imageSmoothingEnabled = false;
-      ctx.drawImage(smC2, 0, 0, smW2, smH2, ebx, eby, ebw, ebh);
-      ctx.imageSmoothingEnabled = true;
+
+      if (ebStyle === 'blackout') {
+        ctx.fillStyle = '#000';
+        ctx.fillRect(ebx, eby, ebw, ebh);
+      } else if (ebStyle === 'smooth') {
+        // Gaussian blur for circleblur — same padded-source technique
+        const blurPx = Math.max(4, Math.round(ebs * 1.8));
+        const pad = Math.min(blurPx * 2, 80);
+
+        const srcX2 = Math.max(0, ebx - pad);
+        const srcY2 = Math.max(0, eby - pad);
+        const srcW2 = Math.min(imgCanvas.width  - srcX2, ebw + pad * 2);
+        const srcH2 = Math.min(imgCanvas.height - srcY2, ebh + pad * 2);
+        const srcData2 = imgCtx.getImageData(srcX2, srcY2, srcW2, srcH2);
+
+        const tmpC2 = document.createElement('canvas');
+        tmpC2.width = srcW2; tmpC2.height = srcH2;
+        const tmpX2 = tmpC2.getContext('2d');
+        tmpX2.putImageData(srcData2, 0, 0);
+
+        const blurC2 = document.createElement('canvas');
+        blurC2.width = srcW2; blurC2.height = srcH2;
+        const blurX2 = blurC2.getContext('2d');
+        blurX2.filter = `blur(${Math.min(blurPx, 100)}px)`;
+        blurX2.drawImage(tmpC2, 0, 0);
+
+        const offX2 = ebx - srcX2;
+        const offY2 = eby - srcY2;
+        ctx.drawImage(blurC2, offX2, offY2, ebw, ebh, ebx, eby, ebw, ebh);
+      } else {
+        // Pixelate (default)
+        const srcData2 = imgCtx.getImageData(ebx, eby, ebw, ebh);
+        const tmpC2 = document.createElement('canvas');
+        tmpC2.width = ebw; tmpC2.height = ebh;
+        const tmpX2 = tmpC2.getContext('2d');
+        tmpX2.putImageData(srcData2, 0, 0);
+        const smW2 = Math.max(1, Math.round(ebw / ebs));
+        const smH2 = Math.max(1, Math.round(ebh / ebs));
+        const smC2 = document.createElement('canvas');
+        smC2.width = smW2; smC2.height = smH2;
+        const smX2 = smC2.getContext('2d');
+        smX2.imageSmoothingEnabled = false;
+        smX2.drawImage(tmpC2, 0, 0, smW2, smH2);
+        ctx.imageSmoothingEnabled = false;
+        ctx.drawImage(smC2, 0, 0, smW2, smH2, ebx, eby, ebw, ebh);
+        ctx.imageSmoothingEnabled = true;
+      }
       ctx.restore();
+
       // Ellipse border
       ctx.strokeStyle = 'rgba(255,255,255,0.15)';
       ctx.lineWidth = 1;
@@ -913,10 +973,11 @@ function drawArrow(ctx, x1, y1, x2, y2, stroke, style, cx, cy) {
 
 function getPos(e) {
   const rect = drawCanvas.getBoundingClientRect();
-  // Map CSS display coordinates → full-res canvas coordinates
+  // Map CSS display coordinates → full-res canvas coordinates.
+  // Divide by canvasWrapScale to compensate for CSS zoom transform on canvas-wrap.
   return {
-    x: (e.clientX - rect.left) * displayScale,
-    y: (e.clientY - rect.top)  * displayScale,
+    x: (e.clientX - rect.left) / canvasWrapScale * displayScale,
+    y: (e.clientY - rect.top)  / canvasWrapScale * displayScale,
   };
 }
 
@@ -1102,6 +1163,16 @@ drawCanvas.addEventListener('mousedown', (e) => {
 
   // 4) Drawing tools — if clicking on existing annotation, select it instead
   if (hitIdx >= 0) {
+    const clickedAnn = annotations[hitIdx];
+    const isBlurType = clickedAnn.type === 'blur' || clickedAnn.type === 'circleblur';
+    // For blur/circleblur: first click only selects; a second click (already selected) starts drag.
+    // This prevents accidental moves when the user wants to draw on top of a blur layer.
+    if (isBlurType && selectedIdx !== hitIdx) {
+      // First click → just select, do NOT drag
+      selectedIdx = hitIdx;
+      redraw();
+      return;
+    }
     selectedIdx = hitIdx;
     bringToFront(hitIdx);
     isDragging = true;
@@ -1442,84 +1513,108 @@ drawCanvas.addEventListener('mousemove', (e) => {
 });
 
 drawCanvas.addEventListener('mouseup', (e) => {
+  e.stopPropagation(); // handled here — don't let window.mouseup double-fire
+  let p = getPos(e);
+  p = applyShiftConstraint(p, e);
+  releaseDragOrDraw(p.x, p.y);
+});
+
+
+/* ── Sticky-drag fix: release on window mouseup if cursor left canvas ──
+   Clamps position to the canvas boundary so the element settles at the edge. */
+function clampToCanvas(x, y) {
+  return {
+    x: Math.max(0, Math.min(drawCanvas.width,  x)),
+    y: Math.max(0, Math.min(drawCanvas.height, y)),
+  };
+}
+
+function releaseDragOrDraw(rawX, rawY) {
+  // End handle drag
   if (isDraggingHandle) {
     isDraggingHandle = false;
     activeHandle = null;
+    redraw();
     window.lensEditor.markDirty();
+    drawCanvas.style.cursor = currentTool === 'select' ? 'default' : 'crosshair';
     return;
   }
 
-  // End drag
+  // End annotation drag — clamp to canvas boundary
   if (isDragging) {
     isDragging = false;
-    drawCanvas.style.cursor = 'grab';
+    if (selectedIdx >= 0) {
+      const ann = annotations[selectedIdx];
+      const bounds = getAnnBounds(ann);
+      if (bounds) {
+        // Clamp so the element doesn't escape the canvas
+        const clamped = clampToCanvas(rawX, rawY);
+        const dx = clamped.x - (rawX);
+        const dy = clamped.y - (rawY);
+        // Nudge the annotation back inside if needed
+        if (ann.x !== undefined)  { ann.x = Math.max(0, Math.min(drawCanvas.width,  ann.x));  }
+        if (ann.y !== undefined)  { ann.y = Math.max(0, Math.min(drawCanvas.height, ann.y));  }
+        if (ann.x1 !== undefined) { ann.x1 = Math.max(0, Math.min(drawCanvas.width,  ann.x1)); }
+        if (ann.y1 !== undefined) { ann.y1 = Math.max(0, Math.min(drawCanvas.height, ann.y1)); }
+        if (ann.x2 !== undefined) { ann.x2 = Math.max(0, Math.min(drawCanvas.width,  ann.x2)); }
+        if (ann.y2 !== undefined) { ann.y2 = Math.max(0, Math.min(drawCanvas.height, ann.y2)); }
+      }
+    }
+    redraw();
     window.lensEditor.markDirty();
+    drawCanvas.style.cursor = currentTool === 'select' ? 'default' : 'crosshair';
     return;
   }
 
-  if (!isDrawing) return;
-  isDrawing = false;
-  let p = getPos(e);
-  p = applyShiftConstraint(p, e);
+  // End drawing — commit whatever was drawn, clamped to canvas edge
+  if (isDrawing) {
+    isDrawing = false;
+    const p = clampToCanvas(rawX, rawY);
 
-  const dragDist = Math.hypot(p.x - drawStartX, p.y - drawStartY);
-  if (currentTool !== 'text' && currentTool !== 'number' && dragDist < 5) {
+    const dragDist = Math.hypot(p.x - drawStartX, p.y - drawStartY);
+    if (currentTool !== 'text' && currentTool !== 'number' && dragDist < 5) {
+      freehandPoints = [];
+      redraw();
+      return;
+    }
+
+    let ann = null;
+    switch (currentTool) {
+      case 'arrow':        ann = { type: 'arrow', x1: drawStartX, y1: drawStartY, x2: p.x, y2: p.y, color: currentColor, stroke: currentStroke, arrowStyle }; break;
+      case 'rect':         ann = { type: 'rect', x: drawStartX, y: drawStartY, w: p.x - drawStartX, h: p.y - drawStartY, color: currentColor, stroke: currentStroke }; break;
+      case 'fillrect':     ann = { type: 'fillrect', x: drawStartX, y: drawStartY, w: p.x - drawStartX, h: p.y - drawStartY, color: currentColor, stroke: currentStroke }; break;
+      case 'squarehighlight': ann = { type: 'squarehighlight', x: drawStartX, y: drawStartY, w: p.x - drawStartX, h: p.y - drawStartY, color: currentColor, stroke: currentStroke }; break;
+      case 'circle':       ann = { type: 'circle', x: drawStartX, y: drawStartY, w: p.x - drawStartX, h: p.y - drawStartY, color: currentColor, stroke: currentStroke }; break;
+      case 'line':         ann = { type: 'line', x1: drawStartX, y1: drawStartY, x2: p.x, y2: p.y, color: currentColor, stroke: currentStroke }; break;
+      case 'freehand':     freehandPoints.push([p.x, p.y]); ann = { type: 'freehand', points: [...freehandPoints], color: currentColor, stroke: currentStroke }; break;
+      case 'highlighter':  freehandPoints.push([p.x, p.y]); ann = { type: 'highlighter', points: [...freehandPoints], color: currentColor, stroke: currentStroke }; break;
+      case 'blur':         ann = { type: 'blur', x: drawStartX, y: drawStartY, w: p.x - drawStartX, h: p.y - drawStartY, color: currentColor, stroke: currentStroke, blurSize: blurIntensity, blurStyle }; break;
+      case 'circleblur':   ann = { type: 'circleblur', x: drawStartX, y: drawStartY, w: p.x - drawStartX, h: p.y - drawStartY, color: currentColor, stroke: currentStroke, blurSize: blurIntensity, blurStyle }; break;
+      case 'spotlight':    ann = { type: 'spotlight', x: drawStartX, y: drawStartY, w: p.x - drawStartX, h: p.y - drawStartY, color: currentColor, stroke: currentStroke, darkness: spotlightDarkness }; break;
+      case 'circlespotlight': ann = { type: 'circlespotlight', x: drawStartX, y: drawStartY, w: p.x - drawStartX, h: p.y - drawStartY, color: currentColor, stroke: currentStroke, darkness: spotlightDarkness }; break;
+    }
+    if (ann) {
+      annotations.push(ann);
+      redoStack = [];
+      selectedIdx = annotations.length - 1;
+      redraw();
+      window.lensEditor.markDirty();
+    }
     freehandPoints = [];
-    redraw();
-    return;
   }
+}
 
-  let ann = null;
-  switch (currentTool) {
-    case 'arrow':
-      ann = { type: 'arrow', x1: drawStartX, y1: drawStartY, x2: p.x, y2: p.y, color: currentColor, stroke: currentStroke, arrowStyle };
-      break;
-    case 'rect':
-      ann = { type: 'rect', x: drawStartX, y: drawStartY, w: p.x - drawStartX, h: p.y - drawStartY, color: currentColor, stroke: currentStroke };
-      break;
-    case 'fillrect':
-      ann = { type: 'fillrect', x: drawStartX, y: drawStartY, w: p.x - drawStartX, h: p.y - drawStartY, color: currentColor, stroke: currentStroke };
-      break;
-    case 'squarehighlight':
-      ann = { type: 'squarehighlight', x: drawStartX, y: drawStartY, w: p.x - drawStartX, h: p.y - drawStartY, color: currentColor, stroke: currentStroke };
-      break;
-    case 'circle':
-      ann = { type: 'circle', x: drawStartX, y: drawStartY, w: p.x - drawStartX, h: p.y - drawStartY, color: currentColor, stroke: currentStroke };
-      break;
-    case 'line':
-      ann = { type: 'line', x1: drawStartX, y1: drawStartY, x2: p.x, y2: p.y, color: currentColor, stroke: currentStroke };
-      break;
-    case 'freehand':
-      freehandPoints.push([p.x, p.y]);
-      ann = { type: 'freehand', points: [...freehandPoints], color: currentColor, stroke: currentStroke };
-      break;
-    case 'highlighter':
-      freehandPoints.push([p.x, p.y]);
-      ann = { type: 'highlighter', points: [...freehandPoints], color: currentColor, stroke: currentStroke };
-      break;
-    case 'blur':
-      ann = { type: 'blur', x: drawStartX, y: drawStartY, w: p.x - drawStartX, h: p.y - drawStartY, color: currentColor, stroke: currentStroke, blurSize: blurIntensity, blurStyle };
-      break;
-    case 'circleblur':
-      ann = { type: 'circleblur', x: drawStartX, y: drawStartY, w: p.x - drawStartX, h: p.y - drawStartY, color: currentColor, stroke: currentStroke, blurSize: blurIntensity };
-      break;
-    case 'spotlight':
-      ann = { type: 'spotlight', x: drawStartX, y: drawStartY, w: p.x - drawStartX, h: p.y - drawStartY, color: currentColor, stroke: currentStroke, darkness: spotlightDarkness };
-      break;
-    case 'circlespotlight':
-      ann = { type: 'circlespotlight', x: drawStartX, y: drawStartY, w: p.x - drawStartX, h: p.y - drawStartY, color: currentColor, stroke: currentStroke, darkness: spotlightDarkness };
-      break;
-  }
-
-  if (ann) {
-    annotations.push(ann);
-    redoStack = [];
-    selectedIdx = annotations.length - 1; // Auto-select new annotation
-    redraw();
-    window.lensEditor.markDirty();
-  }
-  freehandPoints = [];
+// Global mouseup — fires even if mouse is released outside the canvas / window
+window.addEventListener('mouseup', (e) => {
+  if (!isDragging && !isDraggingHandle && !isDrawing) return;
+  // Convert client coords to canvas coords
+  const rect = drawCanvas.getBoundingClientRect();
+  const rawX = (e.clientX - rect.left) * displayScale;
+  const rawY = (e.clientY - rect.top)  * displayScale;
+  releaseDragOrDraw(rawX, rawY);
 });
+
+
 
 /* ── Double-click to re-edit text ── */
 drawCanvas.addEventListener('dblclick', (e) => {
@@ -1536,11 +1631,13 @@ function showTextInput(x, y, editIdx) {
   if (textInputEl) { textInputEl.remove(); textInputEl = null; }
   drawCanvas.style.pointerEvents = 'none';
 
-  const existingText = editIdx !== undefined ? annotations[editIdx].text : '';
+  const existingText  = editIdx !== undefined ? annotations[editIdx].text  : '';
   const existingColor = editIdx !== undefined ? annotations[editIdx].color : currentColor;
-  const existingFs = editIdx !== undefined ? Math.round((annotations[editIdx].fontSize || 16) / displayScale) : textFontSize;
+  const existingFs    = editIdx !== undefined ? Math.round((annotations[editIdx].fontSize || 16) / displayScale) : textFontSize;
+  const existingFont  = editIdx !== undefined ? (annotations[editIdx].fontFamily || textFont) : textFont;
   const isMono = textStyle === 'mono';
-  const fontFam = isMono ? '"SF Mono", "Fira Code", "Consolas", monospace' : 'Inter, sans-serif';
+  const fontFam = isMono ? '"SF Mono", "Fira Code", "Consolas", monospace'
+                         : `"${existingFont}", Inter, -apple-system, sans-serif`;
 
   // x,y are in canvas (full-res) space — convert to CSS for positioning
   const cssX = x / displayScale;
@@ -1580,22 +1677,34 @@ function showTextInput(x, y, editIdx) {
     adjustSize();
   });
 
+  // Live-update font when user changes the font picker while textarea is open
+  const liveUpdateFont = (newFont) => {
+    const isMonoNow = textStyle === 'mono';
+    const newFam = isMonoNow ? '"SF Mono", "Fira Code", "Consolas", monospace'
+                             : `"${newFont}", Inter, -apple-system, sans-serif`;
+    input.style.fontFamily = newFam;
+  };
+  input._liveUpdateFont = liveUpdateFont;
+
   let committed = false;
   const commit = () => {
     if (committed) return;
     committed = true;
+    input._liveUpdateFont = null;
     const txt = input.value.trim();
+    const activeFont = textFont; // capture current value at commit time
     if (editIdx !== undefined) {
       // Update existing
       if (txt) {
         annotations[editIdx].text = txt;
+        annotations[editIdx].fontFamily = activeFont;
       } else {
         annotations.splice(editIdx, 1);
         redoStack = [];
         selectedIdx = -1;
       }
     } else if (txt) {
-      annotations.push({ type: 'text', x, y: y + 6 * displayScale, text: txt, color: currentColor, stroke: currentStroke, fontSize: Math.round(textFontSize * displayScale), textStyle, glowSize: Math.round(textGlowSize * displayScale), boxOpacity: textBoxOpacity });
+      annotations.push({ type: 'text', x, y: y + 6 * displayScale, text: txt, color: currentColor, stroke: currentStroke, fontSize: Math.round(textFontSize * displayScale), textStyle, glowSize: Math.round(textGlowSize * displayScale), boxOpacity: textBoxOpacity, fontFamily: activeFont });
       redoStack = [];
       selectedIdx = annotations.length - 1;
     }
@@ -1638,6 +1747,7 @@ function loadSubstyles() {
       if (saved.arrow)  arrowStyle = saved.arrow;
       if (saved.text)   textStyle  = saved.text;
       if (saved.blur)   blurStyle  = saved.blur;
+      if (saved.font)   textFont   = saved.font;
     }
   } catch {}
 }
@@ -1648,6 +1758,7 @@ function saveSubstyles() {
       arrow: arrowStyle,
       text:  textStyle,
       blur:  blurStyle,
+      font:  textFont,
     }));
   } catch {}
 }
@@ -1656,9 +1767,10 @@ function saveSubstyles() {
 loadSubstyles();
 (function syncSubMenuUI() {
   const mapping = {
-    'arrow-dropdown': arrowStyle,
-    'text-dropdown':  textStyle,
-    'blur-dropdown':  blurStyle,
+    'arrow-dropdown':       arrowStyle,
+    'text-dropdown':        textStyle,
+    'blur-dropdown':        blurStyle,
+    'circleblur-dropdown':  blurStyle,  // shares the same blurStyle state
   };
   for (const [menuId, style] of Object.entries(mapping)) {
     const menu = document.getElementById(menuId);
@@ -1671,14 +1783,199 @@ loadSubstyles();
   selectTool(currentTool);
 })();
 
-/** Helper: select a tool (update UI + state) */
+/* ─────────────────────────────────────────────
+   FONT PICKER — System Font Detection + UI
+   ───────────────────────────────────────────── */
+
+// Curated list of fonts to probe — includes macOS system fonts, Windows,
+// popular web-safe fonts, and common coding/design fonts.
+const PROBE_FONTS = [
+  // Web / Google Fonts (often pre-loaded)
+  'Inter', 'Roboto', 'Open Sans', 'Lato', 'Montserrat', 'Raleway',
+  'Poppins', 'Nunito', 'Playfair Display', 'Merriweather', 'Source Sans Pro',
+  'Ubuntu', 'Oswald', 'Noto Sans', 'Fira Sans', 'Work Sans',
+  // macOS system fonts
+  'San Francisco', '-apple-system', 'SF Pro Display', 'SF Pro Text',
+  'Helvetica Neue', 'Helvetica', 'Arial',
+  'Georgia', 'Times New Roman', 'Palatino', 'Garamond',
+  'Futura', 'Gill Sans', 'Optima', 'Baskerville', 'Didot',
+  'American Typewriter', 'Chalkboard SE', 'Marker Felt',
+  'Copperplate', 'Papyrus', 'Comic Sans MS',
+  // Windows system fonts
+  'Segoe UI', 'Calibri', 'Cambria', 'Corbel', 'Consolas',
+  'Tahoma', 'Verdana', 'Trebuchet MS', 'Impact', 'Franklin Gothic',
+  // Monospace
+  'SF Mono', 'Fira Code', 'JetBrains Mono', 'Source Code Pro',
+  'Courier New', 'Monaco', 'Menlo', 'Inconsolata', 'Cascadia Code',
+  // Design / Display
+  'Avenir', 'Avenir Next', 'Proxima Nova', 'Brandon Grotesque',
+  'DIN Condensed', 'Rockwell', 'Bodoni 72', 'Hoefler Text',
+];
+
+// Baseline font to compare against — if a font renders like the test
+// baseline, it's not installed. We check with a known-different string.
+const TEST_STRING = 'mmmmmmmmmmlli';
+
+let detectedFonts = [];
+
+function detectSystemFonts() {
+  const canvas = document.createElement('canvas');
+  canvas.width = 400; canvas.height = 40;
+  const ctx = canvas.getContext('2d');
+
+  const baseline = 'monospace';
+
+  function measureWidth(font) {
+    ctx.font = `16px ${font}, ${baseline}`;
+    return ctx.measureText(TEST_STRING).width;
+  }
+
+  const baselineW = measureWidth(baseline);
+
+  const available = [];
+  for (const font of PROBE_FONTS) {
+    const w = measureWidth(`"${font}"`);
+    if (w !== baselineW) {
+      available.push(font);
+    }
+  }
+
+  // Always include Inter (bundled via Google Fonts) and the system fallback
+  if (!available.includes('Inter')) available.unshift('Inter');
+
+  return available;
+}
+
+// Helper: update the font picker trigger label and active item in the list
+function syncFontPickerLabel(fontName) {
+  const label = document.getElementById('font-picker-label');
+  if (label) label.textContent = fontName;
+  document.querySelectorAll('.font-item').forEach(item => {
+    item.classList.toggle('active', item.dataset.font === fontName);
+  });
+}
+
+function buildFontList(fonts) {
+  const list = document.getElementById('font-picker-list');
+  if (!list) return;
+  list.innerHTML = '';
+  for (const font of fonts) {
+    const btn = document.createElement('button');
+    btn.className = 'font-item';
+    btn.dataset.font = font;
+    btn.title = font;
+    // Show name label + preview of font
+    btn.innerHTML = `
+      <span class="font-preview" style="font-family: '${font}', Inter, sans-serif;">Aa</span>
+      <span class="font-name-label">${font}</span>
+    `;
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      textFont = font;
+      syncFontPickerLabel(font);
+      saveSubstyles();
+      localStorage.setItem('lens-text-font', font);
+      // Live-update open textarea if any
+      if (textInputEl && typeof textInputEl._liveUpdateFont === 'function') {
+        textInputEl._liveUpdateFont(font);
+      }
+      // Live-update selected text annotation
+      if (selectedIdx >= 0 && annotations[selectedIdx].type === 'text') {
+        annotations[selectedIdx].fontFamily = font;
+        redraw();
+        window.lensEditor.markDirty();
+      }
+      closeFontPicker();
+    });
+    list.appendChild(btn);
+  }
+}
+
+function openFontPicker() {
+  const trigger = document.getElementById('font-picker-trigger');
+  const dropdown = document.getElementById('font-picker-dropdown');
+  if (!trigger || !dropdown) return;
+
+  // Position below trigger
+  const rect = trigger.getBoundingClientRect();
+  dropdown.style.top  = (rect.bottom + 4) + 'px';
+  dropdown.style.left = Math.min(rect.left, window.innerWidth - 208 - 8) + 'px';
+  dropdown.classList.add('open');
+  trigger.classList.add('open');
+
+  // Focus search
+  const search = document.getElementById('font-search');
+  if (search) { search.value = ''; search.focus(); filterFontList(''); }
+
+  // Scroll active item into view
+  setTimeout(() => {
+    const active = document.querySelector('.font-item.active');
+    if (active) active.scrollIntoView({ block: 'nearest' });
+  }, 50);
+}
+
+function closeFontPicker() {
+  const trigger = document.getElementById('font-picker-trigger');
+  const dropdown = document.getElementById('font-picker-dropdown');
+  if (trigger) trigger.classList.remove('open');
+  if (dropdown) dropdown.classList.remove('open');
+}
+
+function filterFontList(query) {
+  const q = query.toLowerCase().trim();
+  document.querySelectorAll('.font-item').forEach(item => {
+    const match = !q || item.dataset.font.toLowerCase().includes(q);
+    item.style.display = match ? '' : 'none';
+  });
+}
+
+// Initialize font picker
+detectedFonts = detectSystemFonts();
+buildFontList(detectedFonts);
+syncFontPickerLabel(textFont);
+
+const fontPickerTrigger  = document.getElementById('font-picker-trigger');
+const fontPickerDropdown = document.getElementById('font-picker-dropdown');
+const fontSearch         = document.getElementById('font-search');
+
+if (fontPickerTrigger) {
+  fontPickerTrigger.addEventListener('click', (e) => {
+    e.stopPropagation();
+    const isOpen = fontPickerDropdown && fontPickerDropdown.classList.contains('open');
+    if (isOpen) closeFontPicker();
+    else openFontPicker();
+  });
+}
+
+if (fontSearch) {
+  fontSearch.addEventListener('input', () => filterFontList(fontSearch.value));
+  fontSearch.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') closeFontPicker();
+    e.stopPropagation(); // prevent canvas keyboard shortcuts
+  });
+}
+
+// Close font picker on outside click
+document.addEventListener('click', (e) => {
+  if (!e.target.closest('#font-picker-wrap')) closeFontPicker();
+});
+
+
 function selectTool(toolName) {
   currentTool = toolName;
   localStorage.setItem('lens-current-tool', toolName);
   document.querySelectorAll('.tool-btn').forEach(b => b.classList.remove('active'));
   const btn = document.querySelector(`[data-tool="${toolName}"]`);
   if (btn) btn.classList.add('active');
-  
+
+  // Restore this tool's remembered stroke width
+  const toolVal = toolStrokes[toolName] ?? DEFAULT_TOOL_STROKES[toolName] ?? 3;
+  currentStroke = toolVal * displayScale;
+  const strokeSliderEl = document.getElementById('stroke-width');
+  const strokeValEl    = document.getElementById('stroke-value');
+  if (strokeSliderEl) strokeSliderEl.value = toolVal;
+  if (strokeValEl)    strokeValEl.textContent = toolVal + 'px';
+
   const cropActions = document.getElementById('crop-actions');
   if (toolName === 'crop') {
     if (!cropBox) {
@@ -1872,11 +2169,21 @@ document.querySelectorAll('.tool-sub-menu').forEach(menu => {
       }
       const isBox = textStyle === 'box';
       document.querySelectorAll('.box-opacity-label, .box-opacity-slider, .box-opacity-value').forEach(el => el.style.display = isBox ? 'inline-block' : 'none');
-    } else if (menu.id === 'blur-dropdown') {
+    } else if (menu.id === 'blur-dropdown' || menu.id === 'circleblur-dropdown') {
       blurStyle = style;
-      if (selectedIdx >= 0 && annotations[selectedIdx].type === 'blur') {
+      // Live-update if a blur or circleblur annotation is selected
+      if (selectedIdx >= 0 && (annotations[selectedIdx].type === 'blur' || annotations[selectedIdx].type === 'circleblur')) {
         annotations[selectedIdx].blurStyle = style;
       }
+      // Keep both dropdowns in sync visually
+      ['blur-dropdown', 'circleblur-dropdown'].forEach(id => {
+        const otherMenu = document.getElementById(id);
+        if (otherMenu && otherMenu !== menu) {
+          otherMenu.querySelectorAll('.sub-item').forEach(i => i.classList.remove('active'));
+          const match = otherMenu.querySelector(`[data-substyle="${style}"]`);
+          if (match) match.classList.add('active');
+        }
+      });
     }
     
     if (selectedIdx >= 0) {
@@ -2048,8 +2355,21 @@ if (bgToggle) {
     bgToggle.classList.toggle('on', bgEnabled);
     bgToggleLabel.textContent = bgEnabled ? 'On' : 'Off';
     bgTrigger.classList.toggle('active', bgEnabled);
+    // Show zoom slider whenever BG is on (free or AR)
+    const padRow = document.getElementById('bg-padding-row');
+    if (padRow) padRow.style.display = bgEnabled ? 'flex' : 'none';
     applyBackground();
   });
+}
+
+/** Encode a wallpaper file path so spaces/parens/special chars work in CSS url() and img.src */
+function encodeWallpaperPath(rawPath) {
+  // Split at last '/' so only the filename gets encoded, not the directory separators
+  const lastSlash = rawPath.lastIndexOf('/');
+  if (lastSlash === -1) return encodeURIComponent(rawPath);
+  const dir  = rawPath.slice(0, lastSlash + 1);
+  const file = rawPath.slice(lastSlash + 1);
+  return dir + encodeURIComponent(file);
 }
 
 const ALL_WALLPAPERS = [
@@ -2076,13 +2396,14 @@ function shuffleWallpapers() {
   selected.forEach(file => {
     const div = document.createElement('div');
     div.className = 'bg-thumb';
-    const src = `../assets/walpaper/${file}`;
+    const src = `../assets/walpaper/${file}`;          // raw path — used for active-state comparison
+    const encodedSrc = encodeWallpaperPath(src);       // encoded path — safe for CSS url() and img.src
     if (bgType === 'image' && bgValue === src) {
       div.classList.add('active');
     }
     div.dataset.bg = 'image';
-    div.dataset.src = src;
-    div.style.backgroundImage = `url("${src}")`;
+    div.dataset.src = src;                             // keep raw for bgValue comparison
+    div.style.backgroundImage = `url("${encodedSrc}")`;
     grid.appendChild(div);
   });
 }
@@ -2113,7 +2434,7 @@ if (wallpaperGrid) {
     
     const img = new Image();
     img.onload = () => { bgImageObj = img; if (bgEnabled) applyBackground(); };
-    img.src = bgValue;
+    img.src = encodeWallpaperPath(bgValue);  // encode so spaces/parens in filenames load correctly
 
     if (!bgEnabled) {
       bgEnabled = true;
@@ -2317,7 +2638,8 @@ function renderHistoryGrid(sectionId, gridId, list, type, removeHandler) {
       if (bgType === 'image') {
         const img = new Image();
         img.onload = () => { bgImageObj = img; applyAndToggle(); };
-        img.src = data;
+        // data: URLs are already safe; file paths need encoding for spaces/parens
+        img.src = data.startsWith('data:') ? data : encodeWallpaperPath(data);
       } else {
         applyAndToggle();
       }
@@ -2369,11 +2691,9 @@ if (bgAspectGrid) {
     const valEl = document.getElementById('bg-aspect-value');
     if (valEl) valEl.textContent = bgAspectRatio === 'free' ? 'Free' : bgAspectRatio;
 
-    // Toggle Padding slider visibility
+    // Zoom slider: show whenever BG is enabled (not just when AR ≠ free)
     const padRow = document.getElementById('bg-padding-row');
-    if (padRow) {
-      padRow.style.display = bgAspectRatio === 'free' ? 'none' : 'flex';
-    }
+    if (padRow) padRow.style.display = bgEnabled ? 'flex' : 'none';
 
     // Auto-enable BG when user picks a non-free aspect ratio
     if (bgAspectRatio !== 'free' && !bgEnabled) {
@@ -2397,13 +2717,15 @@ if (bgCornerSlider) {
   });
 }
 
-// Padding slider
+// Zoom slider (controls screenshot scale within AR frame)
 const bgPaddingSlider = document.getElementById('bg-padding-slider');
 const bgPaddingValue  = document.getElementById('bg-padding-value');
 if (bgPaddingSlider) {
+  bgPaddingSlider.value = bgZoomPercent;
+  if (bgPaddingValue) bgPaddingValue.textContent = bgZoomPercent + '%';
   bgPaddingSlider.addEventListener('input', (e) => {
-    bgPadPercent = parseInt(e.target.value, 10);
-    if (bgPaddingValue) bgPaddingValue.textContent = bgPadPercent + '%';
+    bgZoomPercent = parseInt(e.target.value, 10);
+    if (bgPaddingValue) bgPaddingValue.textContent = bgZoomPercent + '%';
     applyBackground();
   });
 }
@@ -2427,79 +2749,81 @@ function parseAspectRatio(ratioStr) {
   return w / h;
 }
 
-/** Compute the output canvas & image placement for a given aspect ratio */
-function computeAspectLayout(imgW, imgH, ratioStr, padPercent) {
-  const pad = padPercent / 100;
+// Fixed fill ratio: frame is always sized so screenshot fills this fraction at neutral zoom
+const FRAME_FILL = 0.70;
+
+/**
+ * Compute the FIXED frame size (ignores zoom — frame never changes with zoom).
+ * Also computes max screenshot size that fits in the frame at zoom=100%.
+ * The caller then applies zoomPercent to scale the screenshot within the fixed frame.
+ * withBg=false → free AR returns original image size (no border, no export inflation).
+ */
+function computeAspectLayout(imgW, imgH, ratioStr, zoomPercent, withBg) {
   const targetAR = parseAspectRatio(ratioStr);
 
+  // --- Free AR ---
   if (!targetAR) {
-    // Free: same as before — just add padding around the image
-    const padPx = Math.round(Math.max(imgW, imgH) * pad);
-    return {
-      totalW: imgW + padPx * 2,
-      totalH: imgH + padPx * 2,
-      imgX: padPx,
-      imgY: padPx,
-      imgDrawW: imgW,
-      imgDrawH: imgH,
-    };
+    if (!withBg) {
+      return { totalW: imgW, totalH: imgH, imgX: 0, imgY: 0, imgDrawW: imgW, imgDrawH: imgH };
+    }
+    // Frame is fixed: screenshot fills FRAME_FILL of the frame at neutral zoom
+    const totalW = Math.round(imgW / FRAME_FILL);
+    const totalH = Math.round(imgH / FRAME_FILL);
+    // At zoomPercent the screenshot draws at zoom% of its natural size
+    const zoom      = Math.max(0.5, Math.min(1.5, (zoomPercent || 85) / 100));
+    const imgDrawW  = Math.round(imgW * zoom);
+    const imgDrawH  = Math.round(imgH * zoom);
+    const imgX      = Math.round((totalW - imgDrawW) / 2);
+    const imgY      = Math.round((totalH - imgDrawH) / 2);
+    return { totalW, totalH, imgX, imgY, imgDrawW, imgDrawH };
   }
 
-  // Target aspect ratio: compute the minimum canvas that fits the image
-  // with at least `pad` fraction of padding on every side
+  // --- Specific AR ---
   const imgAR = imgW / imgH;
-  let totalW, totalH, imgDrawW, imgDrawH;
+  let totalW, totalH;
 
-  // The image occupies (1 - 2*pad) fraction of the canvas in each dimension
-  const usable = 1 - 2 * pad;
-
+  // Frame is fixed (sized so screenshot at FRAME_FILL occupies `fill` fraction)
   if (imgAR >= targetAR) {
-    // Image is wider than the target ratio — width is the constraining axis
-    imgDrawW = imgW;
-    totalW = Math.round(imgW / usable);
+    totalW = Math.round(imgW / FRAME_FILL);
     totalH = Math.round(totalW / targetAR);
-    imgDrawH = imgH;
   } else {
-    // Image is taller than the target ratio — height is the constraining axis
-    imgDrawH = imgH;
-    totalH = Math.round(imgH / usable);
+    totalH = Math.round(imgH / FRAME_FILL);
     totalW = Math.round(totalH * targetAR);
-    imgDrawW = imgW;
   }
 
-  // Ensure the image actually fits inside the canvas with padding
-  // (the other dimension might need more space)
-  const maxImgW = Math.round(totalW * usable);
-  const maxImgH = Math.round(totalH * usable);
-  if (imgDrawW > maxImgW || imgDrawH > maxImgH) {
-    const fitScale = Math.min(maxImgW / imgDrawW, maxImgH / imgDrawH);
-    imgDrawW = Math.round(imgDrawW * fitScale);
-    imgDrawH = Math.round(imgDrawH * fitScale);
-  }
-
-  // Center the image
-  const imgX = Math.round((totalW - imgDrawW) / 2);
-  const imgY = Math.round((totalH - imgDrawH) / 2);
+  // Screenshot drawn at zoomPercent% of the frame's usable area
+  const zoom = Math.max(0.5, Math.min(1.5, (zoomPercent || 85) / 100));
+  // Max fit size (screenshot aspect maintained, fills the constraining axis of frame)
+  const maxFitW    = imgAR >= targetAR ? totalW : totalH * imgAR;
+  const maxFitH    = imgAR >= targetAR ? totalW / imgAR : totalH;
+  const imgDrawW   = Math.round(maxFitW * zoom);
+  const imgDrawH   = Math.round(maxFitH * zoom);
+  const imgX       = Math.round((totalW - imgDrawW) / 2);
+  const imgY       = Math.round((totalH - imgDrawH) / 2);
 
   return { totalW, totalH, imgX, imgY, imgDrawW, imgDrawH };
 }
 
 function applyBackground() {
+  const arFrame = document.getElementById('ar-frame');
+
   if (!bgEnabled) {
     bgLayer.classList.remove('active');
     canvasWrap.classList.remove('has-bg');
-    // Restore checkerboard pattern
     const container = document.getElementById('canvas-container');
     container.style.background = '';
     canvasWrap.style.borderRadius = '';
     canvasWrap.style.boxShadow = '';
+    if (arFrame) { arFrame.style.width = ''; arFrame.style.height = ''; arFrame.style.borderRadius = ''; }
+    canvasWrapScale = 1;
+    canvasWrap.style.transform = '';
+    canvasWrap.style.transformOrigin = '';
     return;
   }
 
   bgLayer.classList.add('active');
   canvasWrap.classList.add('has-bg');
 
-  // Hide the default checkerboard
   const container = document.getElementById('canvas-container');
   container.style.background = 'transparent';
 
@@ -2510,31 +2834,59 @@ function applyBackground() {
   } else if (bgType === 'gradient') {
     bgLayer.style.background = bgValue;
   } else if (bgType === 'image') {
-    bgLayer.style.backgroundImage = `url(${bgValue})`;
+    bgLayer.style.backgroundImage = `url("${encodeWallpaperPath(bgValue)}")`;
     bgLayer.style.backgroundSize = 'cover';
     bgLayer.style.backgroundPosition = 'center';
   }
 
-  // Apply Gaussian blur
-  const blurPx = Math.round(bgBlurLevel * 0.5); // 0%→0px, 100%→50px
+  // Blur on the bg layer
+  const blurPx = Math.round(bgBlurLevel * 0.5);
   bgLayer.style.filter = blurPx > 0 ? `blur(${blurPx}px)` : 'none';
-  // Scale up slightly to hide blur edge artifacts
   bgLayer.style.transform = blurPx > 0 ? 'scale(1.1)' : 'none';
 
-  // Apply Viewport styles (Corner, Shadow)
+  // Corner radius + shadow on the screenshot (canvas-wrap)
   canvasWrap.style.borderRadius = bgCornerRadius + 'px';
   if (bgShadow > 0) {
     canvasWrap.style.boxShadow = `0 ${bgShadow * 0.3}px ${bgShadow}px rgba(0,0,0,0.6), 0 0 0 1px rgba(255,255,255,0.06)`;
   } else {
     canvasWrap.style.boxShadow = '0 0 0 1px rgba(255,255,255,0.06)';
   }
+
+  // ── Fixed frame + zoom preview ──
+  // ar-frame is FIXED (sized by FRAME_FILL ratio, independent of zoom slider)
+  // canvas-wrap is scaled via CSS transform so screenshot appears larger/smaller
+  if (arFrame && displayW > 0 && displayH > 0) {
+    // Frame size: always computed at zoom=100% (FRAME_FILL determines border)
+    const frameLayout = computeAspectLayout(displayW, displayH, bgAspectRatio, 100, true);
+    arFrame.style.width        = frameLayout.totalW + 'px';
+    arFrame.style.height       = frameLayout.totalH + 'px';
+    arFrame.style.borderRadius = '8px';
+    bgLayer.style.borderRadius = '8px';
+
+    // CSS scale: make canvas-wrap appear at zoom% of its max fit in the frame
+    // maxFit for display: for free AR, maxFit = displayW (at zoom=100 screenshot = displayW)
+    // We want: displayed screenshot width = displayW * zoom/100
+    // canvasWrap natural width = displayW, so scale = zoom/100
+    canvasWrapScale = Math.max(0.3, Math.min(1.5, bgZoomPercent / 100));
+    canvasWrap.style.transform       = `scale(${canvasWrapScale})`;
+    canvasWrap.style.transformOrigin = 'center center';
+  } else if (arFrame) {
+    arFrame.style.width  = '';
+    arFrame.style.height = '';
+    arFrame.style.borderRadius = '';
+    bgLayer.style.borderRadius = '';
+    canvasWrapScale = 1;
+    canvasWrap.style.transform = '';
+  }
 }
 
-// Stroke width
+// Stroke width — per-tool independent memory
 document.getElementById('stroke-width').addEventListener('input', (e) => {
   const val = parseInt(e.target.value, 10);
   currentStroke = val * displayScale;
-  localStorage.setItem('lens-stroke-width', val);
+  // Save per-tool
+  toolStrokes[currentTool] = val;
+  try { localStorage.setItem(TOOL_STROKE_KEY, JSON.stringify(toolStrokes)); } catch {}
   if (selectedIdx >= 0) {
     annotations[selectedIdx].stroke = currentStroke;
     redraw();
@@ -2687,7 +3039,7 @@ function getMergedDataUrl() {
 
   // If background is enabled, create a canvas with aspect ratio + padding
   if (bgEnabled) {
-    const layout = computeAspectLayout(fullW, fullH, bgAspectRatio, bgPadPercent);
+    const layout = computeAspectLayout(fullW, fullH, bgAspectRatio, bgZoomPercent, true);
     const { totalW, totalH, imgX, imgY, imgDrawW, imgDrawH } = layout;
     
     // Scale corner radius based on the image size vs display size to match preview proportions

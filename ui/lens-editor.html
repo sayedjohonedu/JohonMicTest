@@ -120,9 +120,19 @@
         </div>
       </div>
 
-      <button class="tool-btn" data-tool="circleblur" title="Circle Blur (J)">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M8 9h2v2H8zM11 9h2v2h-2zM14 9h2v2h-2zM8 12h2v2H8zM11 12h2v2h-2zM14 12h2v2h-2z" fill="currentColor" opacity="0.4" stroke="none"/></svg>
-      </button>
+      <!-- Circle Blur with dropdown -->
+      <div class="tool-dropdown-wrap" id="circleblur-dropdown-wrap">
+        <button class="tool-btn has-dropdown" data-tool="circleblur" data-dropdown="circleblur-dropdown" title="Circle Blur (J)">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M8 9h2v2H8zM11 9h2v2h-2zM14 9h2v2h-2zM8 12h2v2H8zM11 12h2v2h-2zM14 12h2v2h-2z" fill="currentColor" opacity="0.4" stroke="none"/></svg>
+          <span class="btn-chevron"><svg viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 3.5l3 3 3-3"/></svg></span>
+        </button>
+        <div class="tool-sub-menu" id="circleblur-dropdown">
+          <button class="sub-item active" data-substyle="pixelate">Pixelate</button>
+          <button class="sub-item" data-substyle="smooth">Blur (smooth)</button>
+          <button class="sub-item" data-substyle="blackout">Black Out</button>
+        </div>
+      </div>
+
       <button class="tool-btn" data-tool="spotlight" title="Spotlight (S)">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="2" width="20" height="20" rx="2" fill="currentColor" opacity="0.3" stroke="none"/><rect x="6" y="6" width="12" height="12" rx="1" fill="#000" opacity="0.5" stroke="none"/><rect x="6" y="6" width="12" height="12" rx="1"/></svg>
       </button>
@@ -288,11 +298,11 @@
               <span class="slider-value" id="bg-corner-value">12px</span>
             </div>
             
-            <!-- Padding slider -->
+            <!-- Zoom slider (only when AR is not free) -->
             <div class="bg-blur-row" id="bg-padding-row" style="margin-bottom:6px; display: none;">
-              <span class="slider-label">Pad</span>
-              <input type="range" class="stroke-slider" id="bg-padding-slider" min="0" max="25" value="6">
-              <span class="slider-value" id="bg-padding-value">6%</span>
+              <span class="slider-label">Zoom</span>
+              <input type="range" class="stroke-slider" id="bg-padding-slider" min="50" max="100" value="85">
+              <span class="slider-value" id="bg-padding-value">85%</span>
             </div>
             
             <div class="bg-blur-row" id="bg-shadow-row">
@@ -332,6 +342,21 @@
       <span class="slider-label box-opacity-label" style="margin-left: 8px; display:none;">Box</span>
       <input type="range" class="stroke-slider box-opacity-slider" id="text-box-opacity" min="0" max="100" value="10" style="display:none; width: 60px;">
       <span class="slider-value box-opacity-value" id="text-box-opacity-value" style="display:none;">10%</span>
+
+      <!-- Font picker -->
+      <span class="slider-label" style="margin-left: 8px;">Font</span>
+      <div class="font-picker-wrap" id="font-picker-wrap">
+        <button class="font-picker-trigger" id="font-picker-trigger" title="Change font">
+          <span id="font-picker-label">Inter</span>
+          <svg width="8" height="8" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 3.5l3 3 3-3"/></svg>
+        </button>
+        <div class="font-picker-dropdown" id="font-picker-dropdown">
+          <div class="font-picker-search-wrap">
+            <input type="text" id="font-search" placeholder="Search fonts…" autocomplete="off">
+          </div>
+          <div class="font-picker-list" id="font-picker-list"></div>
+        </div>
+      </div>
     </div>
 
     <!-- Spotlight darkness (shown for spotlight/circlespotlight) -->
@@ -346,10 +371,13 @@
   <div class="main-layout">
     <!-- Canvas area -->
     <div class="canvas-container" id="canvas-container">
-      <div class="canvas-bg-layer" id="canvas-bg-layer"></div>
-      <div class="canvas-wrap" id="canvas-wrap">
-        <canvas id="img-canvas"></canvas>
-        <canvas id="draw-canvas"></canvas>
+      <!-- AR frame: sized to the output aspect ratio, contains bg + screenshot -->
+      <div id="ar-frame">
+        <div class="canvas-bg-layer" id="canvas-bg-layer"></div>
+        <div class="canvas-wrap" id="canvas-wrap">
+          <canvas id="img-canvas"></canvas>
+          <canvas id="draw-canvas"></canvas>
+        </div>
       </div>
     </div>
 
