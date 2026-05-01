@@ -31,11 +31,9 @@
         <span class="nav-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.64 3.64-1.28-1.28a1.21 1.21 0 0 0-1.72 0L2.36 18.64a1.21 1.21 0 0 0 0 1.72l1.28 1.28a1.2 1.2 0 0 0 1.72 0L21.64 5.36a1.2 1.2 0 0 0 0-1.72Z"/><path d="m14 7 3 3"/><path d="M5 6v4"/><path d="M19 14v4"/><path d="M10 2v2"/><path d="M7 8H3"/><path d="M21 16h-4"/><path d="M11 3H9"/></svg></span> Text Replacement
       </div>
       <div class="nav-item" data-panel="api-vault" onclick="switchPanel('api-vault', this)">
-        <span class="nav-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m15.5 7.5 2.3 2.3a1 1 0 0 0 1.4 0l2.1-2.1a1 1 0 0 0 0-1.4L19 4"/><path d="m21 2-9.6 9.6"/><circle cx="7.5" cy="15.5" r="5.5"/></svg></span> AI & API
+        <span class="nav-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/><path d="M5 3v4"/><path d="M19 17v4"/><path d="M3 5h4"/><path d="M17 19h4"/></svg></span> AI &amp; API
       </div>
-      <div class="nav-item" data-panel="ai" onclick="switchPanel('ai', this)">
-        <span class="nav-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/><path d="M5 3v4"/><path d="M19 17v4"/><path d="M3 5h4"/><path d="M17 19h4"/></svg></span> AI Dictation
-      </div>
+
       <div class="nav-item" data-panel="whisper" onclick="switchPanel('whisper', this)">
         <span class="nav-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z"/></svg></span> Whisper Engine
       </div>
@@ -82,7 +80,7 @@
             <div class="row-icon" style="background:rgba(74,222,128,0.1);"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#4ade80" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="8" height="4" x="8" y="2" rx="1" ry="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><path d="M9 14l2 2 4-4"/></svg></div>
             <div class="row-info">
               <label>Enable Clipboard Manager</label>
-              <small>When off, clipboard history is not tracked — saves resources. Existing data is preserved. Takes effect instantly.</small>
+              <small>When off, clipboard history is not tracked — saves resources. Existing data is preserved. Takes effect instantly. Default shortcut: <b>Alt + V</b> (or <b>⌥ + V</b>)</small>
             </div>
             <label class="toggle">
               <input type="checkbox" id="toggle-clipboard-enabled" checked onchange="onClipboardToggle()"/>
@@ -347,7 +345,7 @@
             <div class="row-icon" style="background:rgba(96,165,250,0.1);"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M2 12h20"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg></div>
             <div class="row-info">
               <label>Preferred Browser</label>
-              <small>MicTab uses a browser engine for speech recognition. Choose which installed browser to use, or leave on <b>Auto</b> to let MicTab pick the best one.</small>
+              <small>It needs some kind of browser to operate.</small>
             </div>
             <select class="duration-select" id="preferred-browser" style="min-width:170px;" onchange="onPreferredBrowserChange()">
               <option value="auto">🔄 Auto (recommended)</option>
@@ -552,77 +550,23 @@
               Save Profile
             </button>
             <button class="btn-action" id="btn-vault-llm-test" onclick="vaultTestLlmConnection()" style="padding:6px 16px; font-size:12px; display:flex; align-items:center; gap:6px;">
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12"/><path d="M22 11.08V12"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
               Test Connection
             </button>
             <span id="vault-llm-status" style="font-size:12px; color:var(--muted);"></span>
           </div>
         </div>
 
-        <!-- ═══ Whisper STT Profiles ═══ -->
-        <div class="section-label" style="margin-top:18px">Whisper STT Profiles <span style="font-weight:400;color:var(--muted);font-size:11px;">— Speech-to-Text Engine</span></div>
-        <div class="settings-group">
-          <div class="settings-row" style="padding-bottom:8px;">
-            <div class="row-icon" style="background:rgba(96,165,250,0.1);"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="22"/></svg></div>
-            <div class="row-info">
-              <label>Your Whisper STT Profiles</label>
-              <small>Used by the Whisper Engine for cloud transcription. Click to set default · ✕ to delete.</small>
-            </div>
-          </div>
-          <div id="vault-whisper-profile-list" class="ai-profile-list"></div>
-        </div>
-
-        <!-- Add New Whisper Profile -->
-        <div class="section-label" style="margin-top:4px">Add New Whisper Profile</div>
-        <div class="settings-group">
-          <div class="settings-row">
-            <div class="row-icon" style="background:rgba(96,165,250,0.08);"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg></div>
-            <div class="row-info"><label>Profile Name</label><small>e.g. "OpenAI Whisper", "Groq Fast"</small></div>
-            <input type="text" id="vault-whisper-name" class="replace-input" placeholder="My Whisper Profile" style="width:180px; font-size:12px;">
-          </div>
-          <div class="settings-row" style="border-top:1px solid var(--border);">
-            <div class="row-icon" style="background:rgba(96,165,250,0.08);"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20V10M18 20V4M6 20v-4"/></svg></div>
-            <div class="row-info"><label>Provider</label><small>All providers use the Whisper-compatible API format.</small></div>
-            <select id="vault-whisper-provider" class="duration-select" style="min-width:150px;" onchange="onVaultWhisperProviderChange(this.value)">
-              <option value="openai">🟢 OpenAI</option>
-              <option value="groq">⚡ Groq</option>
-            </select>
-          </div>
-          <div class="settings-row" style="border-top:1px solid var(--border);">
-            <div class="row-icon" style="background:rgba(192,132,252,0.1);"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#c084fc" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><circle cx="12" cy="12" r="4"/></svg></div>
-            <div class="row-info"><label>Transcription Model</label><small>Models available depend on your chosen provider.</small></div>
-            <select id="vault-whisper-model" class="duration-select" style="min-width:180px;"><option value="whisper-1">whisper-1</option></select>
-          </div>
-          <!-- Inline custom whisper model input -->
-          <div class="settings-row" style="border-top:1px solid var(--border);">
-            <div class="row-icon" style="background:rgba(192,132,252,0.1);"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#c084fc" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.376 3.622a1 1 0 0 1 3.002 3.002L7.368 18.635a2 2 0 0 1-.855.506l-2.872.838a.5.5 0 0 1-.62-.62l.838-2.872a2 2 0 0 1 .506-.854z"/></svg></div>
-            <div class="row-info"><label>Custom Model ID</label><small>Paste any model name (e.g. <b>whisper-large-v3-turbo</b>)</small></div>
-            <input type="text" id="vault-whisper-model-inline-custom" class="replace-input" placeholder="e.g. whisper-large-v3" style="display:none; width:210px; font-family:monospace; font-size:12px;">
-          </div>
-          <div class="settings-row" style="border-top:1px solid var(--border);">
-            <div class="row-icon" style="background:rgba(96,165,250,0.08);"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15.5 7.5 2.3 2.3a1 1 0 0 0 1.4 0l2.1-2.1a1 1 0 0 0 0-1.4L19 4"/><path d="m21 2-9.6 9.6"/><circle cx="7.5" cy="15.5" r="5.5"/></svg></div>
-            <div class="row-info"><label>API Key</label><small>Stored securely on your device. Only sent to your selected provider.</small></div>
-            <input type="password" id="vault-whisper-apikey" class="replace-input" placeholder="sk-..." style="width:210px; font-family:monospace; font-size:12px;">
-          </div>
-          <div class="settings-row" style="border-top:1px solid var(--border); justify-content:flex-start; gap:12px; flex-wrap:wrap;">
-            <button class="btn-action" onclick="vaultAddWhisperProfile()" style="padding:6px 16px; font-size:12px; display:flex; align-items:center; gap:6px; background:rgba(96,165,250,0.08); border-color:rgba(96,165,250,0.3); color:#60a5fa;">
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>
-              Save Profile
-            </button>
-            <button class="btn-action" id="btn-vault-whisper-test" onclick="vaultTestWhisperConnection()" style="padding:6px 16px; font-size:12px; display:flex; align-items:center; gap:6px;">
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
-              Test Connection
-            </button>
-            <span id="vault-whisper-status" style="font-size:12px; color:var(--muted);"></span>
+        <!-- ── AI DICTATION SETTINGS ── -->
+        <div class="section-label" style="margin-top:24px">AI Dictation</div>
+        
+        <div style="background:rgba(168,85,247,0.05); border:1px solid rgba(168,85,247,0.2); border-radius:8px; padding:12px 14px; margin-bottom:16px; display:flex; gap:10px; align-items:flex-start;">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#a855f7" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0; margin-top:2px;"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
+          <div style="font-size:12.5px; color:var(--text); line-height:1.5;">
+            <strong>Note:</strong> These settings apply to the <strong>Regular AI Mode</strong> (Alt+C, Push-to-Talk, or F8/Control). They do not affect the <strong>Whisper Engine</strong>, which is a separate, more advanced system with its own dedicated panel.
           </div>
         </div>
 
-      </div>
-
-      <!-- ── AI DICTATION PANEL ── -->
-      <div class="panel" id="panel-ai">
-        <!-- Master Toggle -->
-        <div class="section-label">AI Mode</div>
         <div class="settings-group">
           <div class="settings-row">
             <div class="row-icon" style="background:rgba(168,85,247,0.1);"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#a855f7" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/></svg></div>
@@ -632,17 +576,6 @@
             </div>
             <label class="toggle">
               <input type="checkbox" id="toggle-ai-mode" onchange="syncAiEnable()"/>
-              <div class="toggle-track"></div>
-            </label>
-          </div>
-          <div class="settings-row" style="border-top:1px solid var(--border);">
-            <div class="row-icon" style="background:rgba(74,222,128,0.1);"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#4ade80" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7v4a1 1 0 0 0 1 1h3"/><path d="M7 7v4a1 1 0 0 0 1 1h3"/><path d="M11 7v4a1 1 0 0 0 1 1h3"/><path d="M15 7v4a1 1 0 0 0 1 1h3"/><path d="M19 7v4"/><path d="M5 21 12 3l7 18"/></svg></div>
-            <div class="row-info">
-              <label>Profile Fallback</label>
-              <small>If the active profile fails, automatically try your other saved profiles in order. If all fail, raw text is still pasted.</small>
-            </div>
-            <label class="toggle">
-              <input type="checkbox" id="toggle-ai-fallback" checked/>
               <div class="toggle-track"></div>
             </label>
           </div>
@@ -661,7 +594,7 @@
             <div class="row-icon" style="background:rgba(168,85,247,0.1);"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#a855f7" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg></div>
             <div class="row-info">
               <label>AI Instant Send Key</label>
-              <small>Press this key during AI dictation to instantly process &amp; paste the buffered text. Click the badge to change.</small>
+              <small>Press this key during AI dictation to instantly process &amp; paste the buffered text.</small>
             </div>
             <div class="key-controls">
               <div class="key-badge" id="ai-sendkey-display">Right Shift</div>
@@ -670,22 +603,8 @@
           </div>
         </div>
 
-        <!-- Default LLM Profile Picker (read-only — manage in AI & API panel) -->
-        <div class="section-label" style="margin-top:4px">Default LLM Profile</div>
-        <div class="settings-group">
-          <div class="settings-row" style="padding-bottom:8px;">
-            <div class="row-icon" style="background:rgba(168,85,247,0.1);"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#a855f7" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></div>
-            <div class="row-info">
-              <label>Active Profile for AI Dictation</label>
-              <small>Click a profile to set as default for this feature. <a href="#" onclick="switchPanel('api-vault', document.querySelector('[data-panel=api-vault]')); return false;" style="color:var(--accent);">Manage profiles →</a></small>
-            </div>
-          </div>
-          <div id="ai-profile-list" class="ai-profile-list">
-            <!-- Rendered dynamically by JS -->
-          </div>
-        </div>
 
-        <!-- System Prompt -->
+        <!-- Cleanup Instructions -->
         <div class="section-label" style="margin-top:4px">Cleanup Instructions</div>
         <div class="settings-group" id="ai-prompt-group">
           <div class="settings-row" style="flex-direction:column; align-items:stretch; gap:8px; padding:16px;">
@@ -903,18 +822,55 @@
           </div>
         </div>
 
-        <!-- Default Whisper STT Profile Picker (manage in AI & API panel) -->
-        <div class="section-label" style="margin-top:18px;">Default Whisper Profile</div>
+        <!-- ═══ Whisper STT Profiles ═══ -->
+        <div class="section-label" style="margin-top:18px">Your Whisper Profiles <span style="font-weight:400;color:var(--muted);font-size:11px;">— Click to set default · ✕ to delete</span></div>
         <div class="settings-group">
-          <div class="settings-row" style="flex-direction:column; align-items:stretch; gap:10px;">
-            <div style="display:flex; align-items:center; gap:8px;">
-              <div class="row-icon" style="background:rgba(96,165,250,0.1);"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20V10M18 20V4M6 20v-4"/></svg></div>
-              <div class="row-info">
-                <label>Active Profile for Whisper STT</label>
-                <small>Click a profile to set as default for this feature. <a href="#" onclick="switchPanel('api-vault', document.querySelector('[data-panel=api-vault]')); return false;" style="color:var(--accent);">Manage profiles →</a></small>
-              </div>
+          <div class="settings-row" style="padding-bottom:8px;">
+            <div class="row-icon" style="background:rgba(96,165,250,0.1);"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="22"/></svg></div>
+            <div class="row-info">
+              <label>Saved Whisper Profiles</label>
+              <small>The active (highlighted) profile is used for all cloud transcription. Add profiles below.</small>
             </div>
-            <div id="whisper-profile-list" style="display:flex; flex-wrap:wrap; gap:6px; min-height:32px; padding:4px 0;"></div>
+          </div>
+          <div id="whisper-profile-list" class="ai-profile-list"></div>
+        </div>
+
+        <!-- Add New Whisper Profile -->
+        <div class="section-label" style="margin-top:4px">Add New Profile</div>
+        <div class="settings-group">
+          <div class="settings-row">
+            <div class="row-icon" style="background:rgba(96,165,250,0.08);"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg></div>
+            <div class="row-info"><label>Profile Name</label><small>e.g. "OpenAI Whisper", "Groq Fast"</small></div>
+            <input type="text" id="whisper-profile-name" class="replace-input" placeholder="My Whisper Profile" style="width:180px; font-size:12px;">
+          </div>
+          <div class="settings-row" style="border-top:1px solid var(--border);">
+            <div class="row-icon" style="background:rgba(96,165,250,0.08);"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20V10M18 20V4M6 20v-4"/></svg></div>
+            <div class="row-info"><label>Provider</label><small>All providers use the Whisper-compatible API format.</small></div>
+            <select id="sel-whisper-provider" class="duration-select" style="min-width:150px;" onchange="onWhisperProviderChange(this.value)">
+              <option value="openai">🟢 OpenAI</option>
+              <option value="groq">⚡ Groq</option>
+            </select>
+          </div>
+          <div class="settings-row" style="border-top:1px solid var(--border);">
+            <div class="row-icon" style="background:rgba(192,132,252,0.1);"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#c084fc" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><circle cx="12" cy="12" r="4"/></svg></div>
+            <div class="row-info"><label>Transcription Model</label><small>Models available depend on your chosen provider.</small></div>
+            <select id="sel-whisper-model" class="duration-select" style="min-width:180px;"><option value="whisper-1">whisper-1</option></select>
+          </div>
+          <div class="settings-row" style="border-top:1px solid var(--border);">
+            <div class="row-icon" style="background:rgba(96,165,250,0.08);"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15.5 7.5 2.3 2.3a1 1 0 0 0 1.4 0l2.1-2.1a1 1 0 0 0 0-1.4L19 4"/><path d="m21 2-9.6 9.6"/><circle cx="7.5" cy="15.5" r="5.5"/></svg></div>
+            <div class="row-info"><label>API Key</label><small>Stored securely on your device. Only sent to your selected provider.</small></div>
+            <input type="password" id="whisper-api-key" class="replace-input" placeholder="sk-..." style="width:210px; font-family:monospace; font-size:12px;">
+          </div>
+          <div class="settings-row" style="border-top:1px solid var(--border); justify-content:flex-start; gap:12px; flex-wrap:wrap;">
+            <button class="btn-action" onclick="addWhisperProfile()" style="padding:6px 16px; font-size:12px; display:flex; align-items:center; gap:6px; background:rgba(96,165,250,0.08); border-color:rgba(96,165,250,0.3); color:#60a5fa;">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>
+              Save Profile
+            </button>
+            <button class="btn-action" id="btn-whisper-test-key" onclick="testWhisperProfile()" style="padding:6px 16px; font-size:12px; display:flex; align-items:center; gap:6px;">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+              Test Connection
+            </button>
+            <span id="whisper-key-status" style="font-size:12px; color:var(--muted);"></span>
           </div>
         </div>
 

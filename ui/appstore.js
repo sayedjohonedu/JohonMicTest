@@ -1349,6 +1349,7 @@ function updateAiHeader() {
   const headerTitle = document.getElementById("ai-current-title");
   const headerIcon = document.getElementById("ai-header-icon");
   const appStatus = document.getElementById("ai-app-status");
+  const backBtn = document.getElementById("ai-back-btn");
   
   if (editingAppId) {
     const appRef = apps && apps.find(a => a.id === editingAppId);
@@ -1363,15 +1364,19 @@ function updateAiHeader() {
         headerIcon.innerHTML = cSvg;
         headerIcon.style.background = "var(--bg-card)";
       }
+      // Show All Chats button when inside an app context
+      if (backBtn) backBtn.style.display = "flex";
       return;
     }
   }
   
-  // Default fallback
+  // Default fallback — no app context
   headerTitle.textContent = "AI App Builder";
   appStatus.textContent = "New Project";
   headerIcon.innerHTML = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.5 2A2.5 2.5 0 0 1 12 4.5v15a2.5 2.5 0 0 1-4.96.44 2.5 2.5 0 0 1-2.96-3.08 3 3 0 0 1-.34-5.58 2.5 2.5 0 0 1 1.32-4.24 2.5 2.5 0 0 1 1.44-4.04Z"/><path d="M14.5 2A2.5 2.5 0 0 0 12 4.5v15a2.5 2.5 0 0 0 4.96.44 2.5 2.5 0 0 0 2.96-3.08 3 3 0 0 0 .34-5.58 2.5 2.5 0 0 0-1.32-4.24 2.5 2.5 0 0 0-1.44-4.04Z"/></svg>`;
   headerIcon.style.background = "var(--accent-dim)";
+  // Hide All Chats button when not in an app context
+  if (backBtn) backBtn.style.display = "none";
 }
 
 async function saveCurrentAiSession() {
@@ -1560,6 +1565,10 @@ document.getElementById("ai-new-chat-btn").addEventListener("click", async () =>
     if (freshHtml) currentAiHtml = freshHtml;
   }
   resetAiBuilder(false); // Keep current app context, just new chat
+});
+
+document.getElementById("ai-back-btn").addEventListener("click", () => {
+  resetAiBuilder(true); // Full reset — exit app context, back to global
 });
 
 document.getElementById("ai-modal-close").addEventListener("click", () => {

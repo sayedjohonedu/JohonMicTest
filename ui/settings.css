@@ -547,6 +547,16 @@ textarea.replace-input:focus {
 .ai-profile-dup:hover  { color: var(--accent2); background: rgba(108,99,255,0.12); border-color: rgba(108,99,255,0.3); }
 .ai-profile-test:hover { color: #facc15; background: rgba(250,204,21,0.10); border-color: rgba(250,204,21,0.3); }
 .ai-profile-test:disabled { opacity: 0.5; cursor: not-allowed; }
+.ai-profile-test.testing {
+  color: #fb923c;
+  border-color: rgba(251,146,60,0.5);
+  background: rgba(251,146,60,0.1);
+  animation: chip-test-pulse 1s ease-in-out infinite;
+}
+@keyframes chip-test-pulse {
+  0%, 100% { box-shadow: none; }
+  50% { box-shadow: 0 0 6px 1px rgba(251,146,60,0.5); }
+}
 .ai-profile-chip { transition: box-shadow 0.3s ease; }
 .ai-profile-empty {
   font-size: 12px; color: var(--muted); padding: 8px 16px;

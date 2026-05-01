@@ -153,8 +153,8 @@ const PANELS = {
   general: { title: 'General', desc: 'Hotkeys, activation, and startup' },
   voice: { title: 'Voice & Language', desc: 'Speech recognition and language options' },
   replace: { title: 'Text Replacement', desc: 'Auto-replace your spoken words with custom text' },
-  'api-vault': { title: 'AI & API', desc: 'Manage your LLM and Whisper API profiles in one place' },
-  ai: { title: 'AI Dictation', desc: 'Clean up speech with AI before typing' },
+  'api-vault': { title: 'AI & API', desc: 'Manage profiles and configure AI Dictation' },
+
   whisper: { title: 'Whisper Engine', desc: 'Cloud transcription via OpenAI or Groq' },
   stats: { title: 'My Stats', desc: 'Usage statistics and time saved by voice dictation' },
   license: { title: 'License', desc: 'Manage your subscription and trial' },
@@ -558,7 +558,8 @@ window.addAiProfile = function() {
 
 function renderAiProfiles() {
   const container = document.getElementById('ai-profile-list');
-  container.innerHTML = '';
+  if (!container) return; // container removed — legacy section no longer shown
+
 
   if (!_aiProfiles.length) {
     container.innerHTML = '<div class="ai-profile-empty">No profiles yet. Add one below.</div>';
@@ -668,7 +669,7 @@ async function loadConfig() {
   const mS = document.getElementById('mic-sensitivity'), sL = document.getElementById('label-sensitivity'); if (mS) { mS.value = cfg.micSensitivity || 1.0; if (sL) sL.textContent = parseFloat(mS.value).toFixed(1); }
   // ── AI Dictation ──
   document.getElementById('toggle-ai-mode').checked = cfg.aiModeEnabled === true; syncAiEnable();
-  document.getElementById('toggle-ai-fallback').checked = cfg.aiFallbackEnabled !== false; // default on
+
   const aiSilenceInput = document.getElementById('ai-silence-timeout');
   if (aiSilenceInput) aiSilenceInput.value = cfg.aiSilenceTimeout ?? 8;
   // AI Instant Send Key
@@ -685,9 +686,8 @@ async function loadConfig() {
   }
   renderAiProfiles();
   // Set form defaults for 'Add new' (use first provider)
-  document.getElementById('ai-provider').value = 'openai';
-  populateAiModels('openai', '');
-  onAiProviderChange();
+  const aiProviderEl = document.getElementById('ai-provider');
+  if (aiProviderEl) { aiProviderEl.value = 'openai'; populateAiModels('openai', ''); onAiProviderChange(); }
   // Load non-profile settings
   document.getElementById('ai-system-prompt').value = cfg.aiSystemPrompt || '';
   document.getElementById('ai-personal-dict').value = cfg.aiPersonalDictionary || '';
@@ -756,12 +756,12 @@ async function refreshSttEngineBadge() {
         apple:  { color: '#f472b6', bg: 'rgba(244,114,182,0.1)', border: 'rgba(244,114,182,0.25)' },
       };
       const s = ENGINE_STYLES[info.engine] || ENGINE_STYLES.google;
-      label.textContent = `${info.engineLabel} via ${info.name}`;
+      label.textContent = info.name === 'Google Chrome' ? info.engineLabel : `${info.engineLabel} via ${info.name}`;
       dot.style.background = s.color;
       badge.style.color = s.color;
       badge.style.background = s.bg;
       badge.style.borderColor = s.border;
-      desc.textContent = `Using ${info.name} for speech-to-text recognition.`;
+      desc.textContent = `Requires to run in the default mode.`;
     } else {
       label.textContent = 'Not connected';
       dot.style.background = '#6b7280';
@@ -931,7 +931,7 @@ window.saveSettings = function() {
   const silenceSecs = silenceEnabled ? (silenceVal * silenceMult) : 0;
   // Get active profile values for flat config (backend compatibility)
   const activeP = getActiveAiProfile();
-  window.electronAPI.saveConfig({ hotkey: pendingHotkey || DEFAULT_HOTKEY, hotkeyEnabled: document.getElementById('toggle-hotkey').checked, holdKey: pendingHoldKey || DEFAULT_HOLD_KEY, holdKeyEnabled: document.getElementById('toggle-holdkey').checked, holdDuration: parseFloat(document.getElementById('hold-duration')?.value || 2), mouseButton: document.getElementById('mouse-button')?.value || '3', mouseAction: document.getElementById('mouse-action')?.value || 'none', autoLaunch: document.getElementById('toggle-autolunch').checked, language: document.getElementById('lang-select').value, preferredBrowser: document.getElementById('preferred-browser')?.value || 'auto', clipboardEnabled: document.getElementById('toggle-clipboard-enabled').checked, silenceTimeoutEnabled: silenceEnabled, silenceTimeoutVal: silenceVal, silenceTimeoutUnit: silenceUnit, silenceTimeout: silenceSecs, simulateTyping: document.getElementById('toggle-sim-typing').checked, theme: document.getElementById('theme-select').value, visualizerType: document.getElementById('visualizer-style')?.value || 'wave', soundVolume: parseInt(document.getElementById('sound-volume')?.value ?? 80, 10), micSensitivity: parseFloat(document.getElementById('mic-sensitivity')?.value || 1.0), textReplaceEnabled: document.getElementById('toggle-replace').checked, textReplaceInline: document.getElementById('toggle-replace-inline').checked, textReplacements: reps, langHotkeys: lH, aiModeEnabled: document.getElementById('toggle-ai-mode').checked, aiFallbackEnabled: document.getElementById('toggle-ai-fallback').checked, aiSilenceTimeout: parseInt(document.getElementById('ai-silence-timeout')?.value || '8', 10), aiActivationKey: pendingAiSendKey || AI_SENDKEY_DEFAULT, aiProfiles: _aiProfiles, aiActiveProfileId: _aiActiveProfileId, aiProvider: activeP?.provider || 'openai', aiModel: activeP?.model || '', aiApiKey: activeP?.apiKey || '', aiBaseUrl: activeP?.baseUrl || '', aiSystemPrompt: document.getElementById('ai-system-prompt').value, aiPersonalDictionary: document.getElementById('ai-personal-dict').value, aiTemperature: parseFloat(document.getElementById('ai-temperature')?.value || 0.3) });
+  window.electronAPI.saveConfig({ hotkey: pendingHotkey || DEFAULT_HOTKEY, hotkeyEnabled: document.getElementById('toggle-hotkey').checked, holdKey: pendingHoldKey || DEFAULT_HOLD_KEY, holdKeyEnabled: document.getElementById('toggle-holdkey').checked, holdDuration: parseFloat(document.getElementById('hold-duration')?.value || 2), mouseButton: document.getElementById('mouse-button')?.value || '3', mouseAction: document.getElementById('mouse-action')?.value || 'none', autoLaunch: document.getElementById('toggle-autolunch').checked, language: document.getElementById('lang-select').value, preferredBrowser: document.getElementById('preferred-browser')?.value || 'auto', clipboardEnabled: document.getElementById('toggle-clipboard-enabled').checked, silenceTimeoutEnabled: silenceEnabled, silenceTimeoutVal: silenceVal, silenceTimeoutUnit: silenceUnit, silenceTimeout: silenceSecs, simulateTyping: document.getElementById('toggle-sim-typing').checked, theme: document.getElementById('theme-select').value, visualizerType: document.getElementById('visualizer-style')?.value || 'wave', soundVolume: parseInt(document.getElementById('sound-volume')?.value ?? 80, 10), micSensitivity: parseFloat(document.getElementById('mic-sensitivity')?.value || 1.0), textReplaceEnabled: document.getElementById('toggle-replace').checked, textReplaceInline: document.getElementById('toggle-replace-inline').checked, textReplacements: reps, langHotkeys: lH, aiModeEnabled: document.getElementById('toggle-ai-mode').checked,  aiSilenceTimeout: parseInt(document.getElementById('ai-silence-timeout')?.value || '8', 10), aiActivationKey: pendingAiSendKey || AI_SENDKEY_DEFAULT, aiProfiles: _aiProfiles, aiActiveProfileId: _aiActiveProfileId, aiProvider: activeP?.provider || 'openai', aiModel: activeP?.model || '', aiApiKey: activeP?.apiKey || '', aiBaseUrl: activeP?.baseUrl || '', aiSystemPrompt: document.getElementById('ai-system-prompt').value, aiPersonalDictionary: document.getElementById('ai-personal-dict').value, aiTemperature: parseFloat(document.getElementById('ai-temperature')?.value || 0.3) });
   b.disabled = false; clearDirty();
 };
 
@@ -1067,9 +1067,16 @@ async function loadWhisperPanel() {
     };
   }
 
-  // Load profiles
-  _whisperProfiles = cfg.profiles || [];
-  _whisperActiveProfileId = cfg.activeProfileId || (_whisperProfiles[0]?.id || '');
+  // Load profiles from vault (single source of truth — engine reads from here)
+  try {
+    _whisperProfiles = await window.electronAPI.vaultGetWhisperProfiles() || [];
+    const vaultDefaults = await window.electronAPI.vaultGetDefaults();
+    _whisperActiveProfileId = vaultDefaults['whisper-stt'] || _whisperProfiles[0]?.id || '';
+  } catch (e) {
+    // fallback to legacy if vault unavailable
+    _whisperProfiles = cfg.profiles || [];
+    _whisperActiveProfileId = cfg.activeProfileId || (_whisperProfiles[0]?.id || '');
+  }
   renderWhisperProfiles();
 
   // Populate model dropdown default (for the "Add New Profile" form)
@@ -1136,21 +1143,31 @@ function renderWhisperProfiles() {
     const provLabel = p.provider === 'groq' ? '⚡ Groq' : '🟢 OpenAI';
     div.innerHTML = `
       <div class="ai-profile-name">${escWHtml(p.name)}</div>
-      <div class="ai-profile-badge">${provLabel} · ${escWHtml(p.model || '')}</div>
-      <button class="ai-profile-del" title="Delete">✕</button>
+      <div class="ai-profile-meta">
+        <div class="ai-profile-badge">${provLabel} · ${escWHtml(p.model || '')}</div>
+        <div class="ai-profile-actions">
+          <button class="ai-profile-del" title="Delete">✕</button>
+        </div>
+      </div>
     `;
-    div.addEventListener('click', (e) => {
+    div.addEventListener('click', async (e) => {
       if (e.target.classList.contains('ai-profile-del')) {
+        // Delete from vault
+        try { await window.electronAPI.vaultRemoveWhisperProfile(p.id); } catch (_) {}
         _whisperProfiles = _whisperProfiles.filter(x => x.id !== p.id);
         if (_whisperActiveProfileId === p.id) {
           _whisperActiveProfileId = _whisperProfiles[0]?.id || '';
+          if (_whisperActiveProfileId) {
+            try { await window.electronAPI.vaultSetDefault('whisper-stt', _whisperActiveProfileId); } catch (_) {}
+          }
         }
-        saveWhisperProfiles();
         renderWhisperProfiles();
         updateWhisperStatus();
-      } else {
+        showWhisperStatus('✓ Profile deleted');
+      } else if (!e.target.closest('button')) {
+        // Set as default in vault
         _whisperActiveProfileId = p.id;
-        saveWhisperProfiles();
+        try { await window.electronAPI.vaultSetDefault('whisper-stt', p.id); } catch (_) {}
         renderWhisperProfiles();
         showWhisperStatus('✓ Default: ' + p.name);
         updateWhisperStatus();
@@ -1161,10 +1178,11 @@ function renderWhisperProfiles() {
 }
 
 function saveWhisperProfiles() {
-  window.electronAPI.whisperApiSetConfig({
-    profiles: _whisperProfiles,
-    activeProfileId: _whisperActiveProfileId,
-  });
+  // Sync non-profile settings to legacy store (enabled, language, key, etc.)
+  // Profile data and defaults live in the vault — engine reads from there
+  if (_whisperActiveProfileId && window.electronAPI.vaultSetDefault) {
+    window.electronAPI.vaultSetDefault('whisper-stt', _whisperActiveProfileId);
+  }
 }
 
 function showWhisperStatus(msg, color) {
@@ -1281,7 +1299,7 @@ window.resetWhisperKey = function() {
   updateWhisperStatus();
 };
 
-window.addWhisperProfile = function() {
+window.addWhisperProfile = async function() {
   const nameInput = document.getElementById('whisper-profile-name');
   const name = nameInput?.value.trim();
   if (!name) { showWhisperStatus('⚠ Enter a profile name', '#fb923c'); return; }
@@ -1289,8 +1307,7 @@ window.addWhisperProfile = function() {
   const apiKey = document.getElementById('whisper-api-key')?.value.trim();
   if (!apiKey) { showWhisperStatus('⚠ Enter an API key', '#fb923c'); return; }
 
-  const profile = {
-    id: Date.now().toString(),
+  const profileData = {
     name,
     provider: document.getElementById('sel-whisper-provider')?.value || 'openai',
     model: document.getElementById('sel-whisper-model')?.value || 'whisper-1',
@@ -1298,19 +1315,31 @@ window.addWhisperProfile = function() {
     baseUrl: '',
   };
 
-  _whisperProfiles.push(profile);
-  if (!_whisperActiveProfileId) _whisperActiveProfileId = profile.id;
+  try {
+    // Write to vault first — engine reads from here
+    const saved = await window.electronAPI.vaultAddWhisperProfile(profileData);
+    const profile = saved?.profile || saved || { ...profileData, id: Date.now().toString() };
 
-  saveWhisperProfiles();
+    _whisperProfiles.push(profile);
 
-  // Clear form
-  if (nameInput) nameInput.value = '';
-  const keyInput = document.getElementById('whisper-api-key');
-  if (keyInput) keyInput.value = '';
+    // If first profile, auto-set as default
+    if (!_whisperActiveProfileId || _whisperProfiles.length === 1) {
+      _whisperActiveProfileId = profile.id;
+      await window.electronAPI.vaultSetDefault('whisper-stt', profile.id);
+    }
 
-  renderWhisperProfiles();
-  updateWhisperStatus();
-  showWhisperStatus('✓ Profile saved!', '#4ade80');
+    // Clear form
+    if (nameInput) nameInput.value = '';
+    const keyInput = document.getElementById('whisper-api-key');
+    if (keyInput) keyInput.value = '';
+
+    renderWhisperProfiles();
+    updateWhisperStatus();
+    showWhisperStatus('✓ Profile saved!', '#4ade80');
+  } catch (e) {
+    console.error('[Whisper] Failed to save profile:', e);
+    showWhisperStatus('✕ Save failed: ' + (e.message || 'unknown error'), '#f87171');
+  }
 };
 
 window.testWhisperProfile = async function() {
@@ -1636,7 +1665,6 @@ window.refreshWhisperAiOllamaModels = async function() {
    ═══════════════════════════════════════════════════════════════════════ */
 
 let _vaultLlmProfiles = [];
-let _vaultWhisperProfiles = [];
 let _vaultDefaults = {};
 let _vaultFallbackEnabled = true;
 
@@ -1653,7 +1681,6 @@ const VAULT_PROVIDER_LABELS = {
 async function loadVaultPanel() {
   try {
     _vaultLlmProfiles = await window.electronAPI.vaultGetLlmProfiles() || [];
-    _vaultWhisperProfiles = await window.electronAPI.vaultGetWhisperProfiles() || [];
     _vaultDefaults = await window.electronAPI.vaultGetDefaults() || {};
     _vaultFallbackEnabled = await window.electronAPI.vaultGetFallback();
   } catch (e) {
@@ -1671,7 +1698,6 @@ async function loadVaultPanel() {
   }
 
   renderVaultLlmProfiles();
-  renderVaultWhisperProfiles();
 
   // Set form defaults
   const prov = document.getElementById('vault-llm-provider');
@@ -1753,20 +1779,41 @@ function renderVaultLlmProfiles() {
     div.addEventListener('click', async (e) => {
       if (e.target.classList.contains('ai-profile-test')) {
         const btn = e.target;
-        btn.disabled = true;
-        btn.textContent = '…';
+
+        // If already testing → user wants to cancel
+        if (btn.dataset.testing === '1') {
+          btn.dataset.aborted = '1';
+          btn.dataset.testing = '0';
+          btn.textContent = '⚡';
+          btn.classList.remove('testing');
+          div.style.boxShadow = '';
+          return;
+        }
+
+        // Start test
+        btn.dataset.testing = '1';
+        btn.dataset.aborted = '0';
+        btn.textContent = '■'; // stop icon
+        btn.classList.add('testing');
+
         try {
           const result = await window.electronAPI.aiTestConnection(p);
+          if (btn.dataset.aborted === '1') return; // user cancelled
+          btn.dataset.testing = '0';
+          btn.classList.remove('testing');
           const ok = result?.text && !result?.error;
           div.style.boxShadow = ok
             ? '0 0 0 2px #4ade80, 0 0 14px 2px rgba(74,222,128,0.4)'
             : '0 0 0 2px #f87171, 0 0 14px 2px rgba(248,113,113,0.4)';
           btn.textContent = ok ? '✓' : '✕';
-          setTimeout(() => { div.style.boxShadow = ''; btn.textContent = '⚡'; btn.disabled = false; }, 4000);
+          setTimeout(() => { if (btn.dataset.aborted !== '1') { div.style.boxShadow = ''; btn.textContent = '⚡'; } }, 4000);
         } catch (err) {
+          if (btn.dataset.aborted === '1') return;
+          btn.dataset.testing = '0';
+          btn.classList.remove('testing');
           div.style.boxShadow = '0 0 0 2px #f87171, 0 0 14px 2px rgba(248,113,113,0.4)';
           btn.textContent = '✕';
-          setTimeout(() => { div.style.boxShadow = ''; btn.textContent = '⚡'; btn.disabled = false; }, 4000);
+          setTimeout(() => { if (btn.dataset.aborted !== '1') { div.style.boxShadow = ''; btn.textContent = '⚡'; } }, 4000);
         }
       } else if (e.target.classList.contains('ai-profile-del')) {
         await window.electronAPI.vaultRemoveLlmProfile(p.id);
@@ -1843,67 +1890,6 @@ document.getElementById('dup-rename-modal')?.addEventListener('click', function(
   if (e.target === this) closeDupRenameModal();
 });
 
-// ── Whisper STT Profile Rendering ─────────────────────────────────
-function renderVaultWhisperProfiles() {
-  const container = document.getElementById('vault-whisper-profile-list');
-  if (!container) return;
-  container.innerHTML = '';
-
-  if (!_vaultWhisperProfiles.length) {
-    container.innerHTML = '<div class="ai-profile-empty">No Whisper profiles yet. Add one below.</div>';
-    return;
-  }
-
-  const defaultId = _vaultDefaults['whisper-stt'] || '';
-
-  _vaultWhisperProfiles.forEach(p => {
-    const div = document.createElement('div');
-    div.className = 'ai-profile-chip' + (p.id === defaultId ? ' active' : '');
-    const provLabel = p.provider === 'groq' ? '⚡ Groq' : '🟢 OpenAI';
-    div.innerHTML = `
-      <div class="ai-profile-name">${escVaultHtml(p.name)}</div>
-      <div class="ai-profile-meta">
-        <div class="ai-profile-badge">${provLabel} · ${escVaultHtml(p.model || '')}</div>
-        <div class="ai-profile-actions">
-          <button class="ai-profile-test" title="Test connection">⚡</button>
-          <button class="ai-profile-del" title="Delete">✕</button>
-        </div>
-      </div>
-    `;
-    div.addEventListener('click', async (e) => {
-      if (e.target.classList.contains('ai-profile-test')) {
-        const btn = e.target;
-        btn.disabled = true;
-        btn.textContent = '…';
-        try {
-          const result = await window.electronAPI.aiTestConnection(p);
-          const ok = result?.text && !result?.error;
-          div.style.boxShadow = ok
-            ? '0 0 0 2px #4ade80, 0 0 14px 2px rgba(74,222,128,0.4)'
-            : '0 0 0 2px #f87171, 0 0 14px 2px rgba(248,113,113,0.4)';
-          btn.textContent = ok ? '✓' : '✕';
-          setTimeout(() => { div.style.boxShadow = ''; btn.textContent = '⚡'; btn.disabled = false; }, 4000);
-        } catch (err) {
-          div.style.boxShadow = '0 0 0 2px #f87171, 0 0 14px 2px rgba(248,113,113,0.4)';
-          btn.textContent = '✕';
-          setTimeout(() => { div.style.boxShadow = ''; btn.textContent = '⚡'; btn.disabled = false; }, 4000);
-        }
-      } else if (e.target.classList.contains('ai-profile-del')) {
-        await window.electronAPI.vaultRemoveWhisperProfile(p.id);
-        _vaultWhisperProfiles = _vaultWhisperProfiles.filter(x => x.id !== p.id);
-        _vaultDefaults = await window.electronAPI.vaultGetDefaults();
-        renderVaultWhisperProfiles();
-        showVaultWhisperStatus('✓ Profile deleted');
-      } else {
-        await window.electronAPI.vaultSetDefault('whisper-stt', p.id);
-        _vaultDefaults = await window.electronAPI.vaultGetDefaults();
-        renderVaultWhisperProfiles();
-        showVaultWhisperStatus('✓ Default: ' + p.name);
-      }
-    });
-    container.appendChild(div);
-  });
-}
 
 // ── LLM Provider Change ───────────────────────────────────────────
 window.onVaultLlmProviderChange = function() {
@@ -2106,109 +2092,7 @@ window.refreshVaultOllamaModels = async function() {
   }
 };
 
-// ── Whisper Provider Change ───────────────────────────────────────
-window.onVaultWhisperProviderChange = function(providerVal) {
-  const provider = providerVal || document.getElementById('vault-whisper-provider')?.value || 'openai';
-  const modelSel = document.getElementById('vault-whisper-model');
-  if (!modelSel) return;
 
-  modelSel.innerHTML = '';
-  const whisperModels = provider === 'groq'
-    ? ['whisper-large-v3-turbo', 'whisper-large-v3', 'distil-whisper-large-v3-en']
-    : ['whisper-1'];
-  whisperModels.forEach(m => {
-    const opt = document.createElement('option');
-    opt.value = m; opt.textContent = m;
-    modelSel.appendChild(opt);
-  });
-
-  // Sentinel for custom whisper model
-  const sep = document.createElement('option');
-  sep.value = '__custom__';
-  sep.textContent = '— Enter custom model —';
-  modelSel.appendChild(sep);
-
-  modelSel.onchange = function() {
-    const inlineInput = document.getElementById('vault-whisper-model-inline-custom');
-    if (inlineInput) {
-      const show = modelSel.value === '__custom__';
-      inlineInput.style.display = show ? 'block' : 'none';
-      if (show) inlineInput.focus();
-    }
-  };
-
-  // Reset inline input on provider change
-  const inlineInput = document.getElementById('vault-whisper-model-inline-custom');
-  if (inlineInput) { inlineInput.style.display = 'none'; inlineInput.value = ''; }
-};
-
-// ── Add Whisper Profile ───────────────────────────────────────────
-window.vaultAddWhisperProfile = async function() {
-  const name = document.getElementById('vault-whisper-name')?.value.trim();
-  if (!name) { showVaultWhisperStatus('⚠ Enter a profile name', '#fb923c'); return; }
-
-  const provider = document.getElementById('vault-whisper-provider')?.value || 'openai';
-  const apiKey = document.getElementById('vault-whisper-apikey')?.value.trim();
-  if (!apiKey) { showVaultWhisperStatus('⚠ Enter an API key', '#fb923c'); return; }
-
-  const whisperSelVal = document.getElementById('vault-whisper-model')?.value || 'whisper-1';
-  const model = (whisperSelVal === '__custom__')
-    ? (document.getElementById('vault-whisper-model-inline-custom')?.value.trim() || '')
-    : whisperSelVal;
-  if (!model) { showVaultWhisperStatus('⚠ Enter a custom model name', '#fb923c'); return; }
-
-  const profile = { name, provider, model, apiKey };
-
-  try {
-    const saved = await window.electronAPI.vaultAddWhisperProfile(profile);
-    const newProfile = saved?.profile || saved;
-    _vaultWhisperProfiles.push(newProfile);
-
-    // If first profile, auto-set as default
-    if (_vaultWhisperProfiles.length === 1) {
-      await window.electronAPI.vaultSetDefault('whisper-stt', newProfile.id);
-    }
-    _vaultDefaults = await window.electronAPI.vaultGetDefaults();
-
-    // Clear form
-    document.getElementById('vault-whisper-name').value = '';
-    document.getElementById('vault-whisper-apikey').value = '';
-
-    renderVaultWhisperProfiles();
-    showVaultWhisperStatus('✓ Profile saved!', '#4ade80');
-  } catch (e) {
-    showVaultWhisperStatus('✕ ' + (e.message || 'Save failed'), '#f87171');
-  }
-};
-
-// ── Test Whisper Connection ───────────────────────────────────────
-window.vaultTestWhisperConnection = async function() {
-  const btn = document.getElementById('btn-vault-whisper-test');
-  const provider = document.getElementById('vault-whisper-provider')?.value || 'openai';
-  const apiKey = document.getElementById('vault-whisper-apikey')?.value.trim();
-  const model = document.getElementById('vault-whisper-model')?.value || 'whisper-1';
-
-  if (!apiKey) {
-    showVaultWhisperStatus('⚠ Enter an API key first', '#fb923c');
-    return;
-  }
-
-  if (btn) btn.disabled = true;
-  showVaultWhisperStatus('Testing connection…');
-
-  try {
-    const result = await window.electronAPI.whisperApiTestKey({ provider, model, apiKey });
-    if (result && !result.error) {
-      showVaultWhisperStatus('✓ Connected!', '#4ade80');
-    } else {
-      showVaultWhisperStatus('✕ ' + (result?.error || 'No response'), '#f87171');
-    }
-  } catch (e) {
-    showVaultWhisperStatus('✕ ' + (e.message || 'Test failed'), '#f87171');
-  } finally {
-    if (btn) btn.disabled = false;
-  }
-};
 
 // ── Status Helpers ────────────────────────────────────────────────
 function showVaultLlmStatus(msg, color) {
@@ -2217,15 +2101,7 @@ function showVaultLlmStatus(msg, color) {
     s.textContent = msg;
     s.style.color = color || 'var(--muted)';
     if (color) setTimeout(() => { if (s) s.textContent = ''; }, 4000);
-  }
 }
 
-function showVaultWhisperStatus(msg, color) {
-  const s = document.getElementById('vault-whisper-status');
-  if (s) {
-    s.textContent = msg;
-    s.style.color = color || 'var(--muted)';
-    if (color) setTimeout(() => { if (s) s.textContent = ''; }, 4000);
-  }
 }
 

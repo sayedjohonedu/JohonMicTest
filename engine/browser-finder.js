@@ -7,7 +7,7 @@ const path = require('path');
  * @property {string} executablePath - Full path to the browser executable
  * @property {string} name          - Human-readable name (e.g. 'Google Chrome')
  * @property {string} engine        - STT backend identifier: 'google' | 'azure' | 'apple'
- * @property {string} engineLabel   - Display label: 'Google STT' | 'Azure STT' | 'Apple STT'
+ * @property {string} engineLabel   - Display label: 'Google Chrome Engine' | 'Azure Engine' | 'Apple Engine'
  */
 
 /**
@@ -25,7 +25,7 @@ const CANDIDATES = [
   {
     name: 'Google Chrome',
     engine: 'google',
-    engineLabel: 'Google STT',
+    engineLabel: 'Google Chrome Engine',
     darwin: [
       '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
       '/Applications/Google Chrome Canary.app/Contents/MacOS/Google Chrome Canary',
@@ -45,7 +45,7 @@ const CANDIDATES = [
   {
     name: 'Microsoft Edge',
     engine: 'azure',
-    engineLabel: 'Azure STT',
+    engineLabel: 'Azure Engine',
     darwin: [
       '/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge',
     ],
@@ -61,7 +61,7 @@ const CANDIDATES = [
   {
     name: 'Brave',
     engine: 'google',
-    engineLabel: 'Google STT',
+    engineLabel: 'Google Chrome Engine',
     darwin: [
       '/Applications/Brave Browser.app/Contents/MacOS/Brave Browser',
     ],
@@ -125,10 +125,10 @@ function findBrowser(preferredName) {
   if (process.env.CHROME_PATH && fs.existsSync(process.env.CHROME_PATH)) {
     const envPath = process.env.CHROME_PATH.toLowerCase();
     let engine = 'google';
-    let engineLabel = 'Google STT';
+    let engineLabel = 'Google Chrome Engine';
     let name = 'Google Chrome';
     if (envPath.includes('edge') || envPath.includes('msedge')) {
-      engine = 'azure'; engineLabel = 'Azure STT'; name = 'Microsoft Edge';
+      engine = 'azure'; engineLabel = 'Azure Engine'; name = 'Microsoft Edge';
     } else if (envPath.includes('brave')) {
       name = 'Brave';
     }
