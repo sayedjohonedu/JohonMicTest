@@ -32,7 +32,7 @@ jobs:
         run: npm ci --ignore-scripts
 
       - name: Rebuild native modules for Electron (Mac)
-        run: npx @electron/rebuild --force
+        run: npx electron-builder install-app-deps
 
       - name: Build & Publish Mac .dmg to Releases
         run: npm run build:mac -- --publish always

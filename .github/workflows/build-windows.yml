@@ -31,7 +31,7 @@ jobs:
         run: npm ci --ignore-scripts
 
       - name: Rebuild native modules for Electron (Windows)
-        run: npx @electron/rebuild --force
+        run: npx electron-builder install-app-deps
         env:
           npm_config_arch: x64
 

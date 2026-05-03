@@ -817,7 +817,7 @@ class AgentPipelineEngine {
       const original = clipboard.readText();
 
       // 2. Simulate copy — puts the user's selection into clipboard
-      const robot = require('robotjs');
+      const robot = require('@hurdlegroup/robotjs');
       if (process.platform === 'darwin') {
         robot.keyTap('c', 'command');
       } else {

@@ -1,5 +1,5 @@
 const { clipboard } = require('electron');
-const robot = require('robotjs');
+const robot = require('@hurdlegroup/robotjs');
 const store = require('../../store/config');
 const clipboardMonitor = require('./clipboard-monitor');
 

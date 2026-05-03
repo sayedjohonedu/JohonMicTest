@@ -34,8 +34,8 @@ jobs:
       - name: Install dependencies (skip postinstall rebuild)
         run: npm ci --ignore-scripts
 
-      - name: Rebuild native modules for Electron (Windows x64)
-        run: npx @electron/rebuild --force
+      - name: Rebuild native modules for Electron (Windows)
+        run: npx electron-builder install-app-deps
         env:
           npm_config_arch: x64
 
@@ -77,7 +77,7 @@ jobs:
         run: npm ci --ignore-scripts
 
       - name: Rebuild native modules for Electron (Mac)
-        run: npx @electron/rebuild --force
+        run: npx electron-builder install-app-deps
 
       - name: Build & publish Mac installer → mictab-releases (draft)
         run: npm run build:mac -- --publish always
