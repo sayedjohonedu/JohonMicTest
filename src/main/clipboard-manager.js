@@ -84,10 +84,7 @@ class ClipboardManager {
     setTimeout(() => {
       try {
         if (process.platform === 'win32') {
-          robot.keyToggle('control', 'down');
-          robot.keyToggle('v', 'down');
-          robot.keyToggle('v', 'up');
-          robot.keyToggle('control', 'up');
+          robot.keyTap('v', 'control');
         } else {
           // macOS: exact same call as the original working code
           robot.keyTap('v', 'command');
