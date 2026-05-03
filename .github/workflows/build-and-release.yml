@@ -31,13 +31,8 @@ jobs:
           node-version: 20
           cache: 'npm'
 
-      - name: Install dependencies (skip postinstall rebuild)
-        run: npm ci --ignore-scripts
-
-      - name: Rebuild native modules for Electron (Windows x64)
-        run: npx @electron/rebuild --force
-        env:
-          npm_config_arch: x64
+      - name: Install dependencies
+        run: npm ci
 
       - name: Build & publish Windows installer → mictab-releases (draft)
         run: npm run build:win -- --publish always
@@ -73,11 +68,8 @@ jobs:
           node-version: 20
           cache: 'npm'
 
-      - name: Install dependencies (skip postinstall rebuild)
-        run: npm ci --ignore-scripts
-
-      - name: Rebuild native modules for Electron (Mac)
-        run: npx @electron/rebuild --force
+      - name: Install dependencies
+        run: npm ci
 
       - name: Build & publish Mac installer → mictab-releases (draft)
         run: npm run build:mac -- --publish always
