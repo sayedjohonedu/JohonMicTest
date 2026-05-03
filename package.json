@@ -8,7 +8,7 @@
     "build": "electron-builder",
     "build:mac": "electron-builder --mac",
     "build:win": "electron-builder --win",
-    "postinstall": "electron-rebuild",
+    "postinstall": "electron-builder install-app-deps",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "build": {
@@ -72,13 +72,13 @@
   "type": "commonjs",
   "dependencies": {
     "adm-zip": "^0.5.17",
-    "better-sqlite3": "^12.8.0",
+    "better-sqlite3": "^12.9.0",
     "electron-store": "^8.1.0",
     "electron-updater": "^6.8.3",
     "google-translate-api-x": "^10.7.2",
     "msedge-tts": "^2.0.5",
     "puppeteer-core": "^24.40.0",
-    "robotjs": "^0.7.0",
+    "robotjs": "npm:@hurdlegroup/robotjs@^0.12.3",
     "tesseract.js": "^7.0.0",
     "uiohook-napi": "^1.5.5",
     "uuid": "^14.0.0",

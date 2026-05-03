@@ -31,11 +31,10 @@ async function launchChromeBridge(url, forceVisible = false) {
     } catch (e) {}
   }
 
-  // Read user's preferred browser from config (if any)
+  // Read user's preferred browser from shared config (if any)
   let preferredBrowser = 'auto';
   try {
-    const Store = require('electron-store');
-    const store = new Store();
+    const store = require('../store/config');
     preferredBrowser = store.get('preferredBrowser', 'auto');
   } catch {}
 

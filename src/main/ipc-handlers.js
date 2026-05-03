@@ -275,6 +275,26 @@ function setupIpcHandlers(toggleListening, registerHotkeys, getWsClient, resetSi
     return findAllBrowsers();
   });
 
+  // Restart the STT bridge with the newly saved preferred browser
+  ipcMain.handle('restart-stt-bridge', async () => {
+    const { launchChromeBridge, closeChromeBridge } = require('../../engine/chrome-launcher');
+    try {
+      await closeChromeBridge();
+    } catch (e) {}
+    // Small pause so the old browser process has time to fully close
+    await new Promise(resolve => setTimeout(resolve, 600));
+    const http = require('http');
+    // Re-use the already running HTTP server's port — we need to look it up
+    // from the module-level variable. We export a getter for it from main.js.
+    const { getHttpPort } = require('../../engine/http-port');
+    const port = getHttpPort();
+    if (port) {
+      launchChromeBridge(`http://localhost:${port}/speech-bridge.html?port=${port}`)
+        .catch(e => console.error('[STT Bridge] Restart failed:', e));
+    }
+    return { ok: true };
+  });
+
   ipcMain.on('check-updates', () => autoUpdater.checkForUpdates());
   ipcMain.on('download-update', () => autoUpdater.downloadUpdate());
   ipcMain.on('install-update', () => autoUpdater.quitAndInstall());

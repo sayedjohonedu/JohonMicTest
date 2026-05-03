@@ -144,15 +144,13 @@ function checkOfflineTrialExpiry() {
  */
 function checkWhisperApiTrialExpiry() {
   const status = store.get('licenseStatus');
-  // Licensed users — no trial restriction
   if (status === 'active') return { expired: false, daysLeft: Infinity };
 
-  const firstEnabled = store.get('whisperApiFirstEnabledDate') || 0;
-  if (!firstEnabled) return { expired: false, daysLeft: 15 }; // Never enabled yet
+  let firstLaunch = store.get('firstLaunchDate') || 0;
+  if (!firstLaunch) return { expired: false, daysLeft: 15 };
 
-  const daysUsed = (Date.now() - firstEnabled) / (1000 * 60 * 60 * 24);
+  const daysUsed = (Date.now() - firstLaunch) / (1000 * 60 * 60 * 24);
   if (daysUsed > 15) {
-    // Trial is over — force-disable Whisper API mode
     store.set('whisperApiEnabled', false);
     return { expired: true, daysUsed: Math.floor(daysUsed) };
   }

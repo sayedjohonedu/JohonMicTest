@@ -145,12 +145,9 @@ function findBrowser(preferredName) {
     // Preferred browser not found — fall through to auto-detect cascade
   }
 
-  // Default cascade — platform-aware:
-  //   Windows: Edge → Chrome → Brave  (Edge is always pre-installed)
-  //   macOS:   Chrome → Edge → Brave
-  const cascade = process.platform === 'win32'
-    ? [CANDIDATES[1], CANDIDATES[0], CANDIDATES[2]]   // Edge, Chrome, Brave
-    : CANDIDATES;                                       // Chrome, Edge, Brave
+  // Default cascade — prioritize Chrome regardless of platform for reliable STT support
+  //   Chrome → Edge → Brave
+  const cascade = CANDIDATES;
   for (const candidate of cascade) {
     const p = findCandidatePath(candidate);
     if (p) return { executablePath: p, name: candidate.name, engine: candidate.engine, engineLabel: candidate.engineLabel };

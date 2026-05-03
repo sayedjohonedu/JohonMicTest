@@ -7,6 +7,7 @@ const robot = require('robotjs');
 
 const store = require('./store/config');
 const { launchChromeBridge, closeChromeBridge, getActiveBrowserInfo } = require('./engine/chrome-launcher');
+const { setHttpPort } = require('./engine/http-port');
 const clipboardManager = require('./src/main/clipboard-manager');
 const clipboardMonitor = require('./src/main/clipboard-monitor');
 const clipboardHistoryStore = require('./src/main/clipboard-history-store');
@@ -765,6 +766,7 @@ function setupHttpServer() {
     }
   }).listen(0, 'localhost', () => {
     httpPort = server.address().port;
+    setHttpPort(httpPort); // Make port available to restart-stt-bridge IPC handler
     setupWebSocketServer(server);
     launchChromeBridge(`http://localhost:${httpPort}/speech-bridge.html?port=${httpPort}`).catch(()=>{});
   });

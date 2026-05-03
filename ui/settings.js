@@ -161,7 +161,19 @@ const PANELS = {
   about: { title: 'About', desc: 'MicTab information' },
 };
 
-window.switchPanel = function(id, el) {
+window.switchPanel = async function(id, el) {
+  if (id === 'whisper') {
+    try {
+      const trial = await window.electronAPI.whisperApiCheckTrial();
+      if (trial.expired) {
+        window.electronAPI.whisperApiShowLockedPopup();
+        return;
+      }
+    } catch (e) {
+      console.error('Whisper API trial check failed:', e);
+    }
+  }
+
   document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
   document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
   document.getElementById('panel-' + id).classList.add('active'); el.classList.add('active');
@@ -776,20 +788,42 @@ async function refreshSttEngineBadge() {
   }
 }
 
-window.onPreferredBrowserChange = function() {
+window.onPreferredBrowserChange = async function() {
   const sel = document.getElementById('preferred-browser');
   if (!sel) return;
-  // Save immediately so the next bridge launch picks it up
+
+  // 1. Persist the preference first so the bridge launcher reads it on restart
   window.electronAPI.saveConfig({ preferredBrowser: sel.value });
   markDirty();
-  // Update the badge description (actual engine won't change until restart)
-  const desc = document.getElementById('stt-engine-status');
-  if (desc) {
-    if (sel.value === 'auto') {
-      desc.textContent = 'Auto mode — MicTab will choose the best available browser.';
-    } else {
-      desc.textContent = `Preference set to ${sel.value}. Will take effect next time dictation starts.`;
-    }
+
+  // 2. Show "switching…" feedback while the bridge restarts
+  const desc   = document.getElementById('stt-engine-status');
+  const badge  = document.getElementById('stt-engine-badge');
+  const label  = document.getElementById('stt-engine-label');
+  if (desc)  desc.textContent  = '⟳ Switching browser engine…';
+  if (label) label.textContent = 'Restarting…';
+
+  try {
+    // Wait briefly to ensure the IPC `save-config` event reaches the main process
+    // before we trigger the `restart-stt-bridge` IPC handler.
+    await new Promise(r => setTimeout(r, 200));
+
+    // 3. Restart the running bridge with the new browser (no app restart needed)
+    await window.electronAPI.restartSttBridge();
+
+    // 4. Give the bridge a moment to initialize and reconnect
+    await new Promise(r => setTimeout(r, 2000));
+
+    // 5. Refresh the Active Engine badge so it shows the new engine
+    await refreshSttEngineBadge();
+
+    if (desc) desc.textContent = 'Engine switched successfully.';
+    setTimeout(() => {
+      if (desc) desc.textContent = 'Requires to run in the default mode.';
+    }, 3000);
+  } catch (e) {
+    console.error('Failed to restart STT bridge:', e);
+    if (desc) desc.textContent = '⚠ Could not switch engine. Try restarting the app.';
   }
 };
 

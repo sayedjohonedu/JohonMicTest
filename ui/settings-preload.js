@@ -20,6 +20,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getVersion:      ()       => ipcRenderer.invoke('get-version'),
   getSttEngineInfo: ()       => ipcRenderer.invoke('get-stt-engine-info'),
   getAvailableBrowsers: ()   => ipcRenderer.invoke('get-available-browsers'),
+  restartSttBridge:  ()      => ipcRenderer.invoke('restart-stt-bridge'),
   onUpdateStatus:  (cb)     => onChannel('update-status',   (_, info) => cb(info)),
   verifyLicense:             (key)        => ipcRenderer.invoke('verify-license',              key),
   onLicenseExpired:          (cb)         => onChannel('license-expired', () => cb()),
