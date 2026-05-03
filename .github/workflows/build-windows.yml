@@ -27,8 +27,13 @@ jobs:
           node-version: 20
           cache: 'npm'
 
-      - name: Install Dependencies
-        run: npm ci
+      - name: Install Dependencies (skip postinstall rebuild)
+        run: npm ci --ignore-scripts
+
+      - name: Rebuild native modules for Electron (Windows)
+        run: npx @electron/rebuild --force
+        env:
+          npm_config_arch: x64
 
       - name: Build & Publish Windows .exe to Releases
         run: npm run build:win -- --publish always
