@@ -17,16 +17,42 @@ class ClipboardManager {
     });
   }
 
-  injectText(text) {
+  /**
+   * injectText(text, options)
+   * options.deselect = true  →  deselect active selection first, then add 2
+   *                             blank lines before pasting, so the AI output
+   *                             never replaces what the user had highlighted.
+   */
+  injectText(text, options = {}) {
     // macOS: release any held modifiers before injecting
     if (process.platform === 'darwin') this.resetModifiers();
+
+    // ── Deselect-first mode (used when selected-text block fired) ──────────
+    // Press Right Arrow — the universal way to collapse a selection to its end
+    // point without deleting it.  Works identically on macOS, Windows, in
+    // browsers, Telegram, Notepad, Word, etc.  Escape is NOT used because it
+    // triggers "back navigation" in Telegram / browsers, and can delete selected
+    // text in some apps.
+    if (options.deselect) {
+      try {
+        robot.keyTap('right'); // collapses selection → cursor at end of selection
+      } catch (e) {
+        console.warn('[ClipboardManager] deselect key failed:', e.message);
+      }
+      // Prepend 2 newlines so output appears below the original text
+      text = '\n\n' + text;
+    }
 
     // simulateTyping via robot.typeString:
     //   - macOS: allowed (reliable)
     //   - Windows: DISABLED — typeString causes repeating characters in apps
     //              like Telegram due to Windows input hook intercept. Always
     //              use clipboard paste on Windows instead.
-    if (process.platform !== 'win32' && store.get('simulateTyping') && /^[\x00-\x7F]*$/.test(text) && text.length > 1) {
+    if (options.deselect) {
+      // Even in typeString mode, we must paste for the deselect flow because
+      // we already modified `text` to include the \n\n prefix, and typeString
+      // can't reliably type newlines.  Fall through to clipboard paste below.
+    } else if (process.platform !== 'win32' && store.get('simulateTyping') && /^[\x00-\x7F]*$/.test(text) && text.length > 1) {
       setTimeout(() => {
         try {
           robot.setKeyboardDelay(0);
@@ -58,8 +84,6 @@ class ClipboardManager {
     setTimeout(() => {
       try {
         if (process.platform === 'win32') {
-          // robot.keyTap('v', 'control') is unreliable on Windows.
-          // keyToggle down/up sequence (same pattern as robustKeyTap uses) works correctly.
           robot.keyToggle('control', 'down');
           robot.keyToggle('v', 'down');
           robot.keyToggle('v', 'up');
@@ -81,6 +105,7 @@ class ClipboardManager {
       }, 300);
     }, pasteDelay);
   }
+
 
   injectCharDirect(chars) {
     if (!chars) return;

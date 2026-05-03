@@ -777,6 +777,139 @@ function setupIpcHandlers(toggleListening, registerHotkeys, getWsClient, resetSi
     if (config.fallbackEnabled !== undefined) store.set('whisperApiFallbackEnabled', config.fallbackEnabled);
     return { ok: true };
   });
+
+  /* ═══════════════════════════════════════════════════════════════
+     ██  VOICE AGENTS — IPC HANDLERS
+     ═══════════════════════════════════════════════════════════════ */
+  const agentEngine = require('./agent-pipeline-engine');
+
+  ipcMain.handle('agents-get-all', () => agentEngine.getAgents());
+
+  ipcMain.handle('agents-add', (event, agentData) => {
+    const agent = agentEngine.addAgent(agentData);
+    broadcastAgentUpdate();
+    return { ok: true, agent };
+  });
+
+  ipcMain.handle('agents-update', (event, { id, updates }) => {
+    const agent = agentEngine.updateAgent(id, updates);
+    broadcastAgentUpdate();
+    return agent ? { ok: true, agent } : { ok: false, error: 'Agent not found' };
+  });
+
+  ipcMain.handle('agents-delete', (event, id) => {
+    const ok = agentEngine.deleteAgent(id);
+    if (ok) broadcastAgentUpdate();
+    return { ok, error: ok ? undefined : 'Cannot delete built-in agent' };
+  });
+
+  ipcMain.handle('agents-reset-jarvis', () => {
+    agentEngine.resetJarvis();
+    broadcastAgentUpdate();
+    return { ok: true };
+  });
+
+  ipcMain.handle('agents-reorder', (event, orderedIds) => {
+    const agents = agentEngine.reorderAgents(orderedIds);
+    broadcastAgentUpdate();
+    return { ok: true, agents };
+  });
+
+
+  // Broadcast agent changes to all windows so renderers can refresh
+  function broadcastAgentUpdate() {
+    BrowserWindow.getAllWindows().forEach(win => {
+      if (!win.isDestroyed()) win.webContents.send('agents-updated');
+    });
+  }
+
+  // ── Browse for file (used by file-system block) ──
+  ipcMain.handle('agents-browse-file', async (event) => {
+    const browserWindow = BrowserWindow.fromWebContents(event.sender);
+    const { canceled, filePaths } = await dialog.showOpenDialog(browserWindow, {
+      title: 'Select a File',
+      properties: ['openFile'],
+    });
+    if (canceled || !filePaths || filePaths.length === 0) return { canceled: true };
+    return { path: filePaths[0] };
+  });
+
+  // ── Enable JavaScript blocks ──
+  ipcMain.handle('agents-enable-js', () => {
+    const existing = store.get('voiceAgentsConfig') || {};
+    store.set('voiceAgentsConfig', { ...existing, jsEnabled: true });
+    return { ok: true };
+  });
+
+  // ── Run Agent Test — executes buildPipeline + real LLM call ──
+  ipcMain.handle('agents-run-test', async (event, { agentId, testInput, testValues }) => {
+    try {
+      const agent = agentEngine.getAgents().find(a => a.id === agentId);
+      if (!agent) return { ok: false, error: 'Agent not found' };
+
+      // Inject test values into the pipeline context by temporarily patching
+      // clipboard / selected-text via testValues map (keyed as blockId:token).
+      // We pass them via a patched agent copy so no real clipboard is touched.
+      const agentCopy = JSON.parse(JSON.stringify(agent));
+
+      // Run the pipeline (resolves all chips, datetime, HTTP, shell, etc.)
+      const pipeline = await agentEngine.buildPipeline(
+        { ...agentCopy, _testValues: testValues || {} },
+        testInput || '',
+        { language: store.get('language') || 'en-US' }
+      );
+
+      const { systemPrompt, userMessage, profileId } = pipeline;
+
+      // Resolve the LLM profile: agent profile → vault ai-dictation default → first profile
+      let profile = null;
+      const vault = require('./api-vault');
+      if (profileId) profile = vault.getLlmProfile(profileId);
+      if (!profile)  profile = vault.getDefaultForFeature('ai-dictation');
+      if (!profile)  profile = vault.getLlmProfiles()[0] || null;
+
+      if (!profile) {
+        return {
+          ok: false,
+          error: 'No LLM profile configured. Please add an API profile in AI & API settings.',
+          pipeline: { systemPrompt, userMessage },
+        };
+      }
+
+      // Call the LLM
+      const result = await callLlmRaw({
+        text: userMessage,
+        profile,
+        systemPrompt,
+        temperature: agent.temperature ?? 0.3,
+      });
+
+      if (result.error) {
+        return { ok: false, error: result.error, pipeline: { systemPrompt, userMessage } };
+      }
+
+      return {
+        ok: true,
+        output: result.text,
+        pipeline: { systemPrompt, userMessage },
+        profileName: profile.name || profile.provider,
+      };
+    } catch (err) {
+      console.error('[agents-run-test] Error:', err);
+      return { ok: false, error: err.message || 'Test failed' };
+    }
+  });
+
+  // ── Open / Close Voice Agents Window ──
+  const { showVoiceAgents, closeVoiceAgents } = require('./window-manager');
+
+  ipcMain.on('open-voice-agents', () => {
+    showVoiceAgents();
+  });
+
+  ipcMain.on('close-voice-agents-window', () => {
+    closeVoiceAgents();
+  });
 }
 
 function handleMicListMessage(devices) {

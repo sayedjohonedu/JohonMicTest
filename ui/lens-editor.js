@@ -837,11 +837,112 @@ function getAnnBounds(ann) {
   return null;
 }
 
+/* Helper for line/curve distance */
+function distSqToSegment(px, py, vx, vy, wx, wy) {
+  const l2 = (vx - wx)**2 + (vy - wy)**2;
+  if (l2 === 0) return (px - vx)**2 + (py - vy)**2;
+  let t = ((px - vx) * (wx - vx) + (py - vy) * (wy - vy)) / l2;
+  t = Math.max(0, Math.min(1, t));
+  const projX = vx + t * (wx - vx);
+  const projY = vy + t * (wy - wy);
+  return (px - projX)**2 + (py - projY)**2;
+}
+
 /* ── Hit-test: is point (px,py) inside annotation? ── */
 function hitTest(ann, px, py) {
   const m = 6; // margin
   const b = getAnnBounds(ann);
   if (!b) return false;
+
+  if (ann.type === 'rect') {
+    const inOuter = px >= b.x - m && px <= b.x + b.w + m && py >= b.y - m && py <= b.y + b.h + m;
+    if (!inOuter) return false;
+    
+    const hitArea = m + (ann.stroke || 4);
+    if (b.w > hitArea * 2 && b.h > hitArea * 2) {
+      const inInner = px > b.x + hitArea && px < b.x + b.w - hitArea &&
+                      py > b.y + hitArea && py < b.y + b.h - hitArea;
+      if (inInner) return false;
+    }
+    return true;
+  }
+
+  if (ann.type === 'circle') {
+    const cx = b.x + b.w / 2;
+    const cy = b.y + b.h / 2;
+    const rx = b.w / 2;
+    const ry = b.h / 2;
+
+    if (rx === 0 || ry === 0) return false;
+
+    const dx = px - cx;
+    const dy = py - cy;
+    
+    const outerRx = rx + m;
+    const outerRy = ry + m;
+    const outerDistSq = (dx * dx) / (outerRx * outerRx) + (dy * dy) / (outerRy * outerRy);
+    if (outerDistSq > 1) return false;
+    
+    const hitArea = m + (ann.stroke || 4);
+    const innerRx = rx - hitArea;
+    const innerRy = ry - hitArea;
+    
+    if (innerRx > 0 && innerRy > 0) {
+      const innerDistSq = (dx * dx) / (innerRx * innerRx) + (dy * dy) / (innerRy * innerRy);
+      if (innerDistSq < 1) return false;
+    }
+    return true;
+  }
+
+  if (ann.type === 'arrow' || ann.type === 'line') {
+    const inOuter = px >= b.x - m && px <= b.x + b.w + m && py >= b.y - m && py <= b.y + b.h + m;
+    if (!inOuter) return false;
+
+    const cx = ann.cx !== undefined ? ann.cx : (ann.x1 + ann.x2) / 2;
+    const cy = ann.cy !== undefined ? ann.cy : (ann.y1 + ann.y2) / 2;
+    
+    let minDistSq = Infinity;
+    const steps = 20;
+    let lastX = ann.x1;
+    let lastY = ann.y1;
+    
+    for (let i = 1; i <= steps; i++) {
+      const t = i / steps;
+      const mt = 1 - t;
+      const curX = mt * mt * ann.x1 + 2 * mt * t * cx + t * t * ann.x2;
+      const curY = mt * mt * ann.y1 + 2 * mt * t * cy + t * t * ann.y2;
+      
+      const distSq = distSqToSegment(px, py, lastX, lastY, curX, curY);
+      if (distSq < minDistSq) minDistSq = distSq;
+      
+      lastX = curX;
+      lastY = curY;
+    }
+    
+    const hitRadius = (ann.stroke || 4) + 8; // 8px extended selection zone
+    return minDistSq <= hitRadius * hitRadius;
+  }
+
+  if (ann.type === 'freehand' || ann.type === 'highlighter') {
+    const inOuter = px >= b.x - m && px <= b.x + b.w + m && py >= b.y - m && py <= b.y + b.h + m;
+    if (!inOuter) return false;
+
+    if (!ann.points || ann.points.length === 0) return false;
+    let minDistSq = Infinity;
+    for (let i = 1; i < ann.points.length; i++) {
+      const vx = ann.points[i-1][0];
+      const vy = ann.points[i-1][1];
+      const wx = ann.points[i][0];
+      const wy = ann.points[i][1];
+      const distSq = distSqToSegment(px, py, vx, vy, wx, wy);
+      if (distSq < minDistSq) minDistSq = distSq;
+    }
+    
+    const baseStroke = ann.type === 'highlighter' ? ann.stroke * 4 : (ann.stroke || 4);
+    const hitRadius = (baseStroke / 2) + 8;
+    return minDistSq <= hitRadius * hitRadius;
+  }
+
   // Expand bounds by margin
   return px >= b.x - m && px <= b.x + b.w + m && py >= b.y - m && py <= b.y + b.h + m;
 }

@@ -409,6 +409,11 @@ const schema = {
     type: 'string',
     default: ''          // version string that was dismissed (e.g. '1.3.0')
   },
+  // ── Voice Agents ────────────────────────────────────────────────
+  voiceAgents: {
+    type: 'array',
+    default: []           // Seeded with Jarvis default by agent-pipeline-engine.js on first run
+  },
   // ── App Store ──────────────────────────────────────────────────
   appStoreShortcut: {
     type: 'string',

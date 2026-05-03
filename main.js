@@ -99,7 +99,7 @@ function processAiBufferAndContinue() {
       overlayWindow.webContents.send('ai-processing-end', result);
     }
     if (result.text && !result.error && !result.allFailed) {
-      clipboardManager.injectText(result.text);
+      clipboardManager.injectText(result.text, { deselect: !!result.usedSelectedText });
     } else if (result.allFailed && result.rawText && result.rawText.trim()) {
       clipboardManager.injectText(result.rawText);
     } else if (result.error) {
@@ -444,7 +444,7 @@ function toggleListening(forceLang = null, fromTranslator = false, forceStart = 
             else if (response === 1) store.set('aiModeEnabled', false);
           });
         } else if (result.text && !result.error) {
-          clipboardManager.injectText(result.text);
+          clipboardManager.injectText(result.text, { deselect: !!result.usedSelectedText });
         } else if (result.error) {
           console.error('AI processing error:', result.error);
           const rawText = aiDictationManager.getBufferedText();
@@ -801,6 +801,10 @@ app.whenReady().then(() => {
   // ── Central API Vault: migrate legacy profile pools on first launch ──
   const apiVault = require('./src/main/api-vault');
   apiVault.migrateIfNeeded();
+
+  // ── Voice Agent Engine: seed default Jarvis agent if none exist ──
+  const agentEngine = require('./src/main/agent-pipeline-engine');
+  agentEngine.seedDefaults();
   
   // Apply the unified login item setting
   app.setLoginItemSettings({

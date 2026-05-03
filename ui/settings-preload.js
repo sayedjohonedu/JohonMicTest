@@ -82,4 +82,6 @@ contextBridge.exposeInMainWorld('electronAPI', {
   vaultSetFallback:          (on)         => ipcRenderer.invoke('vault-set-fallback', on),
   // ── Cross-window navigation ──
   onNavigateToPanel:         (cb)         => onChannel('navigate-to-panel', (_, panelId) => cb(panelId)),
+  // ── Voice Agents ──
+  openVoiceAgents:           ()           => ipcRenderer.send('open-voice-agents'),
 });

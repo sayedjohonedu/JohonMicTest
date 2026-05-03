@@ -21,6 +21,7 @@ const { callLlmRaw } = require('./llm-client');
 const apiVault = require('./api-vault');
 const clipboardHistoryStore = require('./clipboard-history-store');
 const { applyTextReplacements } = require('./text-replacements');
+const agentEngine = require('./agent-pipeline-engine');
 
 // ── Two focused default prompts (used when user has NOT set a custom prompt) ──
 // CLEAN: ultra-short, no instruction-following → prevents hallucination
@@ -205,31 +206,32 @@ class WhisperApiManager {
         return;
       }
 
-      // 3. (Optional) AI Post-Processing / Polish
-      let finalText = transcript.trim();
-      if (store.get('whisperApiAiEnabled') === true) {
-        try {
-          this._updatePill('transcribing', 'AI Polishing…');
-          const polished = await this._aiPolish(finalText);
-          if (polished && polished.trim()) {
-            console.log(`[WhisperAPI] AI polished: "${finalText.substring(0, 40)}…" → "${polished.substring(0, 40)}…"`);
-            finalText = polished.trim();
-          }
-        } catch (e) {
-          console.warn('[WhisperAPI] AI polish failed, using raw transcript:', e.message);
-          // Fall through — use raw transcript
-        }
-      }
-
-      // 4. Apply text replacements (shared with regular overlay pipeline)
-      finalText = applyTextReplacements(finalText);
+       // 3. Apply text replacements (shared with regular overlay pipeline) - MUST be before AI polishing
+       let finalText = applyTextReplacements(transcript.trim());
+       
+       // 4. (Optional) AI Post-Processing / Polish
+       if (store.get('whisperApiAiEnabled') === true) {
+         try {
+           this._updatePill('transcribing', 'AI Polishing…');
+           const polished = await this._aiPolish(finalText);
+           if (polished && polished.trim()) {
+             console.log(`[WhisperAPI] AI polished: "${finalText.substring(0, 40)}…" → "${polished.substring(0, 40)}…"`);
+             finalText = polished.trim();
+           }
+         } catch (e) {
+           console.warn('[WhisperAPI] AI polish failed, using replaced transcript:', e.message);
+           // Fall through — use replaced transcript
+         }
+       }
 
       // 5. Paste result
       if (finalText) {
         this._updatePill('done', finalText.substring(0, 60) + (finalText.length > 60 ? '…' : ''));
         
         if (this._clipboardManager) {
-          this._clipboardManager.injectText(finalText);
+          const deselect = !!this._lastPipelineUsedSelectedText;
+          this._lastPipelineUsedSelectedText = false;
+          this._clipboardManager.injectText(finalText, { deselect });
         }
       }
 
@@ -275,28 +277,43 @@ class WhisperApiManager {
 
   async _aiPolish(text) {
     const chain = apiVault.getFallbackChain('whisper-polish');
-    const customPrompt = store.get('whisperApiAiSystemPrompt')  || '';
-    const temperature = store.get('whisperApiAiTemperature')    ?? 0.3;
-
-    // ── Prompt routing: detect Jarvis in transcript ──
-    // If user has set a custom prompt → use it as-is (no splitting)
-    // If no custom prompt → route to the focused Clean or Command prompt
-    const hasJarvis = /\bjarvis\b/i.test(text);
-    let sysPrompt;
-    if (customPrompt) {
-      sysPrompt = customPrompt;
-      console.log(`[WhisperAPI] Using custom system prompt (${customPrompt.length} chars)`);
-    } else if (hasJarvis) {
-      sysPrompt = DEFAULT_COMMAND_PROMPT;
-      console.log('[WhisperAPI] Jarvis detected → using COMMAND prompt');
-    } else {
-      sysPrompt = DEFAULT_CLEAN_PROMPT;
-      console.log('[WhisperAPI] Clean mode → using CLEAN prompt');
-    }
 
     if (!chain.length) {
       console.warn('[WhisperAPI] AI polish enabled but no profiles configured — skipping');
       return text;
+    }
+
+    // ── Voice Agent routing: check for a matching agent FIRST ──
+    const matchedAgent = agentEngine.findMatchingAgent(text);
+    let sysPrompt, userText, temperature;
+
+    if (matchedAgent) {
+      const language = store.get('language') || 'en-US';
+      const personalDict = store.get('aiPersonalDictionary') || '';
+      const pipeline = await agentEngine.buildPipeline(matchedAgent, text, {
+        language,
+        personalDictionary: personalDict,
+      });
+      sysPrompt = pipeline.systemPrompt;
+      userText = pipeline.userMessage;
+      temperature = pipeline.temperature ?? store.get('whisperApiAiTemperature') ?? 0.3;
+      this._lastPipelineUsedSelectedText = pipeline.usedSelectedText || false;
+      console.log(`[WhisperAPI] Agent "${matchedAgent.name}" handling this transcript`);
+    } else {
+      // No agent matched — ensure the flag is always cleared for regular dictation
+      this._lastPipelineUsedSelectedText = false;
+      // Fall back to existing routing (clean / custom prompt)
+      const customPrompt = store.get('whisperApiAiSystemPrompt') || '';
+      temperature = store.get('whisperApiAiTemperature') ?? 0.3;
+      userText = text;
+
+      if (customPrompt) {
+        sysPrompt = customPrompt;
+        console.log(`[WhisperAPI] Using custom system prompt (${customPrompt.length} chars)`);
+      } else {
+        sysPrompt = DEFAULT_CLEAN_PROMPT;
+        console.log('[WhisperAPI] Clean mode → using CLEAN prompt');
+      }
     }
 
     let lastError = null;
@@ -314,11 +331,13 @@ class WhisperApiManager {
           apiKey: prof.apiKey,
           baseUrl: prof.baseUrl || '',
         };
-        // Check for Jarvis + clipboard reference → inject clipboard content
-        const clipboardContent = this._getClipboardContext(text);
-        let userText = text;
-        if (clipboardContent) {
-          userText = `CLIPBOARD CONTENT:\n${clipboardContent}\n\nUSER SAID:\n${text}`;
+
+        // If no agent handled clipboard, use legacy clipboard injection
+        if (!matchedAgent) {
+          const clipboardContent = this._getClipboardContext(text);
+          if (clipboardContent) {
+            userText = `CLIPBOARD CONTENT:\n${clipboardContent}\n\nUSER SAID:\n${text}`;
+          }
         }
 
         const result = await callLlmRaw({

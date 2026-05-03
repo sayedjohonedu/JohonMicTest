@@ -9,6 +9,7 @@ const store = require('../../store/config');
 const { callLlmRaw, httpGet } = require('./llm-client');
 const apiVault = require('./api-vault');
 const clipboardHistoryStore = require('./clipboard-history-store');
+const agentEngine = require('./agent-pipeline-engine');
 
 // ── Two focused default prompts (used when user has NOT set a custom prompt) ──
 // CLEAN: ultra-short, no instruction-following → prevents hallucination
@@ -193,12 +194,32 @@ class AiDictationManager {
     this.processing = true;
 
     try {
-      // Build prompt (shared across all profiles)
       const language = store.get('language') || 'en-US';
-      const customPrompt = store.get('aiSystemPrompt') || '';
       const personalDict = store.get('aiPersonalDictionary') || '';
-      const systemPrompt = this.buildDictationPrompt(language, customPrompt, personalDict, rawText);
-      const temperature = store.get('aiTemperature') ?? 0.3;
+
+      // ── Voice Agent routing: check for a matching agent FIRST ──
+      const matchedAgent = agentEngine.findMatchingAgent(rawText);
+      let systemPrompt, userText, temperature;
+
+      if (matchedAgent) {
+        // Agent matched → build prompt from agent's block pipeline
+        const pipeline = await agentEngine.buildPipeline(matchedAgent, rawText, {
+          language,
+          personalDictionary: personalDict,
+        });
+        systemPrompt = pipeline.systemPrompt;
+        userText = pipeline.userMessage;
+        temperature = pipeline.temperature ?? store.get('aiTemperature') ?? 0.3;
+        this._pipelineUsedSelectedText = pipeline.usedSelectedText || false;
+        console.log(`[AI Dictation] Agent "${matchedAgent.name}" handling this transcript`);
+      } else {
+        // No agent matched — always clear the flag so regular dictation is not affected
+        this._pipelineUsedSelectedText = false;
+        const customPrompt = store.get('aiSystemPrompt') || '';
+        systemPrompt = this.buildDictationPrompt(language, customPrompt, personalDict, rawText);
+        userText = rawText;
+        temperature = store.get('aiTemperature') ?? 0.3;
+      }
 
       // Get the ordered fallback chain
       const chain = this._buildProfileChain();
@@ -230,11 +251,12 @@ class AiDictationManager {
             continue;
           }
 
-          // Check for Jarvis + clipboard reference → inject clipboard content
-          const clipboardContent = this._getClipboardContext(rawText);
-          let userText = rawText;
-          if (clipboardContent) {
-            userText = `CLIPBOARD CONTENT:\n${clipboardContent}\n\nUSER SAID:\n${rawText}`;
+          // If no agent handled clipboard, use legacy clipboard injection
+          if (!matchedAgent) {
+            const clipboardContent = this._getClipboardContext(rawText);
+            if (clipboardContent) {
+              userText = `CLIPBOARD CONTENT:\n${clipboardContent}\n\nUSER SAID:\n${rawText}`;
+            }
           }
 
           // Build messages with session context
@@ -256,7 +278,7 @@ class AiDictationManager {
           // Success!
           this.session.updateContext(result.text);
           console.log(`[AI Dictation] ✓ Success with "${p.name}"`);
-          return { text: result.text, usedProfile: p.name };
+          return { text: result.text, usedProfile: p.name, usedSelectedText: !!this._pipelineUsedSelectedText };
 
         } catch (e) {
           errors.push({ profile: p.name, error: e.message || 'Unknown error' });

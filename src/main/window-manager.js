@@ -14,6 +14,7 @@ let updateReminderPopupWindow = null;
 let licenseCelebrationWindow = null;
 let screenRecorderLockedPopupWindow = null;
 let lensLockedPopupWindow = null;
+let voiceAgentsWindow = null;
 
 /**
  * On macOS, only revert to 'accessory' activation policy (no dock icon)
@@ -560,6 +561,64 @@ function createOfflinePill() {
 
 function getOfflinePillWindow() { return offlinePillWindow; }
 
+// ── Voice Agents Window ──────────────────────────────────────────
+function showVoiceAgents() {
+  if (voiceAgentsWindow && !voiceAgentsWindow.isDestroyed()) {
+    if (process.platform === 'darwin') app.setActivationPolicy('regular');
+    voiceAgentsWindow.show();
+    voiceAgentsWindow.focus();
+    return voiceAgentsWindow;
+  }
+
+  const isMac = process.platform === 'darwin';
+  const platformOptions = isMac
+    ? {
+        titleBarStyle: 'hiddenInset',
+        vibrancy: 'sidebar',
+        visualEffectState: 'active',
+        backgroundColor: '#00000000',
+      }
+    : {
+        titleBarStyle: 'default',
+        backgroundColor: '#0f0f17',
+        autoHideMenuBar: true,
+      };
+
+  voiceAgentsWindow = new BrowserWindow({
+    width: 1100,
+    height: 700,
+    minWidth: 900,
+    minHeight: 620,
+    icon: path.join(__dirname, '../../assets', 'logo', 'dark-logo-solid-black-background.png'),
+    resizable: true,
+    maximizable: true,
+    ...platformOptions,
+    webPreferences: {
+      preload: path.join(__dirname, '../../ui', 'voice-agents-preload.js'),
+      acceptFirstMouse: true,
+    },
+  });
+
+  if (isMac) {
+    app.setActivationPolicy('regular');
+    voiceAgentsWindow.on('closed', () => {
+      voiceAgentsWindow = null;
+      maybRevertToAccessory();
+    });
+  } else {
+    voiceAgentsWindow.on('closed', () => voiceAgentsWindow = null);
+  }
+
+  voiceAgentsWindow.loadFile(path.join(__dirname, '../../ui/voice-agents.html'));
+  return voiceAgentsWindow;
+}
+
+function closeVoiceAgents() {
+  if (voiceAgentsWindow && !voiceAgentsWindow.isDestroyed()) {
+    voiceAgentsWindow.close();
+  }
+}
+
 function getOverlayWindow() { return overlayWindow; }
 function getSettingsWindow() { return settingsWindow; }
 
@@ -587,6 +646,8 @@ module.exports = {
   closeScreenRecorderLockedPopup,
   showLensLockedPopup,
   closeLensLockedPopup,
+  showVoiceAgents,
+  closeVoiceAgents,
   applyOverlaySize,
   getOverlayWindow,
   getSettingsWindow,
