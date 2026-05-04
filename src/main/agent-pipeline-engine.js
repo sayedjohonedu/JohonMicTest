@@ -821,7 +821,10 @@ class AgentPipelineEngine {
       if (process.platform === 'darwin') {
         robot.keyTap('c', 'command');
       } else {
-        robot.keyTap('c', 'control');
+        robot.keyToggle('control', 'down');
+        robot.keyToggle('c', 'down');
+        robot.keyToggle('c', 'up');
+        robot.keyToggle('control', 'up');
       }
 
       // 3. Wait for OS clipboard to settle (~150ms)
