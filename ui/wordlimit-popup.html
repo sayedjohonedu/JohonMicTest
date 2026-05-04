@@ -66,10 +66,25 @@
     border: 1px solid rgba(255,255,255,0.15);
   }
   .btn-settings:hover { background: rgba(255,255,255,0.14); }
+  .close-btn {
+    position: absolute; top: 12px; right: 12px;
+    width: 24px; height: 24px; border-radius: 50%;
+    background: rgba(255,255,255,0.05); border: none;
+    color: rgba(255,255,255,0.5); cursor: pointer;
+    display: flex; justify-content: center; align-items: center;
+    transition: all 0.15s; -webkit-app-region: no-drag;
+  }
+  .close-btn:hover { background: rgba(255,255,255,0.15); color: #fff; }
 </style>
 </head>
 <body>
 <div id="card">
+  <button class="close-btn" id="btn-close">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <line x1="18" y1="6" x2="6" y2="18"></line>
+      <line x1="6" y1="6" x2="18" y2="18"></line>
+    </svg>
+  </button>
   <div class="icon-ring">
     <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
       <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
@@ -109,6 +124,9 @@
   });
   document.getElementById('btn-settings').addEventListener('click', () => {
     window.junoAPI.openSettings();
+    window.junoAPI.closeWordLimitPopup();
+  });
+  document.getElementById('btn-close').addEventListener('click', () => {
     window.junoAPI.closeWordLimitPopup();
   });
 </script>

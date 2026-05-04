@@ -273,20 +273,6 @@ function toggleListening(forceLang = null, fromTranslator = false, forceStart = 
     return;
   }
 
-  const status = store.get('licenseStatus');
-  // ── Free tier (trial ended, no paid key): check daily word limit ──
-  if (status === 'free') {
-    checkAndResetDailyWords();
-    const used = store.get('freeDailyWords') || 0;
-    if (used >= 500) {
-      showWordLimitPopup();
-      return;
-    }
-    // Under limit — allow session to proceed (tracking happens in final-text handler)
-  }
-  // ── Gumroad key revoked / invalid ──
-  if (status === 'expired') { showLicensePopup(); return; }
-
   // Overriding sttMode if we get a global STT hotkey while in translator mode
   if (sttMode === 'translator' && !fromTranslator) {
     closeTranslatorAndRestoreOverlay(); // Sets sttMode='overlay' and stops listening
@@ -306,6 +292,23 @@ function toggleListening(forceLang = null, fromTranslator = false, forceStart = 
     // Small gap so the STT engine can cleanly reset before we send start
     setTimeout(() => toggleListening(forceLang, fromTranslator, false), 150);
     return;
+  }
+
+  // Only block starting a new session
+  if (!isListening) {
+    const status = store.get('licenseStatus');
+    // ── Free tier (trial ended, no paid key): check daily word limit ──
+    if (status === 'free') {
+      checkAndResetDailyWords();
+      const used = store.get('freeDailyWords') || 0;
+      if (used >= 500) {
+        showWordLimitPopup();
+        return;
+      }
+      // Under limit — allow session to proceed (tracking happens in final-text handler)
+    }
+    // ── Gumroad key revoked / invalid ──
+    if (status === 'expired') { showLicensePopup(); return; }
   }
 
   isListening = !isListening;
