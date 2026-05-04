@@ -85,6 +85,7 @@
     "electron-updater": "^6.8.3",
     "google-translate-api-x": "^10.7.2",
     "msedge-tts": "^2.0.5",
+    "node-addon-api": "^8.7.0",
     "puppeteer-core": "^24.40.0",
     "tesseract.js": "^7.0.0",
     "uiohook-napi": "^1.5.5",
