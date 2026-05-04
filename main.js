@@ -3,7 +3,7 @@ const path = require('path');
 const http = require('http');
 const fs = require('fs');
 const WebSocket = require('ws');
-const robot = require('robotjs');
+const robot = require('@hurdlegroup/robotjs');
 
 const store = require('./store/config');
 const { launchChromeBridge, closeChromeBridge, getActiveBrowserInfo } = require('./engine/chrome-launcher');
