@@ -267,8 +267,15 @@ function setupGalleryIpc() {
     return { installed: isFFmpegInstalled() };
   });
 
-  ipcMain.handle('gallery-download-ffmpeg', async () => {
-    await downloadFFmpeg();
+  ipcMain.handle('gallery-download-ffmpeg', async (event) => {
+    const senderWC = event.sender;
+    await downloadFFmpeg((progress) => {
+      try {
+        if (senderWC && !senderWC.isDestroyed()) {
+          senderWC.send('ffmpeg-download-progress', progress);
+        }
+      } catch (_) {}
+    });
     return { ok: true };
   });
 

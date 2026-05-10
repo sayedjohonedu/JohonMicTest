@@ -11,6 +11,7 @@ contextBridge.exposeInMainWorld('gallery', {
   // FFmpeg / conversion
   checkFFmpeg:      ()                      => ipcRenderer.invoke('gallery-check-ffmpeg'),
   downloadFFmpeg:   ()                      => ipcRenderer.invoke('gallery-download-ffmpeg'),
+  onFFmpegProgress: (cb)                    => ipcRenderer.on('ffmpeg-download-progress', (_, data) => cb(data)),
   convertFile:      (filePath, format)      => ipcRenderer.invoke('gallery-convert-file', { filePath, format }),
 
   // Video Editor

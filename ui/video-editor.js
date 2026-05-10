@@ -49,7 +49,10 @@ let silenceMode = false;       // whether silence overlays are visible
   if (!fp) return;
   S.filePath = fp;
 
-  video.src = 'file://' + encodeURI(fp);
+  // Cross-platform file URL: normalise backslashes and ensure 3 slashes for Windows drive paths
+  let _fp = fp.replace(/\\/g, '/');
+  if (!_fp.startsWith('/')) _fp = '/' + _fp;
+  video.src = 'file://' + encodeURI(_fp);
   video.load();
 
   video.addEventListener('loadedmetadata', () => {
@@ -1543,7 +1546,182 @@ document.addEventListener('mouseup', () => {
 // Export button
 $('btn-export').addEventListener('click', showExportDialog);
 
+/* ═══════════════════════════════════════════════════════════
+   FFMPEG DOWNLOAD MODAL
+   ─────────────────────────────────────────────────────────
+   Shown when the user first tries to export and FFmpeg
+   is not yet installed. Explains what it is, offers a
+   one-click download with live progress, and then
+   auto-opens the export dialog on success.
+   ═══════════════════════════════════════════════════════════ */
+function showFFmpegDownloadModal() {
+  return new Promise((resolve) => {
+    const overlay = document.createElement('div');
+    overlay.className = 'ffmpeg-overlay';
+    overlay.innerHTML = `
+      <div class="ffmpeg-box">
+        <div class="ffmpeg-icon">
+          <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#b4a8ff" stroke-width="1.5">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+            <polyline points="7 10 12 15 17 10"/>
+            <line x1="12" y1="15" x2="12" y2="3"/>
+          </svg>
+        </div>
+        <div class="ffmpeg-title">FFmpeg Required</div>
+        <div class="ffmpeg-sub">
+          To export videos in MP4, GIF, or MOV format, MicTab needs FFmpeg — a free, industry-standard video processor. It will be downloaded once and cached for future use.
+        </div>
+        <div class="ffmpeg-features">
+          <div class="ffmpeg-feature">
+            <div class="ffmpeg-feature-icon">🎬</div>
+            <div class="ffmpeg-feature-label">Convert</div>
+            <div class="ffmpeg-feature-desc">WebM to MP4, GIF, MOV</div>
+          </div>
+          <div class="ffmpeg-feature">
+            <div class="ffmpeg-feature-icon">⚡</div>
+            <div class="ffmpeg-feature-label">Fast</div>
+            <div class="ffmpeg-feature-desc">Hardware accelerated</div>
+          </div>
+          <div class="ffmpeg-feature">
+            <div class="ffmpeg-feature-icon">🔒</div>
+            <div class="ffmpeg-feature-label">Private</div>
+            <div class="ffmpeg-feature-desc">Runs 100% locally</div>
+          </div>
+        </div>
+        <div class="ffmpeg-size">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+          One-time download · ~70 MB · Cached locally
+        </div>
+        <div id="ffmpeg-initial-state">
+          <div class="ffmpeg-actions">
+            <button class="ffmpeg-btn cancel" id="ffmpeg-cancel">Cancel</button>
+            <button class="ffmpeg-btn download" id="ffmpeg-download">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                <polyline points="7 10 12 15 17 10"/>
+                <line x1="12" y1="15" x2="12" y2="3"/>
+              </svg>
+              Download FFmpeg
+            </button>
+          </div>
+        </div>
+        <div class="ffmpeg-progress" id="ffmpeg-progress">
+          <div class="ffmpeg-progress-status" id="ffmpeg-status">Downloading FFmpeg…</div>
+          <div class="ffmpeg-progress-track">
+            <div class="ffmpeg-progress-fill" id="ffmpeg-fill"></div>
+          </div>
+          <div class="ffmpeg-progress-detail" id="ffmpeg-detail">Starting download…</div>
+        </div>
+        <div class="ffmpeg-success" id="ffmpeg-success">
+          <div class="ffmpeg-success-icon">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2.5">
+              <polyline points="20 6 9 17 4 12"/>
+            </svg>
+          </div>
+          <div class="ffmpeg-success-text">FFmpeg Installed!</div>
+          <div class="ffmpeg-success-sub">Opening export dialog…</div>
+        </div>
+        <div class="ffmpeg-error" id="ffmpeg-error"></div>
+      </div>`;
+    document.body.appendChild(overlay);
+
+    const cancelBtn = overlay.querySelector('#ffmpeg-cancel');
+    const downloadBtn = overlay.querySelector('#ffmpeg-download');
+    const initialState = overlay.querySelector('#ffmpeg-initial-state');
+    const progressSection = overlay.querySelector('#ffmpeg-progress');
+    const statusEl = overlay.querySelector('#ffmpeg-status');
+    const fillEl = overlay.querySelector('#ffmpeg-fill');
+    const detailEl = overlay.querySelector('#ffmpeg-detail');
+    const successSection = overlay.querySelector('#ffmpeg-success');
+    const errorEl = overlay.querySelector('#ffmpeg-error');
+
+    cancelBtn.addEventListener('click', () => {
+      overlay.remove();
+      resolve(false);
+    });
+    overlay.addEventListener('click', (e) => {
+      if (e.target === overlay && !progressSection.classList.contains('active')) {
+        overlay.remove();
+        resolve(false);
+      }
+    });
+
+    downloadBtn.addEventListener('click', async () => {
+      // Switch to download state
+      downloadBtn.disabled = true;
+      initialState.style.display = 'none';
+      progressSection.classList.add('active');
+      cancelBtn.style.display = 'none';
+      errorEl.classList.remove('active');
+
+      // Listen for real-time progress events from main process
+      let resolved = false;
+      if (window.veditor && window.veditor.onFFmpegProgress) {
+        window.veditor.onFFmpegProgress((data) => {
+          if (resolved) return;
+          fillEl.style.width = data.pct + '%';
+          statusEl.textContent = data.status || 'Downloading…';
+          detailEl.textContent = data.detail || '';
+        });
+      }
+
+      // Trigger the actual download
+      try {
+        await window.veditor.downloadFFmpeg();
+        // downloadFFmpeg resolved successfully
+        resolved = true;
+        fillEl.style.width = '100%';
+        statusEl.textContent = 'Complete!';
+        detailEl.textContent = 'FFmpeg installed successfully';
+
+        // Show success state
+        setTimeout(() => {
+          progressSection.classList.remove('active');
+          successSection.classList.add('active');
+          setTimeout(() => {
+            overlay.remove();
+            resolve(true);
+          }, 1200);
+        }, 400);
+      } catch (err) {
+        // Download failed
+        resolved = true;
+        progressSection.classList.remove('active');
+        initialState.style.display = '';
+        cancelBtn.style.display = '';
+        downloadBtn.disabled = false;
+        downloadBtn.innerHTML = `
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M1 4v6h6"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/>
+          </svg>
+          Retry Download`;
+        errorEl.classList.add('active');
+        errorEl.textContent = '⚠ Download failed: ' + (err.message || 'Network error. Check your internet connection and try again.');
+      }
+    });
+  });
+}
+
+/**
+ * Ensure FFmpeg is installed before proceeding with export.
+ * Returns true if FFmpeg is ready, false if user cancelled.
+ */
+async function ensureFFmpeg() {
+  if (!window.veditor || !window.veditor.checkFFmpeg) return true;
+  try {
+    const status = await window.veditor.checkFFmpeg();
+    if (status.installed) return true;
+  } catch (_) {
+    return true; // Can't check, let the export try anyway
+  }
+  // FFmpeg not installed — show download modal
+  return showFFmpegDownloadModal();
+}
+
 async function showExportDialog() {
+  // ── Step 1: Ensure FFmpeg is available ──
+  const ffmpegReady = await ensureFFmpeg();
+  if (!ffmpegReady) return; // User cancelled the FFmpeg download
   const srcName = S.filePath.split('/').pop().replace(/\.[^.]+$/, '');
   const defaultName = srcName + '-edited';
   const hasZoom = S.zoomKeyframes.length > 0;

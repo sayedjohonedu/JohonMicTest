@@ -633,11 +633,12 @@ async function buildAppWithAI(messages, currentFiles, profileId) {
     profile = profiles.find(p => p.id === profileId);
   }
 
-  // Get the best available LLM profile (use vault fallback chain)
+  // Get the best available LLM profile — use the general ai-dictation default
   if (!profile) {
     profile =
-      apiVault.getDefaultForFeature("translator") ||
-      apiVault.getDefaultForFeature("ai-dictation");
+      apiVault.getDefaultForFeature("ai-dictation") ||
+      apiVault.getLlmProfiles()[0] ||
+      null;
   }
   if (!profile)
     return {

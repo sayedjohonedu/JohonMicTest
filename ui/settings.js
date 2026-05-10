@@ -1749,15 +1749,13 @@ function renderVaultLlmProfiles() {
     return;
   }
 
-  // Determine which profile IDs are used as defaults for any LLM feature
-  const llmDefaultIds = new Set();
-  for (const [feature, pid] of Object.entries(_vaultDefaults)) {
-    if (['ai-dictation','translator','whisper-polish'].includes(feature) && pid) llmDefaultIds.add(pid);
-  }
+  // Only highlight the profile set as the general (ai-dictation) default.
+  // Translator and whisper-polish have their own independent defaults managed in their own panels.
+  const generalDefaultId = _vaultDefaults['ai-dictation'] || '';
 
   _vaultLlmProfiles.forEach(p => {
     const div = document.createElement('div');
-    const isDefault = llmDefaultIds.has(p.id);
+    const isDefault = p.id === generalDefaultId;
     div.className = 'ai-profile-chip' + (isDefault ? ' active' : '');
     const provLabel = VAULT_PROVIDER_LABELS[p.provider] || p.provider;
 
@@ -1859,10 +1857,9 @@ function renderVaultLlmProfiles() {
         // Show rename modal pre-filled with "Name (Copy)"
         openDupRenameModal(p);
       } else {
-        // Set as default for ALL LLM features (ai-dictation, translator, whisper-polish)
+        // Set as default for the general AI dictation feature only.
+        // Translator and whisper-polish manage their own independent defaults.
         await window.electronAPI.vaultSetDefault('ai-dictation', p.id);
-        await window.electronAPI.vaultSetDefault('translator', p.id);
-        await window.electronAPI.vaultSetDefault('whisper-polish', p.id);
         _vaultDefaults = await window.electronAPI.vaultGetDefaults();
         renderVaultLlmProfiles();
         showVaultLlmStatus('✓ Default: ' + p.name);

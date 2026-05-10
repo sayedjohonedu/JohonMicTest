@@ -43,6 +43,19 @@ document.getElementById('btn-minimize').addEventListener('click', () => window.g
 document.getElementById('btn-maximize').addEventListener('click', () => window.gallery.maximize());
 
 /* ── Utility ── */
+
+/**
+ * Convert an absolute file-system path to a proper file:// URL.
+ * On Windows paths start with a drive letter (C:\…) and use backslashes,
+ * so we normalise to forward slashes and ensure three slashes after "file:".
+ */
+function toFileUrl(filePath) {
+  let p = filePath.replace(/\\/g, '/');
+  // Ensure the path starts with a leading slash (Windows drive letters don't have one)
+  if (!p.startsWith('/')) p = '/' + p;
+  return 'file://' + encodeURI(p);
+}
+
 function formatSize(bytes) {
   if (bytes < 1024) return bytes + ' B';
   if (bytes < 1048576) return (bytes / 1024).toFixed(1) + ' KB';
@@ -186,7 +199,7 @@ function createCard(file) {
   // Thumbnail
   let thumbHtml;
   if (file.type === 'image') {
-    thumbHtml = `<img class="card-thumb" src="file://${encodeURI(file.path)}" loading="lazy">`;
+    thumbHtml = `<img class="card-thumb" src="${toFileUrl(file.path)}" loading="lazy">`;
   } else {
     thumbHtml = `<div class="card-thumb-placeholder" data-video-thumb="${file.path}">
       <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><polygon points="5 3 19 12 5 21 5 3"/></svg>
@@ -250,7 +263,7 @@ function generateThumbnails() {
     const tempVideo = document.createElement('video');
     tempVideo.preload = 'metadata';
     tempVideo.muted = true;
-    tempVideo.src = 'file://' + encodeURI(videoPath);
+    tempVideo.src = toFileUrl(videoPath);
 
     let durationResolved = false;
     let thumbCaptured = false;
@@ -337,7 +350,7 @@ function openPlayer(file) {
     videoEl.style.display = 'block';
     imageEl.style.display = 'none';
     playerControls.style.display = 'flex';
-    videoEl.src = 'file://' + encodeURI(file.path);
+    videoEl.src = toFileUrl(file.path);
     videoEl.load();
     // Don't auto-play — show paused
     videoEl.pause();
@@ -347,7 +360,7 @@ function openPlayer(file) {
     videoEl.style.display = 'none';
     imageEl.style.display = 'block';
     playerControls.style.display = 'none';
-    imageEl.src = `file://${encodeURI(file.path)}?t=${Date.now()}`;
+    imageEl.src = `${toFileUrl(file.path)}?t=${Date.now()}`;
   }
 }
 
@@ -731,10 +744,11 @@ function showFFmpegInstallPrompt() {
       <div class="confirm-title">FFmpeg Required</div>
       <div class="confirm-sub">Video conversion requires FFmpeg (~70 MB download). It will be cached for future use.</div>
       <div id="ffmpeg-progress" style="display:none;margin-bottom:12px;">
-        <div style="font:500 11px/1 'Inter',sans-serif;color:#b4a8ff;margin-bottom:6px;">Downloading FFmpeg…</div>
+        <div id="ffmpeg-status" style="font:500 11px/1 'Inter',sans-serif;color:#b4a8ff;margin-bottom:6px;">Downloading FFmpeg…</div>
         <div style="height:4px;border-radius:2px;background:rgba(255,255,255,0.06);">
           <div id="ffmpeg-fill" style="height:100%;border-radius:2px;background:linear-gradient(90deg,#7c6fff,#a5b4fc);width:0%;transition:width 0.3s;"></div>
         </div>
+        <div id="ffmpeg-detail" style="font:400 9px/1 'SF Mono',monospace;color:#4b5563;margin-top:4px;"></div>
       </div>
       <div class="confirm-actions">
         <button class="confirm-btn" id="ffmpeg-cancel">Cancel</button>
@@ -753,24 +767,22 @@ function showFFmpegInstallPrompt() {
     overlay.querySelector('#ffmpeg-progress').style.display = 'block';
     overlay.querySelector('#ffmpeg-cancel').style.display = 'none';
 
-    // Poll progress
-    const pollId = setInterval(async () => {
-      const st = await window.gallery.checkFFmpeg();
-      if (st.progress) {
-        overlay.querySelector('#ffmpeg-fill').style.width = st.progress + '%';
-      }
-      if (st.installed) {
-        clearInterval(pollId);
-        overlay.remove();
-      }
-    }, 500);
+    // Listen for real-time progress from main process
+    if (window.gallery && window.gallery.onFFmpegProgress) {
+      window.gallery.onFFmpegProgress((data) => {
+        const fillEl = overlay.querySelector('#ffmpeg-fill');
+        const statusEl = overlay.querySelector('#ffmpeg-status');
+        const detailEl = overlay.querySelector('#ffmpeg-detail');
+        if (fillEl) fillEl.style.width = data.pct + '%';
+        if (statusEl) statusEl.textContent = data.status || 'Downloading…';
+        if (detailEl) detailEl.textContent = data.detail || '';
+      });
+    }
 
     try {
       await window.gallery.downloadFFmpeg();
-      clearInterval(pollId);
       overlay.remove();
     } catch (err) {
-      clearInterval(pollId);
       dlBtn.textContent = 'Failed — Retry';
       dlBtn.disabled = false;
       overlay.querySelector('#ffmpeg-cancel').style.display = 'block';
@@ -794,7 +806,7 @@ window.gallery.onNavigateToFile((filePath) => {
     // If it's an image, force-reload to bust browser cache (in case it was just edited)
     if (file.type === 'image') {
       const ts = Date.now();
-      imageEl.src = `file://${encodeURI(file.path)}?t=${ts}`;
+      imageEl.src = `${toFileUrl(file.path)}?t=${ts}`;
     }
   }
 });

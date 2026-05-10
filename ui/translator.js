@@ -1228,7 +1228,7 @@ async function renderProfiles() {
                      (window.electronAPI?.vaultGetLlmProfiles ? await window.electronAPI.vaultGetLlmProfiles() : []);
     const summary = API.vaultGetSummary ? await API.vaultGetSummary() :
                     (window.electronAPI?.vaultGetSummary ? await window.electronAPI.vaultGetSummary() : {});
-    const defId = summary?.defaults?.['translator'] || summary?.defaults?.['ai-dictation'] || cfg.translatorActiveProfileId || profiles?.[0]?.id;
+    const defId = summary?.defaults?.['translator'] || cfg.translatorActiveProfileId || profiles?.[0]?.id;
 
     profileList.innerHTML = '';
     if (!profiles || profiles.length === 0) {

@@ -9,6 +9,7 @@ contextBridge.exposeInMainWorld('veditor', {
   // FFmpeg / export
   checkFFmpeg:      ()                      => ipcRenderer.invoke('gallery-check-ffmpeg'),
   downloadFFmpeg:   ()                      => ipcRenderer.invoke('gallery-download-ffmpeg'),
+  onFFmpegProgress: (cb)                    => ipcRenderer.on('ffmpeg-download-progress', (_, data) => cb(data)),
   exportVideo:      (opts)                  => ipcRenderer.invoke('veditor-export', opts),
   cancelExport:     ()                      => ipcRenderer.send('veditor-cancel-export'),
 

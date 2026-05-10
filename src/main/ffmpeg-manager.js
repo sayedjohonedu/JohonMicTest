@@ -190,7 +190,7 @@ function httpGet(url, onData, onEnd, onError) {
 }
 
 /* ─── Download FFmpeg ───────────────────────────────────── */
-async function downloadFFmpeg() {
+async function downloadFFmpeg(onProgress) {
   if (isFFmpegInstalled()) return ffmpegBinPath();
 
   // Ensure directory exists
@@ -202,6 +202,7 @@ async function downloadFFmpeg() {
   console.log(`[FFmpeg] Downloading from: ${url}`);
   console.log(`[FFmpeg] Platform: ${platform}, Arch: ${arch}`);
   showProgressToast('Downloading FFmpeg', 'First-time setup (~70 MB)…', 0);
+  if (onProgress) onProgress({ pct: 0, status: 'Downloading FFmpeg…', detail: 'Starting download…' });
 
   return new Promise((resolve, reject) => {
     const writeStream = fs.createWriteStream(tmpFile);
@@ -214,8 +215,10 @@ async function downloadFFmpeg() {
         if (totalBytes > 0) {
           const pct = Math.round((downloaded / totalBytes) * 100);
           showProgressToast('Downloading FFmpeg', `${(downloaded / 1e6).toFixed(1)} / ${(totalBytes / 1e6).toFixed(1)} MB`, pct);
+          if (onProgress) onProgress({ pct, status: 'Downloading FFmpeg…', detail: `${(downloaded / 1e6).toFixed(1)} / ${(totalBytes / 1e6).toFixed(1)} MB` });
         } else {
           showProgressToast('Downloading FFmpeg', `${(downloaded / 1e6).toFixed(1)} MB downloaded…`, 50);
+          if (onProgress) onProgress({ pct: 50, status: 'Downloading FFmpeg…', detail: `${(downloaded / 1e6).toFixed(1)} MB downloaded…` });
         }
       },
       // onEnd
@@ -223,6 +226,7 @@ async function downloadFFmpeg() {
         writeStream.end(async () => {
           try {
             showProgressToast('Installing FFmpeg', 'Extracting binary…', 95);
+            if (onProgress) onProgress({ pct: 95, status: 'Installing FFmpeg…', detail: 'Extracting binary…' });
 
             // Decompress .gz → binary using Node's built-in zlib (works on all platforms)
             await gunzipFile(tmpFile, ffmpegBinPath());
@@ -242,6 +246,7 @@ async function downloadFFmpeg() {
 
             console.log(`[FFmpeg] Installed at: ${ffmpegBinPath()}`);
             showProgressToast('FFmpeg Ready', 'Converter installed successfully ✓', 100);
+            if (onProgress) onProgress({ pct: 100, status: 'FFmpeg Ready!', detail: 'Installed successfully ✓' });
             setTimeout(() => closeProgressToast(), 2000);
             resolve(ffmpegBinPath());
           } catch (err) {

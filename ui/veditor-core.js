@@ -523,7 +523,10 @@ function resetCameraState() {
 async function generateWaveform(filePath, samplesPerSec) {
   try {
     // In Electron, read file via fetch with file:// protocol
-    const resp = await fetch('file://' + encodeURI(filePath));
+    // Cross-platform file URL: normalise backslashes and ensure 3 slashes for Windows drive paths
+    let _wfPath = filePath.replace(/\\/g, '/');
+    if (!_wfPath.startsWith('/')) _wfPath = '/' + _wfPath;
+    const resp = await fetch('file://' + encodeURI(_wfPath));
     const arrayBuf = await resp.arrayBuffer();
     const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
     const audioBuf = await audioCtx.decodeAudioData(arrayBuf);
