@@ -42,7 +42,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: MicTab-Windows-Installer
+          name: MicTab-Windows-v${{ github.run_number }}
           path: |
             dist/*.exe
             dist/latest.yml
