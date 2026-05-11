@@ -1,6 +1,6 @@
 {
   "name": "mictab",
-  "version": "1.3.4",
+  "version": "1.3.5",
   "description": "MicTab - Voice Dictation App",
   "main": "main.js",
   "scripts": {
@@ -14,7 +14,7 @@
   "build": {
     "appId": "com.mictab.app",
     "productName": "MicTab",
-    "icon": "assets/logo/dark-logo-solid-black-background.png",
+    "icon": "assets/logo/mictablogomain.png",
     "asar": true,
     "files": [
       "**/*",
