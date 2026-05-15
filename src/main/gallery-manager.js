@@ -125,14 +125,17 @@ function openGallery(autoPlayFile = null) {
     if (!galleryWindow || galleryWindow.isDestroyed()) return;
     // Send the initial file list
     const files = scanMediaFiles();
+    console.log('[Gallery] did-finish-load — sending', files.length, 'files, autoPlayFile:', autoPlayFile);
     galleryWindow.webContents.send('gallery-file-list', files);
-    // If there's a file to auto-navigate to, send it
+    // If there's a file to auto-navigate to, send it after a longer delay
+    // to ensure the renderer has processed the file list and rendered cards
     if (autoPlayFile) {
       setTimeout(() => {
         if (galleryWindow && !galleryWindow.isDestroyed()) {
+          console.log('[Gallery] Sending navigate-to-file →', autoPlayFile);
           galleryWindow.webContents.send('gallery-navigate-to-file', autoPlayFile);
         }
-      }, 300);
+      }, 600);
     }
   });
 
@@ -164,7 +167,7 @@ function setupGalleryIpc() {
     return scanMediaFiles();
   });
 
-  const SIDECAR_EXTS = ['.mictab-cursor.json', '.mictab-edit.json', '.mictab-whisper.json'];
+  const SIDECAR_EXTS = ['.mictab-cursor.json', '.mictab-edit.json', '.mictab-whisper.json', '.mictab-clip-origin.json'];
 
   // Rename a file
   ipcMain.handle('gallery-rename-file', async (_, { oldPath, newName }) => {
@@ -201,8 +204,20 @@ function setupGalleryIpc() {
   // Delete a file
   ipcMain.handle('gallery-delete-file', async (_, filePath) => {
     try {
-      // Also delete sidecar files
+      // Check for clipboard-origin sidecar — delete original clipboard image too
       const baseName = filePath.replace(/\.[^.]+$/, '');
+      const clipOriginSidecar = baseName + '.mictab-clip-origin.json';
+      if (fs.existsSync(clipOriginSidecar)) {
+        try {
+          const originData = JSON.parse(fs.readFileSync(clipOriginSidecar, 'utf8'));
+          if (originData.originalPath && fs.existsSync(originData.originalPath)) {
+            try { fs.unlinkSync(originData.originalPath); } catch (_) {}
+            console.log('[Gallery] Deleted original clipboard image:', originData.originalPath);
+          }
+        } catch (_) {}
+      }
+
+      // Also delete all sidecar files
       for (const ext of SIDECAR_EXTS) {
         const sidecar = baseName + ext;
         if (fs.existsSync(sidecar)) {
@@ -303,28 +318,65 @@ function setupGalleryIpc() {
     }
   });
 
-  // ── Save overwrite (from gallery edit mode) ──────────────────
+  // ── Save overwrite (from gallery edit mode OR clipboard edit mode) ───────
   ipcMain.handle('lens-save-overwrite', async (_, { dataUrl, filePath }) => {
     try {
+      console.log('[Lens] lens-save-overwrite called for:', filePath);
       const base64 = dataUrl.replace(/^data:image\/\w+;base64,/, '');
-      fs.writeFileSync(filePath, Buffer.from(base64, 'base64'));
+      const buf = Buffer.from(base64, 'base64');
+
+      // Always overwrite the original file (clipboard image or gallery image)
+      fs.writeFileSync(filePath, buf);
       console.log('[Lens] Overwrite saved →', filePath);
 
-      // Notify gallery to rescan and re-open the updated image
-      if (galleryWindow && !galleryWindow.isDestroyed()) {
-        const files = scanMediaFiles();
-        galleryWindow.webContents.send('gallery-file-list', files);
-        // Small delay to let the file-list update settle, then navigate
-        setTimeout(() => {
-          if (galleryWindow && !galleryWindow.isDestroyed()) {
-            galleryWindow.webContents.send('gallery-navigate-to-file', filePath);
-          }
-        }, 80);
+      const saveDir = getSaveDir();
+      const normalSave = path.resolve(filePath);
+      const normalGallery = path.resolve(saveDir);
+      const isAlreadyInGallery = normalSave.startsWith(normalGallery + path.sep);
+      console.log('[Lens] saveDir:', saveDir);
+      console.log('[Lens] isAlreadyInGallery:', isAlreadyInGallery);
+
+      if (isAlreadyInGallery) {
+        // ── Standard gallery edit: just refresh the gallery window ──
+        if (galleryWindow && !galleryWindow.isDestroyed()) {
+          const files = scanMediaFiles();
+          galleryWindow.webContents.send('gallery-file-list', files);
+          setTimeout(() => {
+            if (galleryWindow && !galleryWindow.isDestroyed()) {
+              galleryWindow.webContents.send('gallery-navigate-to-file', filePath);
+            }
+          }, 80);
+        }
+        return { ok: true, filePath };
       }
 
-      return { ok: true, filePath };
+      // ── Clipboard edit mode: copy edited image into the gallery folder ──
+      if (!fs.existsSync(saveDir)) {
+        fs.mkdirSync(saveDir, { recursive: true });
+        console.log('[Lens] Created gallery dir:', saveDir);
+      }
+
+      const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+      const galleryFileName = `MicTab-ClipEdit-${timestamp}.png`;
+      const galleryFilePath = path.join(saveDir, galleryFileName);
+
+      // Write the edited image into the gallery
+      fs.writeFileSync(galleryFilePath, buf);
+      console.log('[Lens] Clipboard edit copied to gallery →', galleryFilePath);
+      console.log('[Lens] File written, size:', buf.length, 'bytes');
+
+      // Write a sidecar that records the original clipboard image path
+      // (used by gallery-delete-file to also clean up the clipboard copy)
+      const sidecarPath = galleryFilePath.replace(/\.[^.]+$/, '') + '.mictab-clip-origin.json';
+      fs.writeFileSync(sidecarPath, JSON.stringify({ originalPath: filePath }), 'utf8');
+
+      // Open (or refresh) the gallery and navigate to the new file
+      console.log('[Lens] Calling openGallery with:', galleryFilePath);
+      openGallery(galleryFilePath);
+
+      return { ok: true, filePath: galleryFilePath };
     } catch (err) {
-      console.error('[Lens] Overwrite save failed:', err.message);
+      console.error('[Lens] Overwrite save failed:', err.message, err.stack);
       return { ok: false, error: err.message };
     }
   });

@@ -203,6 +203,20 @@ app.on('will-quit', async (event) => {
   event.preventDefault();
   stopUiohook();
   globalShortcut.unregisterAll();
+
+  // Force-release any active whisper/offline recording mic
+  try {
+    const offlineRecorder = require('./src/main/offline-recorder');
+    if (offlineRecorder.isRecording) {
+      offlineRecorder.cancelRecording();
+    }
+    // Belt-and-suspenders: tell pill renderer to release mic even if
+    // cancelRecording already sent the IPC — harmless if redundant.
+    if (offlineRecorder._pillWindow && !offlineRecorder._pillWindow.isDestroyed()) {
+      offlineRecorder._pillWindow.webContents.send('offline-stop-recording');
+    }
+  } catch (e) {}
+
   if (wsClient) try { wsClient.terminate(); } catch (e) {}
   
   // Set a timeout for closing the bridge to ensure the app exits

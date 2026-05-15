@@ -433,5 +433,10 @@ window.offlineAPI.onWhisperAiMode((on) => {
   }
 });
 
-
-
+// Safety net: release mic on window destroy (app quit while recording)
+// macOS does not always release the mic indicator when a renderer is killed,
+// so we must explicitly stop all tracks before the window goes away.
+window.addEventListener('beforeunload', () => {
+  releaseAllMedia();
+  recordedChunks = [];
+});

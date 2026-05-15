@@ -98,6 +98,11 @@ class OfflineRecorder {
    */
   cancelRecording() {
     this._isRecording = false;
+    // Tell the pill renderer to release the mic stream — without this,
+    // the getUserMedia stream stays open and macOS shows the mic indicator.
+    if (this._pillWindow && !this._pillWindow.isDestroyed()) {
+      this._pillWindow.webContents.send('offline-stop-recording');
+    }
     if (this._recordingResolve) {
       this._recordingResolve(null);
       this._recordingResolve = null;

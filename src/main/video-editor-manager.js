@@ -276,9 +276,11 @@ function setupEditorIpc() {
   // Export video — applies all edits (cuts, deletions, muting, zoom)
   ipcMain.handle('veditor-export', async (_, opts) => {
     try {
-      const { filePath, format, filename, segments, mutedSegments, viewport, zoomRegions, hwaccel, fps: fpsChoice } = opts;
+      const { filePath, format, filename: rawFilename, segments, mutedSegments, viewport, zoomRegions, hwaccel, fps: fpsChoice } = opts;
       const dir = path.dirname(filePath);
-      const outName = (filename || 'export') + '.' + format;
+      // Sanitize filename: strip any accidental path components (Windows split('/') bug)
+      const filename = (rawFilename || 'export').replace(/\\/g, '/').split('/').pop().replace(/\.[^.]+$/, '');
+      const outName = filename + '.' + format;
       const outPath = path.join(dir, outName);
 
       // Only keep active (non-deleted) segments
@@ -588,6 +590,7 @@ function setupEditorIpc() {
         args.push('-c:v', 'libvpx-vp9', '-crf', '30', '-b:v', '0', '-row-mt', '1', '-threads', '8', '-speed', '4');
         if (hasAudio) args.push('-c:a', 'libopus');
       } else if (format === 'mp4') {
+        args.push('-pix_fmt', 'yuv420p'); // Ensure compatibility with all players
         if (hw === 'gpu' || (hw === 'auto' && isMac)) {
           // GPU: use VideoToolbox on macOS, NVENC on Windows, fallback to CPU on Linux
           if (isMac) {
@@ -602,6 +605,7 @@ function setupEditorIpc() {
         }
         if (hasAudio) args.push('-c:a', 'aac', '-b:a', '192k');
       } else if (format === 'mov') {
+        args.push('-pix_fmt', 'yuv420p'); // Ensure compatibility with all players
         if (hw === 'gpu' || (hw === 'auto' && isMac)) {
           if (isMac) {
             args.push('-c:v', 'h264_videotoolbox', '-q:v', '65');
@@ -653,8 +657,10 @@ function setupEditorIpc() {
         args.push('-r', String(fpsChoice));
       }
 
-      // Add shortest to avoid hanging or audio drift if streams mismatch
-      args.push('-shortest');
+      // Add shortest only when audio is present to prevent zero-length output on Windows
+      if (hasAudio) {
+        args.push('-shortest');
+      }
 
       args.push('-y', outPath);
 
@@ -703,7 +709,8 @@ function setupEditorIpc() {
           activeExportProc = null;
           if (code !== 0) {
             const errMsg = code === null ? 'Export cancelled' : `FFmpeg exited with code ${code}`;
-            console.error('[VEditor Export] FFmpeg error:', errMsg);
+            const stderrTail = stderrBuf.slice(-500).trim();
+            console.error('[VEditor Export] FFmpeg error:', errMsg, '\nstderr:', stderrTail);
             if (editorWindow && !editorWindow.isDestroyed()) {
               editorWindow.webContents.send('veditor-export-done', { ok: false, error: errMsg, cancelled: code === null });
             }
@@ -738,7 +745,9 @@ function setupEditorIpc() {
     try {
       const { filePath, format, filename, width, height, fps, segments, mutedSegments, hwaccel } = opts;
       const dir = path.dirname(filePath);
-      const outName = (filename || 'export') + '.' + format;
+      // Sanitize filename: strip any accidental path components (Windows split('/') bug)
+      const cleanFilename = (filename || 'export').replace(/\\/g, '/').split('/').pop().replace(/\.[^.]+$/, '');
+      const outName = cleanFilename + '.' + format;
       const outPath = path.join(dir, outName);
       frameExportOutPath = outPath;
 
@@ -779,7 +788,7 @@ function setupEditorIpc() {
       const args = [
         '-thread_queue_size', '1024',
         '-f', 'image2pipe', '-c:v', 'mjpeg', '-r', String(fps),
-        '-i', 'pipe:0',         // video frames from stdin
+        '-i', '-',              // video frames from stdin (cross-platform: '-' = stdin, safer than pipe:0 on Windows)
       ];
 
       if (hasAudio) {
@@ -791,27 +800,35 @@ function setupEditorIpc() {
         const activeSegs = segments.filter(s => !s.isDeleted);
         const mutedRanges = (mutedSegments || []).map(s => ({ start: s.startSec, end: s.endSec }));
 
-        const audioFilters = [];
-        const audioConcatInputs = [];
+        if (activeSegs.length === 1 && mutedRanges.length === 0) {
+          // Single active segment, no muting — simple trim, no concat needed (more compatible)
+          const seg = activeSegs[0];
+          const audioFilter = `[1:a]atrim=start=${seg.startSec}:end=${seg.endSec},asetpts=PTS-STARTPTS[outa]`;
+          args.push('-filter_complex', audioFilter);
+          args.push('-map', '0:v', '-map', '[outa]');
+        } else {
+          const audioFilters = [];
+          const audioConcatInputs = [];
 
-        activeSegs.forEach((seg, i) => {
-          const start = seg.startSec;
-          const end = seg.endSec;
-          const isMuted = mutedRanges.some(m =>
-            m.start <= start + 0.01 && m.end >= end - 0.01
-          );
-          if (isMuted) {
-            audioFilters.push(`aevalsrc=0:d=${(end - start).toFixed(4)}[ea${i}]`);
-          } else {
-            audioFilters.push(`[1:a]atrim=start=${start}:end=${end},asetpts=PTS-STARTPTS[ea${i}]`);
-          }
-          audioConcatInputs.push(`[ea${i}]`);
-        });
+          activeSegs.forEach((seg, i) => {
+            const start = seg.startSec;
+            const end = seg.endSec;
+            const isMuted = mutedRanges.some(m =>
+              m.start <= start + 0.01 && m.end >= end - 0.01
+            );
+            if (isMuted) {
+              audioFilters.push(`aevalsrc=0:d=${(end - start).toFixed(4)}[ea${i}]`);
+            } else {
+              audioFilters.push(`[1:a]atrim=start=${start}:end=${end},asetpts=PTS-STARTPTS[ea${i}]`);
+            }
+            audioConcatInputs.push(`[ea${i}]`);
+          });
 
-        const audioFilter = audioFilters.join(';') + ';' +
-          audioConcatInputs.join('') + `concat=n=${activeSegs.length}:v=0:a=1[outa]`;
-        args.push('-filter_complex', audioFilter);
-        args.push('-map', '0:v', '-map', '[outa]');
+          const audioFilter = audioFilters.join(';') + ';' +
+            audioConcatInputs.join('') + `concat=n=${activeSegs.length}:v=0:a=1[outa]`;
+          args.push('-filter_complex', audioFilter);
+          args.push('-map', '0:v', '-map', '[outa]');
+        }
       } else if (hasAudio) {
         args.push('-map', '0:v', '-map', '1:a');
       } else {
@@ -829,7 +846,7 @@ function setupEditorIpc() {
         args.length = 0;
         args.push(
           '-f', 'image2pipe', '-c:v', 'mjpeg', '-r', String(fps),
-          '-i', 'pipe:0',
+          '-i', '-',
           '-vf', `fps=${Math.min(fps, 15)},scale=640:-1:flags=lanczos,split[s0][s1];[s0]palettegen[p];[s1][p]paletteuse`,
           '-map', '0:v',
         );
@@ -857,8 +874,10 @@ function setupEditorIpc() {
         if (hasAudio) args.push('-c:a', 'aac', '-b:a', '192k');
       }
 
-      // Add shortest to avoid audio trailing or dropping
-      args.push('-shortest');
+      // Add shortest only when audio is present to prevent zero-length output
+      if (hasAudio) {
+        args.push('-shortest');
+      }
 
       args.push('-y', outPath);
 

@@ -1722,7 +1722,7 @@ async function showExportDialog() {
   // ── Step 1: Ensure FFmpeg is available ──
   const ffmpegReady = await ensureFFmpeg();
   if (!ffmpegReady) return; // User cancelled the FFmpeg download
-  const srcName = S.filePath.split('/').pop().replace(/\.[^.]+$/, '');
+  const srcName = S.filePath.replace(/\\/g, '/').split('/').pop().replace(/\.[^.]+$/, '');
   const defaultName = srcName + '-edited';
   const hasZoom = S.zoomKeyframes.length > 0;
 
@@ -1952,7 +1952,7 @@ async function doExport(format, filename, hwaccel, useCanvasZoom, fpsChoice) {
       });
       removeExportProgress();
       if (result && result.ok) {
-        showToast('✅ Exported: ' + (result.path || '').split('/').pop());
+        showToast('✅ Exported: ' + (result.path || '').replace(/\\/g, '/').split('/').pop());
       } else if (result && result.cancelled) {
         showToast('Export cancelled');
       } else {
@@ -2121,7 +2121,7 @@ async function canvasFrameExport(format, filename, hwaccel, fpsChoice) {
     removeExportProgress();
 
     if (result && result.ok) {
-      showToast('✅ Exported: ' + (result.path || '').split('/').pop());
+      showToast('✅ Exported: ' + (result.path || '').replace(/\\/g, '/').split('/').pop());
     } else {
       showToast('⚠ Export failed: ' + (result ? result.error : 'Unknown'));
     }
@@ -2142,7 +2142,7 @@ if (window.veditor && window.veditor.onExportDone) {
   window.veditor.onExportDone((data) => {
     removeExportProgress();
     if (data && data.ok) {
-      showToast('✅ Export complete: ' + (data.path || '').split('/').pop());
+      showToast('✅ Export complete: ' + (data.path || '').replace(/\\/g, '/').split('/').pop());
     } else if (data && data.cancelled) {
       showToast('Export cancelled');
     } else if (data && data.error) {
