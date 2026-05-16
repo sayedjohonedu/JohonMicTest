@@ -65,6 +65,11 @@ class WhisperApiManager {
     offlineRecorder.setPillWindow(win);
   }
 
+  /** Set a callback to check if Chrome STT is currently listening */
+  setGetIsListening(fn) {
+    this._getIsListening = fn;
+  }
+
   /** Is Whisper API mode enabled in settings? */
   get isEnabled() {
     return store.get('whisperApiEnabled') === true;
@@ -82,6 +87,10 @@ class WhisperApiManager {
   onKeyDown() {
     if (!this.isEnabled || this._isProcessing) return;
     if (offlineRecorder.isRecording) return;
+    if (this._getIsListening && this._getIsListening()) {
+      console.log('[WhisperAPI] Blocked activation because Chrome STT is currently listening');
+      return;
+    }
 
     // Runtime trial gate — block if free user's 15-day trial has expired
     try {

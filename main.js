@@ -204,7 +204,7 @@ app.on('will-quit', async (event) => {
   stopUiohook();
   globalShortcut.unregisterAll();
 
-  // Force-release any active whisper/offline recording mic
+  // 1. Force-release any active whisper/offline recording mic
   try {
     const offlineRecorder = require('./src/main/offline-recorder');
     if (offlineRecorder.isRecording) {
@@ -217,6 +217,23 @@ app.on('will-quit', async (event) => {
     }
   } catch (e) {}
 
+  // 2. Tell the Chrome STT bridge to stop listening BEFORE we kill the WebSocket.
+  //    This lets speech-bridge.html call activeStream.getTracks().forEach(t => t.stop())
+  //    which properly signals macOS to release the mic indicator.
+  if (wsClient) {
+    try {
+      if (wsClient.readyState === WebSocket.OPEN) {
+        wsClient.send(JSON.stringify({ command: 'stop' }));
+      }
+    } catch (e) {}
+  }
+
+  // 3. Give renderers time to actually process the IPC and release mic hardware.
+  //    Without this, app.exit(0) kills renderer processes before they can call
+  //    track.stop(), leaving macOS mic indicator stuck.
+  await new Promise(resolve => setTimeout(resolve, 300));
+
+  // 4. Now terminate the WebSocket and close the Chrome bridge
   if (wsClient) try { wsClient.terminate(); } catch (e) {}
   
   // Set a timeout for closing the bridge to ensure the app exits
@@ -225,6 +242,18 @@ app.on('will-quit', async (event) => {
   
   await Promise.race([closePromise, timeoutPromise]);
   app.exit(0);
+});
+
+// Explicitly handle SIGINT and SIGTERM so the app.quit() is called 
+// and the will-quit handler can clean up the microphone streams
+process.on('SIGINT', () => {
+  console.log('Received SIGINT. Quitting app...');
+  app.quit();
+});
+
+process.on('SIGTERM', () => {
+  console.log('Received SIGTERM. Quitting app...');
+  app.quit();
 });
 
 function normaliseLangCode(code) {
@@ -247,6 +276,17 @@ function normaliseLangCode(code) {
 let _bridgeErrorWin = null;
 
 function toggleListening(forceLang = null, fromTranslator = false, forceStart = false, skipAiProcessing = false) {
+  // --- MUTEX: Block Chrome STT if Whisper is active ---
+  try {
+    const whisperApiManager = require('./src/main/whisper-api-manager');
+    const offlineRecorder = require('./src/main/offline-recorder');
+    // We only block STARTING a new STT session. If isListening is true, we must allow it to turn off.
+    if (!isListening && (offlineRecorder.isRecording || whisperApiManager.isProcessing)) {
+      console.log('[Main] Blocked Chrome STT start because Whisper is active');
+      return;
+    }
+  } catch (e) {}
+
   if (!wsClient || wsClient.readyState !== WebSocket.OPEN) {
     // If the bridge-error window is already open, just bring it to focus
     if (_bridgeErrorWin && !_bridgeErrorWin.isDestroyed()) {
@@ -911,6 +951,7 @@ app.whenReady().then(() => {
   const whisperPill = createOfflinePill();
   whisperApiManager.setPillWindow(whisperPill);
   whisperApiManager.setClipboardManager(clipboardManager);
+  whisperApiManager.setGetIsListening(() => isListening);
   whisperApiManager.init();
   setWhisperApiCallbacks({
     onKeyDown: () => whisperApiManager.onKeyDown(),

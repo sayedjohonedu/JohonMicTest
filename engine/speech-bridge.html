@@ -245,6 +245,15 @@
             }
             navigator.mediaDevices.getUserMedia(constraints)
                 .then(stream => {
+                    // ── Race condition guard ──
+                    // If stopListening() was called while getUserMedia was resolving
+                    // (user did a quick press-and-release), isActive is now false.
+                    // We must immediately release the stream — otherwise the mic
+                    // stays open with no code path to ever stop it.
+                    if (!isActive) {
+                        stream.getTracks().forEach(t => t.stop());
+                        return; // Don't set activeStream, don't start recognition
+                    }
                     activeStream = stream;
                     setupAnalyser(stream);
                     callback();
@@ -252,7 +261,7 @@
                 .catch(() => {
                     // Device unavailable — fall back to default
                     selectedDeviceId = null;
-                    callback();
+                    if (isActive) callback();
                 });
         }
 
