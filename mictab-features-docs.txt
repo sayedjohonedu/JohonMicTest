@@ -15,6 +15,7 @@ MicTab is actively transitioning from a dictation tool into a holistic **AI Assi
 * **Text Replacements (Snippets):** "Say this, type that" engine. Users can map specific spoken phrases to output pre-configured strings. Supports custom JSON Import/Export with conflict merging.
 * **Microphone System:** Capable of scanning, selecting, and persisting a specific microphone device from the local machine along with manual sensitivity adjustments (1.0 to 5.0).
 * **Silence Timeout Customization:** Configure the specific time required for silence before the app stops dictation or sends the buffer. Granular units including Seconds, Minutes, Hours, or Days.
+* **Whisper API Engine:** State-of-the-art speech-to-text integration supporting both OpenAI and Groq API endpoints. Users can select models such as whisper-1, gpt-4o-transcribe, whisper-large-v3, and distil-whisper for highly accurate and rapid transcription.
 
 ## 2. 🧠 AI & LLM Capabilities (The Assistant Edge)
 * **AI Dictation Mode:** Rather than injecting raw transcription, the text is aggregated into a buffer and sent to an LLM (using a defined system prompt) before it is output to the user's screen.
@@ -54,7 +55,19 @@ MicTab is actively transitioning from a dictation tool into a holistic **AI Assi
 * **Session Management & Power off:** Safely "Power Off" the browser to immediately dump RAM usage while persisting the tabs to restore them later, or use "Hard Reset" to wipe all cache and cookies like incognito mode.
 * **Rich Context Menus:** Right-click context menus automatically adapting to copy text, copy images, copy link addresses, or force a Google search on highlighted text.
 
-## 6. ⚙️ Application Settings, UI, & Lifecycle
+## 6. 🤖 Voice Agent Pipeline Engine
+* **Custom AI Agents:** Users can create customized voice agents triggered by specific spoken words (e.g., "Jarvis" or custom trigger words). 
+* **Pipeline Blocks:** Assemble agent behaviors using modular blocks including System Prompts, HTTP Requests, File System interactions, Shell Command execution, and Sandboxed JavaScript transforms.
+* **Contextual Variables:** Agents can actively "read" the user's environment by injecting the current clipboard (`[clipboard]`) or currently selected text (`[selected text]`) seamlessly into the LLM prompt.
+* **Active Window OCR:** Capture the screen and extract text using Tesseract OCR, allowing the agent to "see" and answer questions about the active application context.
+
+## 7. 🛍️ Built-in App Store & Mini Apps
+* **Internal Application Ecosystem:** A dedicated App Store interface for launching, organizing, and managing web-based mini apps and games (HTML/CSS/JS) natively inside the MicTab environment.
+* **AI App Creation & Importing:** Users can create their own applications using AI or import `.MicApps` files. Supports importing full remote collections (e.g., via GitHub zip downloads).
+* **Drag-and-Drop Management:** Organize applications into custom folders with a fluid, drag-and-drop 'jiggle' UI reminiscent of mobile operating systems.
+* **Developer Sandboxing:** Toggleable web security constraints allowing mini-apps to interact externally when developer mode is trusted and enabled.
+
+## 8. ⚙️ Application Settings, UI, & Lifecycle
 * **Visualizer Styles:** Beautiful audio waveform overlays including Wave, Bars, Pulse, Particles, Line, and Matrix designs.
 * **Global Theming:** Comprehensive theme engine supporting System, Dark, Light, Bumble, Ocean, Sage, Rose, Ember, and Arctic styles. Applies across the main app, clipboard, browser, and translator.
 * **User Statistics Engine:** Logs and calculates metrics such as total Words Typed, Time Saved, Total Sessions, and a graphical Language Breakdown.

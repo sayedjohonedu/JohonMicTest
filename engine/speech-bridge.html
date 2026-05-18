@@ -12,6 +12,7 @@
         let recognition = null;
         let currentLang = 'en-US';
         let isActive = false;        // Are we supposed to be listening?
+        let currentSessionId = 0;    // Tracks the current listening session
         let isRestarting = false;    // Prevent double-starts during restart
         let restartTimer = null;     // Stored so stopListening() can cancel it
         let silenceTimer = null;
@@ -236,7 +237,7 @@
             }
         }
 
-        function startListeningWithRouting(lang, callback) {
+        function startListeningWithRouting(lang, mySessionId, callback) {
             const constraints = selectedDeviceId ? { audio: { deviceId: { exact: selectedDeviceId } } } : { audio: true };
             // Stop any previous routing stream
             if (activeStream) {
@@ -248,9 +249,9 @@
                     // ── Race condition guard ──
                     // If stopListening() was called while getUserMedia was resolving
                     // (user did a quick press-and-release), isActive is now false.
-                    // We must immediately release the stream — otherwise the mic
-                    // stays open with no code path to ever stop it.
-                    if (!isActive) {
+                    // Also check if mySessionId matches currentSessionId to prevent
+                    // an old getUserMedia promise from overwriting a newer session's stream.
+                    if (!isActive || mySessionId !== currentSessionId) {
                         stream.getTracks().forEach(t => t.stop());
                         return; // Don't set activeStream, don't start recognition
                     }
@@ -261,7 +262,7 @@
                 .catch(() => {
                     // Device unavailable — fall back to default
                     selectedDeviceId = null;
-                    if (isActive) callback();
+                    if (isActive && mySessionId === currentSessionId) callback();
                 });
         }
 
@@ -302,9 +303,12 @@
         function startListening(lang) {
             currentLang = lang || currentLang;
             if (isActive) return; // Already listening
+            currentSessionId++;
+            const mySessionId = currentSessionId;
             isActive = true;
             isRestarting = false;
-            startListeningWithRouting(currentLang, () => {
+            startListeningWithRouting(currentLang, mySessionId, () => {
+                if (!isActive || mySessionId !== currentSessionId) return; // double check
                 recognition = createRecognition();
                 recognition.start();
                 armSilenceTimer();
