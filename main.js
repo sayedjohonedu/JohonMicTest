@@ -29,6 +29,36 @@ const { setupGalleryIpc, openGallery } = require('./src/main/gallery-manager');
 const { setupEditorIpc } = require('./src/main/video-editor-manager');
 const appStoreManager = require('./src/main/appstore-manager');
 const MsEdgeTTSManager = require('./src/main/msedge-tts-manager');
+
+// SINGLE INSTANCE LOCK
+const gotTheLock = app.requestSingleInstanceLock();
+
+if (!gotTheLock) {
+  app.quit();
+  // We cannot use return here because we are not in a function, 
+  // but app.quit() is sufficient to begin the termination process.
+} else {
+  // Primary instance: listen for second instances
+  app.on('second-instance', (event, commandLine, workingDirectory) => {
+    dialog.showMessageBox({
+      type: 'info',
+      title: 'MicTab',
+      message: 'MicTab is already running.',
+      detail: 'An instance of MicTab is already active in the background.',
+      icon: path.join(__dirname, 'assets', 'icon.png'),
+      buttons: ['Open Settings', 'Quit Existing App', 'Cancel'],
+      defaultId: 0,
+      cancelId: 2
+    }).then(({ response }) => {
+      if (response === 0) {
+        showSettings();
+      } else if (response === 1) {
+        app.quit();
+      }
+    });
+  });
+}
+
 const edgeTTSManager = new MsEdgeTTSManager();
 edgeTTSManager.init();
 
