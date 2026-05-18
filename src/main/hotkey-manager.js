@@ -44,6 +44,9 @@ let _lensCaptureCallback = null;
 // App Store callback (Alt+Shift+A)
 let _appStoreCallback = null;
 
+// Floating Browser toggle callback (Cmd/Ctrl+Shift+B)
+let _browserToggleCallback = null;
+
 // Pending text checker — returns true if Chrome has unfinalized interim text
 let _hasPendingText = null;
 
@@ -78,6 +81,10 @@ function setLensCaptureCallback(fn) {
 
 function setAppStoreCallback(fn) {
   _appStoreCallback = fn;
+}
+
+function setBrowserToggleCallback(fn) {
+  _browserToggleCallback = fn;
 }
 
 function setHasPendingText(fn) {
@@ -171,6 +178,16 @@ function registerHotkeys(toggleListening) {
         _appStoreCallback();
       });
     } catch (e) { console.log('App Store shortcut failed:', e.message); }
+  }
+
+  // ── Floating Browser shortcut (configurable, default Cmd/Ctrl+Shift+B) ──
+  if (_browserToggleCallback) {
+    const browserShortcut = store.get('floatingBrowserShortcut') || 'Shift+Alt+B';
+    try {
+      globalShortcut.register(browserShortcut, () => {
+        _browserToggleCallback();
+      });
+    } catch (e) { console.log('Floating Browser shortcut failed:', e.message); }
   }
 
   // 1b) Language-specific Combo Hotkeys
@@ -486,6 +503,7 @@ module.exports = {
   setWhisperAiModeToggle,
   setLensCaptureCallback,
   setAppStoreCallback,
+  setBrowserToggleCallback,
   setHasPendingText,
   setGetIsListening,
   isPttSessionActive: () => pttStartedSession,

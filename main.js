@@ -16,8 +16,8 @@ const { setupClipboardIpc } = require('./src/main/clipboard-ipc');
 
 // Import modules
 const { createOverlay, showSettings, showLicensePopup, showWordLimitPopup, showTranslatorLockedPopup, showAiTrialExpiredPopup, applyOverlaySize, getOverlayWindow, getSettingsWindow, showUpdateReminderPopup, getUpdateReminderPopupWindow, createOfflinePill } = require('./src/main/window-manager');
-const { onOverlayShow, onOverlayHide } = require('./src/main/floating-browser-manager');
-const { registerHotkeys, stopUiohook, setTranslatorCtx, setAiSendNow, setAiModeToggle, setWhisperApiCallbacks, setWhisperAiModeToggle, setLensCaptureCallback, setAppStoreCallback, setGetIsListening, setHasPendingText, isPttSessionActive, isPttGraceActive, clearPttGrace } = require('./src/main/hotkey-manager');
+const { onOverlayShow, onOverlayHide, toggleFloatingBrowser } = require('./src/main/floating-browser-manager');
+const { registerHotkeys, stopUiohook, setTranslatorCtx, setAiSendNow, setAiModeToggle, setWhisperApiCallbacks, setWhisperAiModeToggle, setLensCaptureCallback, setAppStoreCallback, setBrowserToggleCallback, setGetIsListening, setHasPendingText, isPttSessionActive, isPttGraceActive, clearPttGrace } = require('./src/main/hotkey-manager');
 const { checkAuthStatus, checkAndResetDailyWords, checkAiTrialExpiry } = require('./src/main/licensing');
 const { setupUpdater } = require('./src/main/updater');
 const { setupIpcHandlers, aiDictationManager } = require('./src/main/ipc-handlers');
@@ -884,6 +884,8 @@ app.whenReady().then(() => {
   setWhisperAiModeToggle(toggleWhisperAiMode);
   setGetIsListening(() => isListening);
   setHasPendingText(() => !!(latestInterimText && latestInterimText.trim()));
+  // Wire Floating Browser global shortcut (Cmd/Ctrl+Shift+B) into hotkey-manager
+  setBrowserToggleCallback(toggleFloatingBrowser);
   registerHotkeys(toggleListening);
 
   // ── Wire translator shortcuts into hotkey-manager so they survive unregisterAll()

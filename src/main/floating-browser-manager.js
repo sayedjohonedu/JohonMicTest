@@ -390,34 +390,21 @@ function isFloatingBrowserVisible() {
 
 /**
  * Called when the overlay HIDES.
- * Saves whether the browser was visible, then hides the browser.
- * The browser only lives while the overlay is active.
+ * Browser is now INDEPENDENT of the overlay lifecycle — this is a deliberate
+ * no-op. The browser persists on screen regardless of dictation state.
+ * The old hide-on-overlay-close behaviour has been removed.
  */
 function onOverlayHide() {
-  const wasOpen = isFloatingBrowserVisible();
-  // Persist state (including current wasOpen preference)
-  const current = store.get('floatingBrowserState') || {};
-  store.set('floatingBrowserState', {
-    ...current,
-    wasOpen,           // remember for next overlay activation
-    tabs: getTabState(),
-    activeTabId,
-  });
-  // Always hide the browser when the overlay goes away
-  if (floatingWindow && !floatingWindow.isDestroyed()) {
-    floatingWindow.hide();
-  }
+  // No-op: browser is independent, do NOT hide it when the overlay disappears.
 }
 
 /**
  * Called when the overlay SHOWS.
- * Restores the browser ONLY if it was open when the overlay last hid.
+ * Browser is now INDEPENDENT — this is a no-op.
+ * Users open/close the browser via the icon or the global shortcut.
  */
 function onOverlayShow() {
-  const state = store.get('floatingBrowserState') || {};
-  if (state.wasOpen) {
-    showFloatingBrowser();
-  }
+  // No-op: browser is independent, do NOT auto-restore on overlay show.
 }
 
 function saveWasOpen(val) {

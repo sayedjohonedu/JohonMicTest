@@ -292,28 +292,37 @@ function aiSendKeyDisplayName(code) {
 let pendingAiSendKey = AI_SENDKEY_DEFAULT;
 
 const DEFAULT_HOLD_KEY = IS_MAC ? 'ControlLeft' : 'F8';
-let pendingHotkey = DEFAULT_HOTKEY, pendingHoldKey = DEFAULT_HOLD_KEY, recordingMode = null, activeBadgeNode = null;
+const DEFAULT_BROWSER_SHORTCUT = 'Shift+Alt+B';
+let pendingHotkey = DEFAULT_HOTKEY, pendingHoldKey = DEFAULT_HOLD_KEY, pendingBrowserShortcut = DEFAULT_BROWSER_SHORTCUT, recordingMode = null, activeBadgeNode = null;
 const hotkeyBadge = document.getElementById('hotkey-display'), holdkeyBadge = document.getElementById('holdkey-display');
 const aiSendKeyBadge = document.getElementById('ai-sendkey-display');
+const browserShortcutBadge = document.getElementById('browser-shortcut-display');
 
 hotkeyBadge.addEventListener('click', () => !recordingMode && startRecording('combo'));
 holdkeyBadge.addEventListener('click', () => !recordingMode && startRecording('hold'));
 if (aiSendKeyBadge) aiSendKeyBadge.addEventListener('click', () => !recordingMode && startRecording('ai-send'));
+if (browserShortcutBadge) browserShortcutBadge.addEventListener('click', () => !recordingMode && startRecording('browser-shortcut'));
 
 function startRecording(mode, badgeNode = null) {
-  recordingMode = mode; activeBadgeNode = badgeNode || (mode === 'combo' ? hotkeyBadge : mode === 'ai-send' ? aiSendKeyBadge : holdkeyBadge);
-  activeBadgeNode.classList.add('recording'); activeBadgeNode.textContent = (mode === 'combo' || mode === 'lang-combo') ? 'Press shortcut…' : 'Press any key…';
+  recordingMode = mode;
+  activeBadgeNode = badgeNode || (mode === 'combo' ? hotkeyBadge : mode === 'ai-send' ? aiSendKeyBadge : mode === 'browser-shortcut' ? browserShortcutBadge : holdkeyBadge);
+  activeBadgeNode.classList.add('recording'); activeBadgeNode.textContent = (mode === 'combo' || mode === 'lang-combo' || mode === 'browser-shortcut') ? 'Press shortcut…' : 'Press any key…';
   window.electronAPI.suspendHotkeys();
 }
 
 document.addEventListener('keydown', (e) => {
   if (!recordingMode) return; e.preventDefault(); e.stopPropagation();
   if (e.key === 'Escape') { stopRecording(true); return; }
-  if (recordingMode === 'combo' || recordingMode === 'lang-combo') {
+  if (recordingMode === 'combo' || recordingMode === 'lang-combo' || recordingMode === 'browser-shortcut') {
     const isF = /^F([1-9]|1[0-2])$/.test(e.code || e.key), preview = [];
     if (e.metaKey || e.ctrlKey) preview.push(IS_MAC ? '⌘' : 'Ctrl'); if (e.shiftKey) preview.push('⇧'); if (e.altKey) preview.push(IS_MAC ? '⌥' : 'Alt');
     if (preview.length && !isF) activeBadgeNode.textContent = preview.join(' + ') + ' + …';
-    const combo = comboFromEvent(e); if (combo) { if (recordingMode === 'combo') pendingHotkey = combo; else activeBadgeNode.dataset.rawCombo = combo; activeBadgeNode.textContent = formatCombo(combo); stopRecording(false); }
+    const combo = comboFromEvent(e); if (combo) {
+      if (recordingMode === 'combo') pendingHotkey = combo;
+      else if (recordingMode === 'browser-shortcut') pendingBrowserShortcut = combo;
+      else activeBadgeNode.dataset.rawCombo = combo;
+      activeBadgeNode.textContent = formatCombo(combo); stopRecording(false);
+    }
   } else if (recordingMode === 'ai-send') {
     // Capture event.code (e.g. AltRight, F5, KeyA) for left/right distinction
     const code = e.code; if (code && code !== 'Escape') { pendingAiSendKey = code; activeBadgeNode.textContent = aiSendKeyDisplayName(code); stopRecording(false); }
@@ -328,6 +337,7 @@ function stopRecording(cancelled) {
     if (mode === 'combo') badge.textContent = formatCombo(pendingHotkey);
     else if (mode === 'lang-combo') badge.textContent = badge.dataset.rawCombo ? formatCombo(badge.dataset.rawCombo) : 'Not set';
     else if (mode === 'ai-send') badge.textContent = aiSendKeyDisplayName(pendingAiSendKey);
+    else if (mode === 'browser-shortcut') badge.textContent = formatCombo(pendingBrowserShortcut);
     else badge.textContent = pendingHoldKey ? holdKeyDisplayName(pendingHoldKey) : 'Not set';
   }
   window.electronAPI.resumeHotkeys(); if (!cancelled) markDirty();
@@ -336,6 +346,7 @@ function stopRecording(cancelled) {
 window.resetHotkey = function() { if (recordingMode === 'combo') stopRecording(true); pendingHotkey = DEFAULT_HOTKEY; hotkeyBadge.textContent = formatCombo(DEFAULT_HOTKEY); markDirty(); };
 window.resetHoldKey = function() { if (recordingMode === 'hold') stopRecording(true); pendingHoldKey = DEFAULT_HOLD_KEY; holdkeyBadge.textContent = holdKeyDisplayName(DEFAULT_HOLD_KEY); markDirty(); };
 window.resetAiSendKey = function() { if (recordingMode === 'ai-send') stopRecording(true); pendingAiSendKey = AI_SENDKEY_DEFAULT; if (aiSendKeyBadge) aiSendKeyBadge.textContent = aiSendKeyDisplayName(AI_SENDKEY_DEFAULT); markDirty(); };
+window.resetBrowserShortcut = function() { if (recordingMode === 'browser-shortcut') stopRecording(true); pendingBrowserShortcut = DEFAULT_BROWSER_SHORTCUT; if (browserShortcutBadge) browserShortcutBadge.textContent = formatCombo(DEFAULT_BROWSER_SHORTCUT); markDirty(); };
 
 window.syncHotkeyEnable = function() { document.getElementById('row-hotkey-combo').classList.toggle('disabled-row', !document.getElementById('toggle-hotkey').checked); };
 window.syncHoldEnable = function() { const on = document.getElementById('toggle-holdkey').checked; document.getElementById('row-hold-key').classList.toggle('disabled-row', !on); };
@@ -687,6 +698,9 @@ async function loadConfig() {
   // AI Instant Send Key
   pendingAiSendKey = cfg.aiActivationKey || AI_SENDKEY_DEFAULT;
   if (aiSendKeyBadge) aiSendKeyBadge.textContent = aiSendKeyDisplayName(pendingAiSendKey);
+  // Floating Browser Shortcut
+  pendingBrowserShortcut = cfg.floatingBrowserShortcut || DEFAULT_BROWSER_SHORTCUT;
+  if (browserShortcutBadge) browserShortcutBadge.textContent = formatCombo(pendingBrowserShortcut);
   // Load profiles
   _aiProfiles = cfg.aiProfiles || [];
   _aiActiveProfileId = cfg.aiActiveProfileId || '';
@@ -965,7 +979,7 @@ window.saveSettings = function() {
   const silenceSecs = silenceEnabled ? (silenceVal * silenceMult) : 0;
   // Get active profile values for flat config (backend compatibility)
   const activeP = getActiveAiProfile();
-  window.electronAPI.saveConfig({ hotkey: pendingHotkey || DEFAULT_HOTKEY, hotkeyEnabled: document.getElementById('toggle-hotkey').checked, holdKey: pendingHoldKey || DEFAULT_HOLD_KEY, holdKeyEnabled: document.getElementById('toggle-holdkey').checked, holdDuration: parseFloat(document.getElementById('hold-duration')?.value || 2), mouseButton: document.getElementById('mouse-button')?.value || '3', mouseAction: document.getElementById('mouse-action')?.value || 'none', autoLaunch: document.getElementById('toggle-autolunch').checked, language: document.getElementById('lang-select').value, preferredBrowser: document.getElementById('preferred-browser')?.value || 'auto', clipboardEnabled: document.getElementById('toggle-clipboard-enabled').checked, silenceTimeoutEnabled: silenceEnabled, silenceTimeoutVal: silenceVal, silenceTimeoutUnit: silenceUnit, silenceTimeout: silenceSecs, simulateTyping: document.getElementById('toggle-sim-typing').checked, theme: document.getElementById('theme-select').value, visualizerType: document.getElementById('visualizer-style')?.value || 'wave', soundVolume: parseInt(document.getElementById('sound-volume')?.value ?? 80, 10), micSensitivity: parseFloat(document.getElementById('mic-sensitivity')?.value || 1.0), textReplaceEnabled: document.getElementById('toggle-replace').checked, textReplaceInline: document.getElementById('toggle-replace-inline').checked, textReplacements: reps, langHotkeys: lH, aiModeEnabled: document.getElementById('toggle-ai-mode').checked,  aiSilenceTimeout: parseInt(document.getElementById('ai-silence-timeout')?.value || '8', 10), aiActivationKey: pendingAiSendKey || AI_SENDKEY_DEFAULT, aiProfiles: _aiProfiles, aiActiveProfileId: _aiActiveProfileId, aiProvider: activeP?.provider || 'openai', aiModel: activeP?.model || '', aiApiKey: activeP?.apiKey || '', aiBaseUrl: activeP?.baseUrl || '', aiSystemPrompt: document.getElementById('ai-system-prompt').value, aiPersonalDictionary: document.getElementById('ai-personal-dict').value, aiTemperature: parseFloat(document.getElementById('ai-temperature')?.value || 0.3) });
+  window.electronAPI.saveConfig({ hotkey: pendingHotkey || DEFAULT_HOTKEY, hotkeyEnabled: document.getElementById('toggle-hotkey').checked, holdKey: pendingHoldKey || DEFAULT_HOLD_KEY, holdKeyEnabled: document.getElementById('toggle-holdkey').checked, holdDuration: parseFloat(document.getElementById('hold-duration')?.value || 2), mouseButton: document.getElementById('mouse-button')?.value || '3', mouseAction: document.getElementById('mouse-action')?.value || 'none', autoLaunch: document.getElementById('toggle-autolunch').checked, language: document.getElementById('lang-select').value, preferredBrowser: document.getElementById('preferred-browser')?.value || 'auto', clipboardEnabled: document.getElementById('toggle-clipboard-enabled').checked, silenceTimeoutEnabled: silenceEnabled, silenceTimeoutVal: silenceVal, silenceTimeoutUnit: silenceUnit, silenceTimeout: silenceSecs, simulateTyping: document.getElementById('toggle-sim-typing').checked, theme: document.getElementById('theme-select').value, visualizerType: document.getElementById('visualizer-style')?.value || 'wave', soundVolume: parseInt(document.getElementById('sound-volume')?.value ?? 80, 10), micSensitivity: parseFloat(document.getElementById('mic-sensitivity')?.value || 1.0), textReplaceEnabled: document.getElementById('toggle-replace').checked, textReplaceInline: document.getElementById('toggle-replace-inline').checked, textReplacements: reps, langHotkeys: lH, aiModeEnabled: document.getElementById('toggle-ai-mode').checked,  aiSilenceTimeout: parseInt(document.getElementById('ai-silence-timeout')?.value || '8', 10), aiActivationKey: pendingAiSendKey || AI_SENDKEY_DEFAULT, floatingBrowserShortcut: pendingBrowserShortcut || DEFAULT_BROWSER_SHORTCUT, aiProfiles: _aiProfiles, aiActiveProfileId: _aiActiveProfileId, aiProvider: activeP?.provider || 'openai', aiModel: activeP?.model || '', aiApiKey: activeP?.apiKey || '', aiBaseUrl: activeP?.baseUrl || '', aiSystemPrompt: document.getElementById('ai-system-prompt').value, aiPersonalDictionary: document.getElementById('ai-personal-dict').value, aiTemperature: parseFloat(document.getElementById('ai-temperature')?.value || 0.3) });
   b.disabled = false; clearDirty();
 };
 
