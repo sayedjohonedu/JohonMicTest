@@ -378,6 +378,23 @@ function toggleListening(forceLang = null, fromTranslator = false, forceStart = 
     return;
   }
 
+  // ── Language-switch while already listening ──
+  // When a language hotkey (e.g. Option+B) is pressed while already listening
+  // in a different language (e.g. English via Option+C), treat it as a
+  // forceStart stop→restart cycle instead of just toggling OFF.
+  // This makes the switch happen in one keypress instead of two, and
+  // eliminates the race conditions from users pressing twice rapidly.
+  if (isListening && forceLang && !forceStart) {
+    const requestedLang = forceLang.includes('-') ? forceLang : normaliseLangCode(forceLang);
+    if (requestedLang !== currentSessionLang) {
+      // Trigger a full stop→start via forceStart path
+      try { wsClient.send(JSON.stringify({ command: 'stop' })); } catch (e) {}
+      isListening = false;
+      setTimeout(() => toggleListening(forceLang, fromTranslator, false), 150);
+      return;
+    }
+  }
+
   // Only block starting a new session
   if (!isListening) {
     const status = store.get('licenseStatus');
