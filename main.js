@@ -680,24 +680,34 @@ function robustKeyTap(key, modifier) {
 
   setTimeout(() => {
     try {
+      clipboardManager.isPasting = true;
       if (process.platform === 'darwin') {
         if (targetMod.length === 0) resetModifiers();
         // robot.keyTap on Mac MUST receive an array for the second argument if specified, 
         // or nothing at all. Passing undefined/null causes the "Invalid key flag" error.
         robot.keyTap(targetKey, targetMod);
+        clipboardManager.isPasting = false;
       } else {
         if (targetMod.length > 0) {
           targetMod.forEach(m => robot.keyToggle(m, 'down'));
         }
         robot.keyToggle(targetKey, 'down');
         setTimeout(() => {
-          robot.keyToggle(targetKey, 'up');
-          if (targetMod.length > 0) {
-            targetMod.forEach(m => robot.keyToggle(m, 'up'));
+          try {
+            robot.keyToggle(targetKey, 'up');
+            if (targetMod.length > 0) {
+              targetMod.forEach(m => robot.keyToggle(m, 'up'));
+            }
+          } finally {
+            // Keep isPasting active for 50ms to ensure the OS/hooks process the keyup events completely
+            setTimeout(() => {
+              clipboardManager.isPasting = false;
+            }, 50);
           }
         }, 15);
       }
     } catch(e) {
+      clipboardManager.isPasting = false;
       console.error(`robustKeyTap error for key "${targetKey}" with mods "${JSON.stringify(targetMod)}":`, e);
     }
   }, 50);

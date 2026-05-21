@@ -812,6 +812,14 @@ class AgentPipelineEngine {
 
     if (!matchedPhrase) return null;
 
+    let clipboardManager;
+    try {
+      clipboardManager = require('./clipboard-manager');
+      clipboardManager.isPasting = true;
+    } catch (e) {
+      console.warn('[AgentEngine] Failed to load clipboard manager:', e.message);
+    }
+
     try {
       // 1. Save original clipboard
       const original = clipboard.readText();
@@ -857,6 +865,10 @@ class AgentPipelineEngine {
     } catch (e) {
       console.warn('[AgentEngine] Failed to read selected text:', e.message);
       return null;
+    } finally {
+      if (clipboardManager) {
+        clipboardManager.isPasting = false;
+      }
     }
   }
 }

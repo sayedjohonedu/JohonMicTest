@@ -19,8 +19,17 @@ function clearHotkeys() {
   }
 }
 function addHotkey(evt, fn) {
-  uIOhook.on(evt, fn);
-  if (registeredHotkeys[evt]) registeredHotkeys[evt].push(fn);
+  const wrappedFn = (e) => {
+    try {
+      const clipboardManager = require('./clipboard-manager');
+      if (clipboardManager.isPasting) return;
+    } catch (err) {
+      console.error('[HotkeyManager] clipboard-manager check failed:', err);
+    }
+    return fn(e);
+  };
+  uIOhook.on(evt, wrappedFn);
+  if (registeredHotkeys[evt]) registeredHotkeys[evt].push(wrappedFn);
 }
 
 // Stored translator context so shortcuts survive re-registration

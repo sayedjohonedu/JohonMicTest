@@ -8,6 +8,7 @@ class ClipboardManager {
     this.originalClipboardText = '';
     this.isClipboardDirty = false;
     this.clipboardRestoreTimeout = null;
+    this.isPasting = false;
   }
 
   resetModifiers() {
@@ -24,6 +25,7 @@ class ClipboardManager {
    *                             never replaces what the user had highlighted.
    */
   injectText(text, options = {}) {
+    this.isPasting = true;
     // macOS: release any held modifiers before injecting
     if (process.platform === 'darwin') this.resetModifiers();
 
@@ -59,6 +61,8 @@ class ClipboardManager {
           robot.typeString(text);
         } catch (e) {
           console.error('typeString failed:', e);
+        } finally {
+          this.isPasting = false;
         }
       }, 50);
       return;
@@ -101,6 +105,7 @@ class ClipboardManager {
         clipboardMonitor.suppressNext(this.originalClipboardText);
         clipboard.writeText(this.originalClipboardText);
         this.isClipboardDirty = false;
+        this.isPasting = false;
         this.clipboardRestoreTimeout = null;
       }, 300);
     }, pasteDelay);
