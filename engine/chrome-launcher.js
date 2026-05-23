@@ -87,6 +87,15 @@ async function launchChromeBridge(url, forceVisible = false) {
     });
 
     page = await browser.newPage();
+
+    // Forward bridge page console output to main process logger
+    page.on('console', msg => {
+      const text = msg.text();
+      const type = msg.type();
+      if (type === 'error') console.error(`[Bridge] ${text}`);
+      else if (type === 'warning') console.warn(`[Bridge] ${text}`);
+      else console.log(`[Bridge] ${text}`);
+    });
     
     // Watchdog: auto-restart on disconnect
     browser.on('disconnected', async () => {

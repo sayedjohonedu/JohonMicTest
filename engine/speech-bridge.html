@@ -22,6 +22,7 @@
         let lastResultTime = 0;      // When onresult last fired — used by dead detector
         let deadDetectorTimer = null; // Detects recognition alive but not producing results
         let restartCount = 0;        // Consecutive onend restarts without receiving results
+        const MAX_RESTART_COUNT = 5;  // Stop after this many consecutive restarts without results
         
         // --- Web Audio API for Visualizer ---
         let audioCtx = null;
@@ -173,8 +174,21 @@
                 isRestarting = true;
                 const restartSessionId = currentSessionId;
 
-                // Back off if we're restarting too rapidly (>3 consecutive without results)
-                const delay = restartCount > 3 ? 800 : 400;
+                // ── Safety valve: stop after too many consecutive restarts ──
+                // Prevents infinite restart loops when system audio is unavailable
+                // (e.g. sleep/wake, coreaudiod crash).
+                if (restartCount > MAX_RESTART_COUNT) {
+                    console.warn('[MicTab] Max restart count exceeded — stopping.');
+                    isRestarting = false;
+                    if (ws && ws.readyState === WebSocket.OPEN) {
+                        ws.send(JSON.stringify({ type: 'status', message: 'max-restarts-exceeded' }));
+                    }
+                    stopListening();
+                    return;
+                }
+
+                // Exponential backoff: 400 → 800 → 1600 → 3200 → 5000ms (capped)
+                const delay = Math.min(400 * Math.pow(2, restartCount - 1), 5000);
 
                 restartTimer = setTimeout(() => {
                     restartTimer = null;
@@ -208,7 +222,18 @@
                             // Do NOT call armSilenceTimer() here. Let the existing timer continue to track
                             // total contiguous silence, otherwise Chrome's internal timeouts will keep resetting our 15s!
                         } catch (e) {
-                            console.error('Hard restart failed', e);
+                            console.error('[MicTab] Hard restart failed:', e);
+                            // Clean up the mic stream we just acquired to prevent stuck mic
+                            if (activeStream) {
+                                activeStream.getTracks().forEach(t => t.stop());
+                                activeStream = null;
+                            }
+                            if (ws && ws.readyState === WebSocket.OPEN) {
+                                ws.send(JSON.stringify({ type: 'status', message: 'start-failed' }));
+                            }
+                            isRestarting = false;
+                            stopListening();
+                            return;
                         }
                         isRestarting = false;
                     });
@@ -270,6 +295,7 @@
         }
 
         function startListeningWithRouting(lang, mySessionId, callback) {
+            const triedSpecificDevice = !!selectedDeviceId;
             const constraints = selectedDeviceId ? { audio: { deviceId: { exact: selectedDeviceId } } } : { audio: true };
             // Stop any previous routing stream
             if (activeStream) {
@@ -291,10 +317,38 @@
                     setupAnalyser(stream);
                     callback();
                 })
-                .catch(() => {
-                    // Device unavailable — fall back to default
-                    selectedDeviceId = null;
-                    if (isActive && mySessionId === currentSessionId) callback();
+                .catch((err) => {
+                    console.error('[MicTab] getUserMedia failed:', err);
+                    // If a specific device was selected, retry once with system default
+                    if (triedSpecificDevice) {
+                        selectedDeviceId = null;
+                        navigator.mediaDevices.getUserMedia({ audio: true })
+                            .then(stream => {
+                                if (!isActive || mySessionId !== currentSessionId) {
+                                    stream.getTracks().forEach(t => t.stop());
+                                    return;
+                                }
+                                activeStream = stream;
+                                setupAnalyser(stream);
+                                callback();
+                            })
+                            .catch(() => {
+                                // Even default mic failed — system audio unavailable
+                                console.error('[MicTab] Default mic also unavailable.');
+                                if (ws && ws.readyState === WebSocket.OPEN) {
+                                    ws.send(JSON.stringify({ type: 'status', message: 'mic-unavailable' }));
+                                }
+                                isRestarting = false;
+                                stopListening();
+                            });
+                    } else {
+                        // Already on default — system audio is truly unavailable
+                        if (ws && ws.readyState === WebSocket.OPEN) {
+                            ws.send(JSON.stringify({ type: 'status', message: 'mic-unavailable' }));
+                        }
+                        isRestarting = false;
+                        stopListening();
+                    }
                 });
         }
 
@@ -388,7 +442,16 @@
             startListeningWithRouting(currentLang, mySessionId, () => {
                 if (!isActive || mySessionId !== currentSessionId) return; // double check
                 recognition = createRecognition();
-                recognition.start();
+                try {
+                    recognition.start();
+                } catch (e) {
+                    console.error('[MicTab] recognition.start() failed:', e);
+                    if (ws && ws.readyState === WebSocket.OPEN) {
+                        ws.send(JSON.stringify({ type: 'status', message: 'start-failed' }));
+                    }
+                    stopListening();
+                    return;
+                }
                 armSilenceTimer();
                 armWatchdog();
                 armDeadDetector();

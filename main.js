@@ -1,4 +1,5 @@
-const { app, globalShortcut, dialog, ipcMain } = require('electron');
+const { app, globalShortcut, dialog, ipcMain, powerMonitor } = require('electron');
+require('./src/main/logger'); // Persistent file logging — must be first
 const path = require('path');
 const http = require('http');
 const fs = require('fs');
@@ -731,7 +732,18 @@ function setupWebSocketServer(server) {
     if (savedMicId) ws.send(JSON.stringify({ command: 'set-device', deviceId: savedMicId }));
     const sens = store.get('micSensitivity');
     if (sens !== undefined) ws.send(JSON.stringify({ command: 'set-mic-sensitivity', sensitivity: sens }));
-    
+
+    // ── State sync: push current listening state to reconnected bridge ──
+    // Fixes desync after sleep/wake or bridge restart where main.js
+    // thinks it's listening but the bridge has reset to idle.
+    if (isListening) {
+      const lang = currentSessionLang || store.get('language') || 'en-US';
+      const silenceTimeout = (isAiModeActive() || (isPttSessionActive && isPttSessionActive())) ? 0 : (store.get('silenceTimeout') ?? 10);
+      ws.send(JSON.stringify({ command: 'start', language: lang, timeout: silenceTimeout }));
+    } else {
+      ws.send(JSON.stringify({ command: 'stop' }));
+    }
+
     ws.on('message', (message) => {
       const data = JSON.parse(message.toString());
       if (data.type === 'final-text') {
@@ -852,6 +864,26 @@ function setupWebSocketServer(server) {
             if (overlayWindow) overlayWindow.webContents.send('overlay-status', 'silence-timeout');
           }
         }
+        // ── Handle bridge error statuses (mic-unavailable, max-restarts-exceeded, start-failed) ──
+        if (data.message === 'mic-unavailable' || data.message === 'max-restarts-exceeded' || data.message === 'start-failed') {
+          if (isListening) {
+            console.warn(`[MicTab] Bridge reported: ${data.message}. Force-stopping.`);
+            isListening = false;
+            clearAiSilenceTimer();
+            const overlayWindow = getOverlayWindow();
+            if (sttMode === 'translator') {
+              const tw = translatorManager.getTranslatorWindow();
+              if (tw && !tw.isDestroyed()) tw.webContents.send('translator-stt-state', false);
+            } else {
+              if (overlayWindow && !overlayWindow.isDestroyed()) {
+                overlayWindow.webContents.send('overlay-status', data.message);
+                overlayWindow.hide();
+              }
+              onOverlayHide();
+            }
+            updateTrayMenu(toggleListening, showSettings, app, switchTrayLanguage, isListening);
+          }
+        }
       } else if (data.type === 'audio-data') {
         const overlayWindow = getOverlayWindow();
         if (sttMode === 'translator') {
@@ -910,6 +942,21 @@ app.whenReady().then(() => {
       });
     }
   }
+  // ── Power Monitor: clean up mic on sleep to prevent stuck-mic and restart loops ──
+  powerMonitor.on('suspend', () => {
+    console.log('[MicTab] System suspending — force-stopping STT.');
+    if (isListening) {
+      // skipAiProcessing=true so we don't try to process AI buffer during suspend
+      toggleListening(null, false, false, true);
+    }
+  });
+
+  powerMonitor.on('resume', () => {
+    console.log('[MicTab] System resumed from sleep.');
+    // State sync on WebSocket reconnection (in setupWebSocketServer) will
+    // handle restarting recognition if the bridge reconnects.
+  });
+
   checkAuthStatus();
   checkAndResetDailyWords(); // Reset daily word counter if it's a new day
   checkAiTrialExpiry();       // Auto-disable AI mode if 15-day free trial expired
