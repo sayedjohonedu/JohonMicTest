@@ -19,6 +19,9 @@
         let SILENCE_TIMEOUT_MS = 15000;
         let selectedDeviceId = null; // null = use Chrome default (system default mic)
         let watchdogTimer = null;    // Detects frozen recognition (isActive=true but dead)
+        let lastResultTime = 0;      // When onresult last fired — used by dead detector
+        let deadDetectorTimer = null; // Detects recognition alive but not producing results
+        let restartCount = 0;        // Consecutive onend restarts without receiving results
         
         // --- Web Audio API for Visualizer ---
         let audioCtx = null;
@@ -135,8 +138,10 @@
                     }
                 }
 
-                // Only reset the 15s clock if we actually heard words/text (prevents background noise empty results from keeping it alive indefinitely)
+                // Only reset clocks if we actually heard words/text (prevents background noise empty results from keeping it alive indefinitely)
                 if (interimTranscript.trim() || finalTranscript.trim()) {
+                    lastResultTime = Date.now();
+                    restartCount = 0;
                     armSilenceTimer();
                 }
 
@@ -158,12 +163,19 @@
                 if (!isActive || isRestarting) return;
 
                 // Chrome stopped on its own (timeout, network blip, etc.)
-                // We want to be active — restart immediately.
-                // Capture the session ID at the time onend fires so that if
-                // stopListening() is called during the 400ms window, the
-                // timer callback can detect it is stale and abort.
+                // We want to be active — hard-restart with fresh mic stream.
+                // ── FIX: Non-English languages (Bengali, etc.) die after ~60s ──
+                // Chrome's server-side streaming session expires more aggressively
+                // for non-English languages. A lightweight restart (just creating a
+                // new SpeechRecognition) silently fails to reconnect. Releasing the
+                // mic stream and re-acquiring it forces a fresh server connection.
+                restartCount++;
                 isRestarting = true;
                 const restartSessionId = currentSessionId;
+
+                // Back off if we're restarting too rapidly (>3 consecutive without results)
+                const delay = restartCount > 3 ? 800 : 400;
+
                 restartTimer = setTimeout(() => {
                     restartTimer = null;
                     // ── BUGFIX (PTT no-speech stuck mic) ──
@@ -171,23 +183,36 @@
                     // we were waiting. Do NOT restart — release and bail out.
                     if (!isActive || restartSessionId !== currentSessionId) {
                         isRestarting = false;
-                        // Ensure mic stream is fully released if still held
                         if (activeStream) {
                             activeStream.getTracks().forEach(t => t.stop());
                             activeStream = null;
                         }
                         return;
                     }
-                    try {
-                        recognition = createRecognition();
-                        recognition.start();
-                        // Do NOT call armSilenceTimer() here. Let the existing timer continue to track
-                        // total contiguous silence, otherwise Chrome's internal timeouts will keep resetting our 15s!
-                    } catch (e) {
-                        console.error('Restart failed', e);
+
+                    // Hard restart: release mic stream for a full reset
+                    if (activeStream) {
+                        activeStream.getTracks().forEach(t => t.stop());
+                        activeStream = null;
                     }
-                    isRestarting = false;
-                }, 400); // Wait briefly to let Windows release mic lock
+
+                    // Re-acquire mic and create fresh recognition
+                    startListeningWithRouting(currentLang, restartSessionId, () => {
+                        if (!isActive || restartSessionId !== currentSessionId) {
+                            isRestarting = false;
+                            return;
+                        }
+                        try {
+                            recognition = createRecognition();
+                            recognition.start();
+                            // Do NOT call armSilenceTimer() here. Let the existing timer continue to track
+                            // total contiguous silence, otherwise Chrome's internal timeouts will keep resetting our 15s!
+                        } catch (e) {
+                            console.error('Hard restart failed', e);
+                        }
+                        isRestarting = false;
+                    });
+                }, delay);
             };
 
             return r;
@@ -307,6 +332,37 @@
             }
         }
 
+        // --- Dead-recognition detector ---
+        // Catches the case where recognition.start() succeeded but the server
+        // silently stopped sending results (alive but deaf). This is more
+        // targeted than the watchdog: it checks every 10s and triggers after
+        // 25s of no onresult events. When detected, it stops recognition to
+        // trigger onend, which performs a hard restart with fresh mic stream.
+        function armDeadDetector() {
+            clearDeadDetector();
+            deadDetectorTimer = setInterval(() => {
+                if (!isActive) { clearDeadDetector(); return; }
+                if (!recognition || isRestarting) return;
+
+                const elapsed = Date.now() - lastResultTime;
+                if (lastResultTime > 0 && elapsed > 25000) {
+                    console.warn('[MicTab DeadDetector] No results for 25s — forcing restart.');
+                    if (ws && ws.readyState === WebSocket.OPEN) {
+                        ws.send(JSON.stringify({ type: 'status', message: 'dead-restart' }));
+                    }
+                    lastResultTime = Date.now(); // Prevent re-trigger during restart
+                    try { recognition.stop(); } catch(e) {} // Triggers onend → hard restart
+                }
+            }, 10000);
+        }
+
+        function clearDeadDetector() {
+            if (deadDetectorTimer) {
+                clearInterval(deadDetectorTimer);
+                deadDetectorTimer = null;
+            }
+        }
+
         function startListening(lang) {
             const newLang = lang || currentLang;
 
@@ -327,12 +383,15 @@
             const mySessionId = currentSessionId;
             isActive = true;
             isRestarting = false;
+            lastResultTime = Date.now();
+            restartCount = 0;
             startListeningWithRouting(currentLang, mySessionId, () => {
                 if (!isActive || mySessionId !== currentSessionId) return; // double check
                 recognition = createRecognition();
                 recognition.start();
                 armSilenceTimer();
                 armWatchdog();
+                armDeadDetector();
             });
         }
 
@@ -352,6 +411,8 @@
             }
             clearSilenceTimer();
             clearWatchdog();
+            clearDeadDetector();
+            restartCount = 0;
             if (analyserInterval) {
                 clearInterval(analyserInterval);
                 analyserInterval = null;
