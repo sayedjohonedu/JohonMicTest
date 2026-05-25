@@ -86,6 +86,8 @@ let pttBuffer = '';
 let lastPhraseTimestamp = 0;
 let latestInterimText = '';
 let flushedInterimText = '';
+let wasListeningBeforeSleep = false; // Remembers pre-sleep STT state for auto-resume
+let suspendLang = null;              // Language that was active before sleep
 
 // ── STT routing: 'overlay' | 'translator' ───────────────
 // Controls where STT transcripts are routed. The two panels are mutually exclusive.
@@ -945,6 +947,8 @@ app.whenReady().then(() => {
   // ── Power Monitor: clean up mic on sleep to prevent stuck-mic and restart loops ──
   powerMonitor.on('suspend', () => {
     console.log('[MicTab] System suspending — force-stopping STT.');
+    wasListeningBeforeSleep = isListening;
+    suspendLang = currentSessionLang || store.get('language') || 'en-US';
     if (isListening) {
       // skipAiProcessing=true so we don't try to process AI buffer during suspend
       toggleListening(null, false, false, true);
@@ -953,8 +957,45 @@ app.whenReady().then(() => {
 
   powerMonitor.on('resume', () => {
     console.log('[MicTab] System resumed from sleep.');
-    // State sync on WebSocket reconnection (in setupWebSocketServer) will
-    // handle restarting recognition if the bridge reconnects.
+    // ── Proactive bridge restart ──
+    // After sleep, the Chrome headless process is usually frozen/stale and the
+    // WebSocket dead. Waiting for passive reconnection takes 30-60s. Instead,
+    // kill the stale bridge and relaunch a fresh one immediately.
+    // Give macOS ~2s to reinitialise coreaudiod and audio hardware first.
+    setTimeout(async () => {
+      console.log('[MicTab] Post-wake: killing stale bridge and relaunching.');
+      try {
+        // Terminate old WebSocket client so setupWebSocketServer sees a clean slate
+        if (wsClient) {
+          try { wsClient.terminate(); } catch (e) {}
+          wsClient = null;
+        }
+        await closeChromeBridge();
+      } catch (e) {
+        console.warn('[MicTab] Post-wake: closeChromeBridge error (OK):', e.message);
+      }
+      try {
+        await launchChromeBridge(`http://localhost:${httpPort}/speech-bridge.html?port=${httpPort}`);
+        console.log('[MicTab] Post-wake: fresh bridge launched.');
+        // The bridge will connect via WebSocket → setupWebSocketServer fires.
+        // If wasListeningBeforeSleep is true, we auto-start STT after a brief
+        // stabilisation delay (lets getUserMedia + coreaudiod fully initialise).
+        if (wasListeningBeforeSleep) {
+          setTimeout(() => {
+            if (!isListening) {
+              console.log(`[MicTab] Post-wake: auto-resuming STT in ${suspendLang}.`);
+              toggleListening(suspendLang, false, false, false);
+            }
+            wasListeningBeforeSleep = false;
+            suspendLang = null;
+          }, 1500); // 1.5s for mic hardware + bridge to stabilise
+        }
+      } catch (e) {
+        console.error('[MicTab] Post-wake: bridge relaunch failed:', e.message);
+        wasListeningBeforeSleep = false;
+        suspendLang = null;
+      }
+    }, 2000); // 2s delay for OS audio subsystem to reinitialise
   });
 
   checkAuthStatus();

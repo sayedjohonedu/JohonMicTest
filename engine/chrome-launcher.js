@@ -106,7 +106,7 @@ async function launchChromeBridge(url, forceVisible = false) {
           if (!isClosing && !browser) {
             launchChromeBridge(url).catch(() => {});
           }
-        }, 3000);
+        }, 1500);
       }
       browser = null;
       page = null;
