@@ -68,6 +68,7 @@ let textFont         = localStorage.getItem('lens-text-font') || 'Inter';  // ch
 // ── Crop state ──
 let cropBox = null;
 let cropActiveHandle = null;
+let cropAvgColor = '#888888'; // average color of image, used for expand-beyond fill
 // ── Background state ──
 let bgEnabled       = false;
 let bgBlurLevel     = 30;    // 0–100 (percentage mapped to px)
@@ -149,9 +150,8 @@ window.lensEditor.onLoadImage((dataUrl) => {
     // Reset cropBox because canvas dimensions just changed
     cropBox = null;
     if (currentTool === 'crop') {
-      const padX = Math.min(40 * displayScale, drawCanvas.width * 0.1);
-      const padY = Math.min(40 * displayScale, drawCanvas.height * 0.1);
-      cropBox = { x: padX, y: padY, w: drawCanvas.width - padX*2, h: drawCanvas.height - padY*2 };
+      cropBox = { x: 0, y: 0, w: drawCanvas.width, h: drawCanvas.height };
+      cropAvgColor = computeAverageColor();
     }
     redraw();
   };
@@ -258,30 +258,115 @@ function redraw() {
   }
   
   // ── Render Crop Overlay ──
+  const cropOverlay = document.getElementById('crop-overlay');
   if (currentTool === 'crop' && cropBox) {
     const cw = drawCanvas.width, ch = drawCanvas.height;
+    
+    // Draw dark overlay inside the canvas boundaries
     drawCtx.save();
     drawCtx.fillStyle = 'rgba(0,0,0,0.6)';
     drawCtx.beginPath();
     drawCtx.rect(0, 0, cw, ch);
-    drawCtx.rect(cropBox.x, cropBox.y, cropBox.w, cropBox.h);
-    drawCtx.fill('evenodd');
-    
-    drawCtx.strokeStyle = '#2563eb';
-    drawCtx.lineWidth = 2 * displayScale;
-    drawCtx.strokeRect(cropBox.x, cropBox.y, cropBox.w, cropBox.h);
-
-    const handles = getCropHandles();
-    for (const h of handles) {
-      drawCtx.beginPath();
-      drawCtx.arc(h.x, h.y, 8 * displayScale, 0, 2*Math.PI);
-      drawCtx.fillStyle = '#ffffff';
-      drawCtx.fill();
-      drawCtx.lineWidth = 2 * displayScale;
-      drawCtx.strokeStyle = '#2563eb';
-      drawCtx.stroke();
+    // Clip the crop box to canvas bounds for the evenodd cutout
+    const clipX = Math.max(0, cropBox.x);
+    const clipY = Math.max(0, cropBox.y);
+    const clipW = Math.min(cw, cropBox.x + cropBox.w) - clipX;
+    const clipH = Math.min(ch, cropBox.y + cropBox.h) - clipY;
+    if (clipW > 0 && clipH > 0) {
+      drawCtx.rect(clipX, clipY, clipW, clipH);
     }
+    drawCtx.fill('evenodd');
     drawCtx.restore();
+
+    // Now update the HTML crop overlay
+    if (cropOverlay) {
+      cropOverlay.style.display = 'block';
+      canvasWrap.classList.add('crop-active');
+
+      const scale = displayScale;
+      const cssX = cropBox.x / scale;
+      const cssY = cropBox.y / scale;
+      const cssW = cropBox.w / scale;
+      const cssH = cropBox.h / scale;
+      const ccw = displayW;
+      const cch = displayH;
+
+      // Update border box
+      const borderBox = document.getElementById('crop-border-box');
+      if (borderBox) {
+        borderBox.style.left = cssX + 'px';
+        borderBox.style.top = cssY + 'px';
+        borderBox.style.width = cssW + 'px';
+        borderBox.style.height = cssH + 'px';
+      }
+
+      // Average color strips
+      const exLeft   = Math.max(0, -cssX);
+      const exTop    = Math.max(0, -cssY);
+      const exRight  = Math.max(0, (cssX + cssW) - ccw);
+      const exBottom = Math.max(0, (cssY + cssH) - cch);
+
+      const stripLeft = document.getElementById('crop-strip-left');
+      if (stripLeft) {
+        if (exLeft > 0) {
+          stripLeft.style.display = 'block';
+          stripLeft.style.left = cssX + 'px';
+          stripLeft.style.top = cssY + 'px';
+          stripLeft.style.width = exLeft + 'px';
+          stripLeft.style.height = cssH + 'px';
+          stripLeft.style.backgroundColor = cropAvgColor;
+        } else {
+          stripLeft.style.display = 'none';
+        }
+      }
+
+      const stripRight = document.getElementById('crop-strip-right');
+      if (stripRight) {
+        if (exRight > 0) {
+          stripRight.style.display = 'block';
+          stripRight.style.left = ccw + 'px';
+          stripRight.style.top = cssY + 'px';
+          stripRight.style.width = exRight + 'px';
+          stripRight.style.height = cssH + 'px';
+          stripRight.style.backgroundColor = cropAvgColor;
+        } else {
+          stripRight.style.display = 'none';
+        }
+      }
+
+      const stripTop = document.getElementById('crop-strip-top');
+      if (stripTop) {
+        if (exTop > 0) {
+          stripTop.style.display = 'block';
+          stripTop.style.left = Math.max(0, cssX) + 'px';
+          stripTop.style.top = cssY + 'px';
+          stripTop.style.width = Math.min(cssW, ccw - Math.max(0, cssX) + exLeft) + 'px';
+          stripTop.style.height = exTop + 'px';
+          stripTop.style.backgroundColor = cropAvgColor;
+        } else {
+          stripTop.style.display = 'none';
+        }
+      }
+
+      const stripBottom = document.getElementById('crop-strip-bottom');
+      if (stripBottom) {
+        if (exBottom > 0) {
+          stripBottom.style.display = 'block';
+          stripBottom.style.left = Math.max(0, cssX) + 'px';
+          stripBottom.style.top = cch + 'px';
+          stripBottom.style.width = Math.min(cssW, ccw - Math.max(0, cssX) + exLeft) + 'px';
+          stripBottom.style.height = exBottom + 'px';
+          stripBottom.style.backgroundColor = cropAvgColor;
+        } else {
+          stripBottom.style.display = 'none';
+        }
+      }
+    }
+  } else {
+    if (cropOverlay) {
+      cropOverlay.style.display = 'none';
+    }
+    canvasWrap.classList.remove('crop-active');
   }
 
   updateContextSliders();
@@ -754,6 +839,28 @@ function hitTestHandles(ann, x, y) {
     }
   }
   return null;
+}
+
+/** Compute the average color of the current image canvas */
+function computeAverageColor() {
+  try {
+    const w = imgCanvas.width, h = imgCanvas.height;
+    // Sample at reduced resolution for performance
+    const sampleSize = 64;
+    const tmpC = document.createElement('canvas');
+    tmpC.width = sampleSize; tmpC.height = sampleSize;
+    const tmpX = tmpC.getContext('2d');
+    tmpX.drawImage(imgCanvas, 0, 0, sampleSize, sampleSize);
+    const data = tmpX.getImageData(0, 0, sampleSize, sampleSize).data;
+    let r = 0, g = 0, b = 0, count = 0;
+    for (let i = 0; i < data.length; i += 4) {
+      r += data[i]; g += data[i+1]; b += data[i+2]; count++;
+    }
+    if (count === 0) return '#888888';
+    return `rgb(${Math.round(r/count)}, ${Math.round(g/count)}, ${Math.round(b/count)})`;
+  } catch (e) {
+    return '#888888';
+  }
 }
 
 function getCropHandles() {
@@ -1710,9 +1817,47 @@ window.addEventListener('mouseup', (e) => {
   if (!isDragging && !isDraggingHandle && !isDrawing) return;
   // Convert client coords to canvas coords
   const rect = drawCanvas.getBoundingClientRect();
-  const rawX = (e.clientX - rect.left) * displayScale;
-  const rawY = (e.clientY - rect.top)  * displayScale;
+  const rawX = (e.clientX - rect.left) / canvasWrapScale * displayScale;
+  const rawY = (e.clientY - rect.top)  / canvasWrapScale * displayScale;
   releaseDragOrDraw(rawX, rawY);
+});
+
+// Global mousemove — allows crop handles to be dragged beyond canvas edges
+document.addEventListener('mousemove', (e) => {
+  if (!isDraggingHandle || currentTool !== 'crop' || !cropBox) return;
+  const rect = drawCanvas.getBoundingClientRect();
+  const p = {
+    x: (e.clientX - rect.left) / canvasWrapScale * displayScale,
+    y: (e.clientY - rect.top)  / canvasWrapScale * displayScale,
+  };
+
+  if (activeHandle === 'move') {
+    const dx = p.x - dragOffsetX;
+    const dy = p.y - dragOffsetY;
+    cropBox.x += dx;
+    cropBox.y += dy;
+    dragOffsetX = p.x;
+    dragOffsetY = p.y;
+  } else {
+    const currentX1 = cropBox.x;
+    const currentY1 = cropBox.y;
+    const currentX2 = currentX1 + cropBox.w;
+    const currentY2 = currentY1 + cropBox.h;
+
+    let newX1 = currentX1; let newY1 = currentY1;
+    let newX2 = currentX2; let newY2 = currentY2;
+
+    if (activeHandle.includes('l')) newX1 = p.x;
+    if (activeHandle.includes('r')) newX2 = p.x;
+    if (activeHandle.includes('t')) newY1 = p.y;
+    if (activeHandle.includes('b')) newY2 = p.y;
+
+    cropBox.x = Math.min(newX1, newX2);
+    cropBox.y = Math.min(newY1, newY2);
+    cropBox.w = Math.abs(newX2 - newX1);
+    cropBox.h = Math.abs(newY2 - newY1);
+  }
+  redraw();
 });
 
 
@@ -2080,10 +2225,9 @@ function selectTool(toolName) {
   const cropActions = document.getElementById('crop-actions');
   if (toolName === 'crop') {
     if (!cropBox) {
-      // Default crop box with padding
-      const padX = Math.min(40 * displayScale, drawCanvas.width * 0.1);
-      const padY = Math.min(40 * displayScale, drawCanvas.height * 0.1);
-      cropBox = { x: padX, y: padY, w: drawCanvas.width - padX*2, h: drawCanvas.height - padY*2 };
+      // Crop box matches exact image borders — no padding inset
+      cropBox = { x: 0, y: 0, w: drawCanvas.width, h: drawCanvas.height };
+      cropAvgColor = computeAverageColor();
     }
     if (cropActions) cropActions.style.display = 'flex';
   } else {
@@ -2513,6 +2657,36 @@ function shuffleWallpapers() {
 shuffleWallpapers();
 document.addEventListener('DOMContentLoaded', () => {
   shuffleWallpapers();
+
+  // Initialize Crop Overlay Event Listeners for HTML-based cropping
+  const borderBox = document.getElementById('crop-border-box');
+  if (borderBox) {
+    borderBox.addEventListener('mousedown', (e) => {
+      if (e.button !== 0) return;
+      if (e.target.classList.contains('crop-handle')) return;
+
+      e.stopPropagation();
+      e.preventDefault();
+      const p = getPos(e);
+      isDraggingHandle = true;
+      activeHandle = 'move';
+      dragOffsetX = p.x;
+      dragOffsetY = p.y;
+    });
+  }
+
+  document.querySelectorAll('.crop-handle').forEach(handle => {
+    handle.addEventListener('mousedown', (e) => {
+      if (e.button !== 0) return;
+      e.stopPropagation();
+      e.preventDefault();
+      const p = getPos(e);
+      isDraggingHandle = true;
+      activeHandle = handle.dataset.handle;
+      dragOffsetX = p.x;
+      dragOffsetY = p.y;
+    });
+  });
 });
 
 const shuffleBtn = document.getElementById('bg-shuffle-btn');
@@ -3084,7 +3258,39 @@ document.getElementById('btn-crop-apply')?.addEventListener('click', () => {
   tmpC.width = cw;
   tmpC.height = ch;
   const tmpCtx = tmpC.getContext('2d');
-  tmpCtx.drawImage(imgCanvas, cx, cy, cw, ch, 0, 0, cw, ch);
+
+  // Check if crop extends beyond original image bounds
+  const imgW = imgCanvas.width;
+  const imgH = imgCanvas.height;
+  const expandsLeft   = cx < 0;
+  const expandsTop    = cy < 0;
+  const expandsRight  = (cx + cw) > imgW;
+  const expandsBottom = (cy + ch) > imgH;
+  const isExpanding   = expandsLeft || expandsTop || expandsRight || expandsBottom;
+
+  if (isExpanding) {
+    // Fill entire new canvas with average color first
+    tmpCtx.fillStyle = cropAvgColor;
+    tmpCtx.fillRect(0, 0, cw, ch);
+
+    // Compute the sub-rect of the original image that overlaps with the crop box
+    const srcX = Math.max(0, cx);
+    const srcY = Math.max(0, cy);
+    const srcRight  = Math.min(imgW, cx + cw);
+    const srcBottom = Math.min(imgH, cy + ch);
+    const srcW = srcRight - srcX;
+    const srcH = srcBottom - srcY;
+
+    if (srcW > 0 && srcH > 0) {
+      // Where to place the original image within the new canvas
+      const dstX = srcX - cx;
+      const dstY = srcY - cy;
+      tmpCtx.drawImage(imgCanvas, srcX, srcY, srcW, srcH, dstX, dstY, srcW, srcH);
+    }
+  } else {
+    // Normal inward crop — just copy the region
+    tmpCtx.drawImage(imgCanvas, cx, cy, cw, ch, 0, 0, cw, ch);
+  }
   
   for (const ann of annotations) {
     if (ann.x !== undefined) ann.x -= cx;

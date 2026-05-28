@@ -377,6 +377,27 @@
         <div class="canvas-wrap" id="canvas-wrap">
           <canvas id="img-canvas"></canvas>
           <canvas id="draw-canvas"></canvas>
+          <div id="crop-overlay" style="display: none; position: absolute; inset: 0; pointer-events: none; z-index: 10;">
+            <!-- Average color preview strips -->
+            <div id="crop-strip-left" style="position: absolute; display: none; z-index: 1;"></div>
+            <div id="crop-strip-right" style="position: absolute; display: none; z-index: 1;"></div>
+            <div id="crop-strip-top" style="position: absolute; display: none; z-index: 1;"></div>
+            <div id="crop-strip-bottom" style="position: absolute; display: none; z-index: 1;"></div>
+
+            <!-- Main border box -->
+            <div id="crop-border-box" style="position: absolute; border: 2px solid #2563eb; pointer-events: auto; box-sizing: border-box; cursor: move; z-index: 2;">
+              <!-- Resize Handles -->
+              <div class="crop-handle" data-handle="tl" style="position: absolute; width: 16px; height: 16px; background: #ffffff; border: 2px solid #2563eb; border-radius: 50%; left: -8px; top: -8px; cursor: nwse-resize; box-sizing: border-box; pointer-events: auto; z-index: 3;"></div>
+              <div class="crop-handle" data-handle="tr" style="position: absolute; width: 16px; height: 16px; background: #ffffff; border: 2px solid #2563eb; border-radius: 50%; right: -8px; top: -8px; cursor: nesw-resize; box-sizing: border-box; pointer-events: auto; z-index: 3;"></div>
+              <div class="crop-handle" data-handle="bl" style="position: absolute; width: 16px; height: 16px; background: #ffffff; border: 2px solid #2563eb; border-radius: 50%; left: -8px; bottom: -8px; cursor: nesw-resize; box-sizing: border-box; pointer-events: auto; z-index: 3;"></div>
+              <div class="crop-handle" data-handle="br" style="position: absolute; width: 16px; height: 16px; background: #ffffff; border: 2px solid #2563eb; border-radius: 50%; right: -8px; bottom: -8px; cursor: nwse-resize; box-sizing: border-box; pointer-events: auto; z-index: 3;"></div>
+              
+              <div class="crop-handle" data-handle="t" style="position: absolute; width: 16px; height: 16px; background: #ffffff; border: 2px solid #2563eb; border-radius: 50%; left: calc(50% - 8px); top: -8px; cursor: ns-resize; box-sizing: border-box; pointer-events: auto; z-index: 3;"></div>
+              <div class="crop-handle" data-handle="b" style="position: absolute; width: 16px; height: 16px; background: #ffffff; border: 2px solid #2563eb; border-radius: 50%; left: calc(50% - 8px); bottom: -8px; cursor: ns-resize; box-sizing: border-box; pointer-events: auto; z-index: 3;"></div>
+              <div class="crop-handle" data-handle="l" style="position: absolute; width: 16px; height: 16px; background: #ffffff; border: 2px solid #2563eb; border-radius: 50%; left: -8px; top: calc(50% - 8px); cursor: ew-resize; box-sizing: border-box; pointer-events: auto; z-index: 3;"></div>
+              <div class="crop-handle" data-handle="r" style="position: absolute; width: 16px; height: 16px; background: #ffffff; border: 2px solid #2563eb; border-radius: 50%; right: -8px; top: calc(50% - 8px); cursor: ew-resize; box-sizing: border-box; pointer-events: auto; z-index: 3;"></div>
+            </div>
+          </div>
         </div>
       </div>
     </div>

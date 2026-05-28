@@ -661,3 +661,8 @@ html, body {
   color: var(--muted); opacity: 0.7; flex-shrink: 0;
   max-width: 72px; overflow: hidden; text-overflow: ellipsis;
 }
+
+/* Allow visible handles/borders outside the image canvas container when cropping */
+.canvas-wrap.crop-active {
+  overflow: visible !important;
+}
