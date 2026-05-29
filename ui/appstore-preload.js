@@ -1,5 +1,5 @@
 "use strict";
-const { contextBridge, ipcRenderer } = require("electron");
+const { contextBridge, ipcRenderer, webUtils } = require("electron");
 
 function on(channel, cb) {
   ipcRenderer.removeAllListeners(channel);
@@ -7,6 +7,7 @@ function on(channel, cb) {
 }
 
 contextBridge.exposeInMainWorld("appStoreAPI", {
+  getPathForFile: (file) => webUtils.getPathForFile(file),
   // Window controls
   close: () => ipcRenderer.send("appstore-close"),
   minimize: () => ipcRenderer.send("appstore-minimize"),
@@ -17,10 +18,13 @@ contextBridge.exposeInMainWorld("appStoreAPI", {
   // App management
   getApps: () => ipcRenderer.invoke("appstore-get-apps"),
   pickFile: () => ipcRenderer.invoke("appstore-pick-file"),
+  pickFolder: () => ipcRenderer.invoke("appstore-pick-folder"),
   pickIcon: () => ipcRenderer.invoke("appstore-pick-icon"),
   installFile: () => ipcRenderer.invoke("appstore-install-file"),
   installFromPath: (p, name, icon) =>
     ipcRenderer.invoke("appstore-install-path", p, name, icon),
+  installDropped: (buffer, fileName, name, icon) =>
+    ipcRenderer.invoke("appstore-install-dropped", buffer, fileName, name, icon),
   installFromHtml: (html, name, icon, category) =>
     ipcRenderer.invoke("appstore-install-html", html, name, icon, category),
   uninstall: (id) => ipcRenderer.invoke("appstore-uninstall", id),

@@ -230,7 +230,13 @@ function renderApps() {
     });
 
     card.addEventListener("dragover", (e) => {
-      if (!isEditMode) return;
+      // Always allow external file drops (needed for Windows — drop won't fire without preventDefault on dragover)
+      if (!isEditMode) {
+        if (e.dataTransfer.types.includes("Files")) {
+          e.preventDefault();
+        }
+        return;
+      }
       e.preventDefault();
 
       const draggedCard = document.querySelector(".app-card.dragging");
@@ -262,7 +268,13 @@ function renderApps() {
     });
 
     card.addEventListener("drop", async (e) => {
-      if (!isEditMode) return;
+      if (!isEditMode) {
+        // Let external file drops bubble to the global handler, but prevent browser from opening the file
+        if (e.dataTransfer.types.includes("Files")) {
+          e.preventDefault();
+        }
+        return;
+      }
       e.preventDefault();
 
       const wasCenter = window._currentDropIsCenter;
@@ -939,11 +951,23 @@ importSubmit.addEventListener("click", async () => {
   importStatus.innerHTML = '<span class="spinner"></span> Installing…';
 
   try {
-    const result = await window.appStoreAPI.installFromPath(
-      file.path,
-      name,
-      currentImportIcon,
-    );
+    let result;
+    if (file.isDropped && file.buffer) {
+      // Dropped file: send raw buffer to main process
+      result = await window.appStoreAPI.installDropped(
+        file.buffer,
+        file.name,
+        name,
+        currentImportIcon,
+      );
+    } else {
+      // Browsed file: use path
+      result = await window.appStoreAPI.installFromPath(
+        file.path,
+        name,
+        currentImportIcon,
+      );
+    }
     if (result && result.error) {
       importStatus.className = "ai-status error";
       importStatus.textContent = result.error;
@@ -961,15 +985,26 @@ importSubmit.addEventListener("click", async () => {
   }
 });
 
-// Browse file / folder
-document.getElementById("opt-browse").addEventListener("click", async () => {
+// Browse files (HTML, ZIP, MicApps)
+document.getElementById("opt-browse-files").addEventListener("click", async () => {
   importWrap.classList.remove("open");
   const path = await window.appStoreAPI.pickFile();
   if (path) {
-    // extract filename from path for the default name
     const parts = path.split(/[/\\]/);
     const filename = parts[parts.length - 1];
     currentImportQueue.push({ path, name: filename });
+    if (currentImportQueue.length === 1) processImportQueue();
+  }
+});
+
+// Browse folder (project directories)
+document.getElementById("opt-browse-folder").addEventListener("click", async () => {
+  importWrap.classList.remove("open");
+  const path = await window.appStoreAPI.pickFolder();
+  if (path) {
+    const parts = path.split(/[/\\]/);
+    const folderName = parts[parts.length - 1];
+    currentImportQueue.push({ path, name: folderName });
     if (currentImportQueue.length === 1) processImportQueue();
   }
 });
@@ -1790,8 +1825,18 @@ document.addEventListener("drop", async (e) => {
 
   const wasEmpty = currentImportQueue.length === 0;
   for (const file of files) {
-    if (file.path) {
-      currentImportQueue.push({ path: file.path, name: file.name });
+    const realPath = window.appStoreAPI.getPathForFile ? window.appStoreAPI.getPathForFile(file) : file.path;
+    if (realPath) {
+      // We got the true absolute path (works for files AND folders)
+      currentImportQueue.push({ path: realPath, name: file.name });
+    } else {
+      // No path available (maybe a virtual file dropped from browser), try reading binary
+      try {
+        const buffer = await file.arrayBuffer();
+        currentImportQueue.push({ buffer: new Uint8Array(buffer), name: file.name, isDropped: true });
+      } catch (err) {
+        console.error("Failed to read dropped file/folder:", file.name, err);
+      }
     }
   }
 

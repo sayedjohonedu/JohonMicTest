@@ -834,3 +834,36 @@ html, body { height: 100%; overflow: hidden; font-family: var(--font); backgroun
 }
 .coll-busy .spinner { margin-right: 0; }
 .coll-busy-label { color: var(--text-secondary); }
+
+/* ═══════════════════════════════════════════════════════════
+   Prompt Modal (Rename / Delete / Folder Create)
+   ═══════════════════════════════════════════════════════════ */
+#prompt-modal .modal-card,
+#delete-folder-modal .modal-card {
+  background: var(--bg);
+  border: 1px solid var(--border-hover);
+}
+
+#prompt-modal-title,
+#delete-folder-modal-title {
+  color: var(--text);
+}
+
+.modern-input {
+  padding: 10px 14px;
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text);
+  font-family: var(--font);
+  font-size: 13px;
+  outline: none;
+  transition: border-color var(--transition), box-shadow var(--transition);
+}
+.modern-input:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-dim);
+}
+.modern-input::placeholder {
+  color: var(--muted);
+}

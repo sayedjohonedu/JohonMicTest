@@ -298,9 +298,19 @@ function launchMiniApp(appId) {
 // ── Pick file for import (returns path without installing) ──
 async function pickFileForImport() {
   const result = await dialog.showOpenDialog({
-    title: "Select Web App or Backup",
+    title: "Select Web App or Backup File",
     filters: [{ name: "Web Apps & Backups", extensions: ["html", "zip", "MicApps"] }],
-    properties: ["openFile", "openDirectory"],
+    properties: ["openFile"],
+  });
+  if (result.canceled || !result.filePaths.length) return null;
+  return result.filePaths[0];
+}
+
+// ── Pick folder for import (returns folder path without installing) ──
+async function pickFolderForImport() {
+  const result = await dialog.showOpenDialog({
+    title: "Select App Folder",
+    properties: ["openDirectory"],
   });
   if (result.canceled || !result.filePaths.length) return null;
   return result.filePaths[0];
@@ -367,6 +377,8 @@ function installFromPath(srcPath, appName, customIconPath, forcedCategory) {
             return { error: "Failed to extract ZIP file" };
           }
         }
+        // Clean up macOS ZIP artifacts (__MACOSX dir and ._ resource fork files)
+        _cleanMacOSArtifacts(appDir);
       } else {
         // Single file (HTML, etc.)
         fs.copyFileSync(srcPath, path.join(appDir, path.basename(srcPath)));
@@ -575,10 +587,36 @@ function copyDirRecursive(src, dest) {
   }
 }
 
+// ── Clean macOS ZIP artifacts ──────────────────────────────
+function _cleanMacOSArtifacts(dir) {
+  try {
+    // Remove __MACOSX directory
+    const macosxDir = path.join(dir, "__MACOSX");
+    if (fs.existsSync(macosxDir)) {
+      fs.rmSync(macosxDir, { recursive: true, force: true });
+    }
+    // Remove ._ resource fork files recursively
+    _removeDotUnderscoreFiles(dir);
+  } catch {}
+}
+
+function _removeDotUnderscoreFiles(dir) {
+  for (const item of fs.readdirSync(dir, { withFileTypes: true })) {
+    const fullPath = path.join(dir, item.name);
+    if (item.isDirectory()) {
+      _removeDotUnderscoreFiles(fullPath);
+    } else if (item.name.startsWith("._")) {
+      try { fs.unlinkSync(fullPath); } catch {}
+    }
+  }
+}
+
 // ── Recursive .html file finder ────────────────────────────
 function findHtmlFiles(dir) {
   const results = [];
   for (const item of fs.readdirSync(dir, { withFileTypes: true })) {
+    // Skip macOS artifacts
+    if (item.name === "__MACOSX" || item.name.startsWith("._")) continue;
     if (item.isDirectory())
       results.push(
         ...findHtmlFiles(path.join(dir, item.name)).map((f) =>
@@ -912,11 +950,27 @@ function setupAppStoreIpc() {
 
   ipcMain.handle("appstore-get-apps", () => loadRegistry());
   ipcMain.handle("appstore-pick-file", () => pickFileForImport());
+  ipcMain.handle("appstore-pick-folder", () => pickFolderForImport());
   ipcMain.handle("appstore-pick-icon", () => pickIcon());
   ipcMain.handle("appstore-install-file", () => installFromFile());
   ipcMain.handle("appstore-install-path", (_, p, name, icon) =>
     installFromPath(p, name, icon),
   );
+  ipcMain.handle("appstore-install-dropped", (_, buffer, fileName, name, icon) => {
+    try {
+      const os = require("os");
+      const tmpDir = path.join(os.tmpdir(), "mictab-drop-" + Date.now());
+      fs.mkdirSync(tmpDir, { recursive: true });
+      const tmpPath = path.join(tmpDir, fileName);
+      fs.writeFileSync(tmpPath, Buffer.from(buffer));
+      const result = installFromPath(tmpPath, name, icon);
+      // Clean up temp file
+      try { fs.rmSync(tmpDir, { recursive: true, force: true }); } catch {}
+      return result;
+    } catch (e) {
+      return { error: e.message || "Failed to install dropped file" };
+    }
+  });
   ipcMain.handle("appstore-install-html", (_, payload, name, icon, category) =>
     installFromHtml(payload, name, icon, category),
   );
