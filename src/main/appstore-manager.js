@@ -281,6 +281,59 @@ function launchMiniApp(appId) {
   win.on("resize", saveBounds);
   win.on("move",   saveBounds);
 
+  // ── Default right-click context menu for mini apps ──────
+  win.webContents.on("context-menu", (event, params) => {
+    const menuItems = [];
+
+    // Text editing actions (contextual)
+    if (params.isEditable) {
+      menuItems.push(
+        { role: "undo" },
+        { role: "redo" },
+        { type: "separator" },
+        { role: "cut" },
+        { role: "copy" },
+        { role: "paste" },
+        { role: "selectAll" },
+      );
+    } else if (params.selectionText) {
+      menuItems.push(
+        { role: "copy" },
+        { type: "separator" },
+        { role: "selectAll" },
+      );
+    } else {
+      menuItems.push(
+        { role: "selectAll" },
+      );
+    }
+
+    // Always add reload
+    menuItems.push(
+      { type: "separator" },
+      {
+        label: "Reload App",
+        click: () => { win.webContents.send("miniapp-reload"); },
+      },
+    );
+
+    // Inspect Element (dev only)
+    if (!app.isPackaged) {
+      menuItems.push(
+        { type: "separator" },
+        {
+          label: "Inspect Element",
+          click: () => {
+            win.webContents.inspectElement(params.x, params.y);
+          },
+        },
+      );
+    }
+
+    const menu = Menu.buildFromTemplate(menuItems);
+    menu.popup({ window: win });
+  });
+
   // ── Shell close button → close window (cleaned up on close) ─
   function onShellClose(evt) {
     if (evt.sender === win.webContents) win.close();
