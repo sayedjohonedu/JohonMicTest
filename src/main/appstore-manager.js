@@ -1161,6 +1161,8 @@ function setupAppStoreIpc() {
       id: "iphone-simulator",
       name: "iPhone App Simulator",
       category: "apps",
+      singleApp: true,          // Install as ONE app, not a folder of apps
+      appName: "iPhone App Simulator",
       zipUrl: "https://github.com/sayedaljohon/MicTab-Apps/archive/refs/heads/main.zip",
       commitApiUrl: "https://api.github.com/repos/sayedaljohon/MicTab-Apps/commits/main",
     },
@@ -1229,7 +1231,51 @@ function setupAppStoreIpc() {
       rootFolder = path.join(extractDir, entries[0]);
     }
 
-    // If we already have a folder (reload case), collect existing game IDs
+    // ── SINGLE-APP MODE (e.g. iPhone App Simulator) ───────────────
+    if (col.singleApp) {
+      const stableId = `collection_${col.id}_app`;
+      const destDir = path.join(getAppsDir(), stableId);
+
+      // Copy the whole extracted folder to apps dir
+      if (fs.existsSync(destDir)) fs.rmSync(destDir, { recursive: true, force: true });
+      copyDirRecursive(rootFolder, destDir);
+      _cleanMacOSArtifacts(destDir);
+
+      // Use appicon.webp from the repo if present
+      let iconName = null;
+      for (const iconFile of ["appicon.webp", "appicon.png", "appicon.jpg", "appicon.svg"]) {
+        if (fs.existsSync(path.join(destDir, iconFile))) { iconName = iconFile; break; }
+      }
+
+      // Register / update the single app entry
+      const reg = loadRegistry();
+      const existingIdx = reg.findIndex(a => a.id === stableId);
+      const entry = {
+        id: stableId,
+        name: col.appName || col.name,
+        entry: "index.html",
+        category: col.category,
+        collectionId: col.id,
+        installedAt: Date.now(),
+      };
+      if (iconName) entry.icon = iconName;
+
+      if (existingIdx !== -1) reg[existingIdx] = entry;
+      else reg.push(entry);
+      saveRegistry(reg);
+
+      if (latestSha) store.set(`collection.${col.id}.sha`, latestSha);
+      // Store stableId as "folderId" so status checks work
+      setCollectionFolderId(col.id, stableId);
+
+      // Cleanup temp
+      try { fs.rmSync(tempZipPath, { force: true }); } catch {}
+      try { fs.rmSync(extractDir, { recursive: true, force: true }); } catch {}
+
+      return { updated: true, newCount: 1, folderId: stableId };
+    }
+
+
     const registry = loadRegistry();
     const existingGameIds = existingFolderId
       ? registry.filter(a => a.folderId === existingFolderId && !a.isFolder).map(a => a.id)
