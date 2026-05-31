@@ -1157,6 +1157,13 @@ function setupAppStoreIpc() {
       zipUrl: "https://github.com/he-is-talha/html-css-javascript-games/archive/refs/heads/main.zip",
       commitApiUrl: "https://api.github.com/repos/he-is-talha/html-css-javascript-games/commits/main",
     },
+    {
+      id: "iphone-simulator",
+      name: "iPhone App Simulator",
+      category: "apps",
+      zipUrl: "https://github.com/sayedaljohon/MicTab-Apps/archive/refs/heads/main.zip",
+      commitApiUrl: "https://api.github.com/repos/sayedaljohon/MicTab-Apps/commits/main",
+    },
     // Add more collections here in the future
   ];
 

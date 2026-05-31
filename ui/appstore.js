@@ -576,6 +576,15 @@ const COLLECTIONS_REGISTRY = [
     zipUrl: "https://github.com/he-is-talha/html-css-javascript-games/archive/refs/heads/main.zip",
     commitApiUrl: "https://api.github.com/repos/he-is-talha/html-css-javascript-games/commits/main",
   },
+  {
+    id: "iphone-simulator",
+    name: "iPhone App Simulator",
+    description: "An interactive iPhone simulator with 34 app groups",
+    category: "apps",
+    icon: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="2" width="14" height="20" rx="2" ry="2"/><line x1="12" y1="18" x2="12.01" y2="18"/></svg>`,
+    zipUrl: "https://github.com/sayedaljohon/MicTab-Apps/archive/refs/heads/main.zip",
+    commitApiUrl: "https://api.github.com/repos/sayedaljohon/MicTab-Apps/commits/main",
+  },
   // ← Add more collections here in the future
 ];
 
