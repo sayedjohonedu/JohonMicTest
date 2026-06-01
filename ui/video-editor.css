@@ -255,7 +255,7 @@ html, body { width: 100%; height: 100%; overflow: hidden; background: var(--ve-b
 /* Background image grid */
 .bg-image-grid { display: flex; gap: 6px; flex-wrap: wrap; }
 .bg-image-thumb {
-  width: 44px; height: 44px; border-radius: 8px; cursor: pointer;
+  width: 100%; aspect-ratio: 1 / 1; border-radius: 8px; cursor: pointer;
   border: 2px solid transparent; overflow: hidden; transition: all 0.12s;
   display: flex; align-items: center; justify-content: center;
   background: rgba(255,255,255,0.03);
@@ -653,6 +653,23 @@ html, body { width: 100%; height: 100%; overflow: hidden; background: var(--ve-b
 .dialog-btn.primary { background: rgba(124,111,255,0.12); border-color: rgba(124,111,255,0.3); color: #b4a8ff; }
 .dialog-btn.primary:hover { background: rgba(124,111,255,0.25); }
 
+.export-action-btn {
+  flex: 1; min-width: 90px; padding: 10px 14px;
+  background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+  color: white; border: none; border-radius: 8px;
+  font: 600 12px/1 'Inter', sans-serif; cursor: pointer;
+  box-shadow: 0 4px 12px rgba(79, 70, 229, 0.3);
+  transition: all 0.2s ease;
+}
+.export-action-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 16px rgba(79, 70, 229, 0.4);
+  background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+}
+.export-action-btn:active {
+  transform: translateY(1px);
+  box-shadow: 0 2px 6px rgba(79, 70, 229, 0.3);
+}
 /* ═══════════════════════════════════════════════════════════
    EXPORT PROGRESS OVERLAY
    ═══════════════════════════════════════════════════════════ */

@@ -18,6 +18,11 @@ const S = {
   autoZoomApplied: false,
 };
 
+try {
+  const savedVp = JSON.parse(localStorage.getItem('veditor_viewport_state'));
+  if (savedVp) Object.assign(S.viewport, savedVp);
+} catch (e) {}
+
 /* ── Helpers ── */
 function genId() { return Math.random().toString(36).substr(2, 9); }
 function clamp(v, lo, hi) { return Math.max(lo, Math.min(hi, v)); }
@@ -40,6 +45,8 @@ function snapshot() {
   S.history.push(snap);
   if (S.history.length > 80) S.history.shift();
   S.historyIdx = S.history.length - 1;
+
+  try { localStorage.setItem('veditor_viewport_state', JSON.stringify(S.viewport)); } catch (e) {}
 }
 function undo() {
   if (S.historyIdx <= 0) return false;
@@ -414,37 +421,59 @@ function renderFrame(canvas, video) {
   // ── Background layer (Static) ──
   if (bgMode === 'blur') {
     ctx.save();
-    const bgScale = Math.max(cw / vw, ch / vh);
+    const sigma = blurIntensity || 30;
+    const blurPx = Math.round(sigma * 0.8);
+    const margin = blurPx * 2.5; // Expand beyond canvas to hide blur edge artifacts
+    const targetW = cw + margin * 2;
+    const targetH = ch + margin * 2;
+    const bgScale = Math.max(targetW / vw, targetH / vh);
     const bw = vw * bgScale, bh = vh * bgScale;
     const bx = (cw - bw) / 2, by = (ch - bh) / 2;
-    const sigma = blurIntensity || 30;
-    ctx.filter = `blur(${Math.round(sigma * 0.8)}px) brightness(0.5)`;
-    ctx.drawImage(video, bx - 10, by - 10, bw + 20, bh + 20);
+    
+    ctx.filter = `blur(${blurPx}px) brightness(0.5)`;
+    ctx.drawImage(video, bx, by, bw, bh);
     ctx.restore();
   } else if (bgMode === 'image' && bgImageObj) {
     ctx.save();
+    const blurPx = blurIntensity > 0 ? Math.round(blurIntensity * 0.5) : 0;
+    const margin = blurPx * 2.5; // Expand beyond canvas to hide blur edge artifacts
+    const targetW = cw + margin * 2;
+    const targetH = ch + margin * 2;
+    
     const iAR = bgImageObj.naturalWidth / bgImageObj.naturalHeight;
-    const cAR = cw / ch;
+    const cAR = targetW / targetH;
     let sx = 0, sy = 0, sw = bgImageObj.naturalWidth, sh = bgImageObj.naturalHeight;
-    if (iAR > cAR) { sw = bgImageObj.naturalHeight * cAR; sx = (bgImageObj.naturalWidth - sw) / 2; }
-    else { sh = bgImageObj.naturalWidth / cAR; sy = (bgImageObj.naturalHeight - sh) / 2; }
-    ctx.drawImage(bgImageObj, sx, sy, sw, sh, 0, 0, cw, ch);
-    if (blurIntensity > 0) {
-      ctx.filter = `blur(${Math.round(blurIntensity * 0.5)}px)`;
-      ctx.drawImage(bgImageObj, sx, sy, sw, sh, -6, -6, cw + 12, ch + 12);
+    
+    if (iAR > cAR) { 
+      sw = bgImageObj.naturalHeight * cAR; 
+      sx = (bgImageObj.naturalWidth - sw) / 2; 
+    } else { 
+      sh = bgImageObj.naturalWidth / cAR; 
+      sy = (bgImageObj.naturalHeight - sh) / 2; 
     }
+    
+    if (blurPx > 0) ctx.filter = `blur(${blurPx}px)`;
+    ctx.drawImage(bgImageObj, sx, sy, sw, sh, -margin, -margin, targetW, targetH);
     ctx.restore();
   } else if (bg && bg !== 'none') {
     if (bg.startsWith('linear-gradient')) {
-      const m = bg.match(/linear-gradient\(([^,]+),([^,)]+),([^)]+)\)/);
-      if (m) {
-        const angle = parseFloat(m[1]) * Math.PI / 180;
-        const x0 = cw/2 - Math.cos(angle)*cw/2, y0 = ch/2 - Math.sin(angle)*ch/2;
-        const x1 = cw/2 + Math.cos(angle)*cw/2, y1 = ch/2 + Math.sin(angle)*ch/2;
-        const grad = ctx.createLinearGradient(x0, y0, x1, y1);
-        grad.addColorStop(0, m[2].trim()); grad.addColorStop(1, m[3].trim());
-        ctx.fillStyle = grad;
-      } else { ctx.fillStyle = '#0f0f1a'; }
+      try {
+        const m = bg.match(/linear-gradient\(([^,]+),([^,)]+),([^)]+)\)/);
+        if (m) {
+          const angle = parseFloat(m[1]) * Math.PI / 180;
+          const x0 = cw/2 - Math.cos(angle)*cw/2, y0 = ch/2 - Math.sin(angle)*ch/2;
+          const x1 = cw/2 + Math.cos(angle)*cw/2, y1 = ch/2 + Math.sin(angle)*ch/2;
+          const grad = ctx.createLinearGradient(x0, y0, x1, y1);
+          const color1 = m[2].trim().split(/\s+/)[0];
+          const color2 = m[3].trim().split(/\s+/)[0];
+          grad.addColorStop(0, color1);
+          grad.addColorStop(1, color2);
+          ctx.fillStyle = grad;
+        } else { ctx.fillStyle = '#0f0f1a'; }
+      } catch (err) {
+        console.warn('Failed to parse linear-gradient editor background, falling back:', err);
+        ctx.fillStyle = '#0f0f1a';
+      }
     } else { ctx.fillStyle = bg; }
     ctx.fillRect(0, 0, cw, ch);
   }

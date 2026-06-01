@@ -218,7 +218,7 @@ function setupEditorIpc() {
         '-i', appendFilePath,
         '-filter_complex', filterComplex,
         ...mapArgs,
-        '-c:v', 'libx264', '-preset', 'superfast', '-crf', '24',
+        '-c:v', 'libx264', '-preset', 'fast', '-crf', '18',
         ...(hasAudio ? ['-c:a', 'aac'] : []),
         '-y', outPath
       ];
@@ -276,6 +276,13 @@ function setupEditorIpc() {
   // Export video — applies all edits (cuts, deletions, muting, zoom)
   ipcMain.handle('veditor-export', async (_, opts) => {
     try {
+      if (opts && opts.fastMode) {
+        const fastExport = require('./fast-export');
+        return fastExport.runFastExport(opts, editorWindow, (proc) => {
+          activeExportProc = proc;
+        });
+      }
+
       const { filePath, format, filename: rawFilename, segments, mutedSegments, viewport, zoomRegions, hwaccel, fps: fpsChoice } = opts;
       const dir = path.dirname(filePath);
       // Sanitize filename: strip any accidental path components (Windows split('/') bug)
@@ -587,33 +594,33 @@ function setupEditorIpc() {
       // Format-specific encoding options (with hwaccel support)
       if (format === 'webm') {
         // Use speed 4-8 for much faster VP9 encoding
-        args.push('-c:v', 'libvpx-vp9', '-crf', '30', '-b:v', '0', '-row-mt', '1', '-threads', '8', '-speed', '4');
+        args.push('-c:v', 'libvpx-vp9', '-crf', '24', '-b:v', '0', '-row-mt', '1', '-threads', '8', '-speed', '4');
         if (hasAudio) args.push('-c:a', 'libopus');
       } else if (format === 'mp4') {
         args.push('-pix_fmt', 'yuv420p'); // Ensure compatibility with all players
         if (hw === 'gpu' || (hw === 'auto' && isMac)) {
           // GPU: use VideoToolbox on macOS, NVENC on Windows, fallback to CPU on Linux
           if (isMac) {
-            args.push('-c:v', 'h264_videotoolbox', '-q:v', '65');
+            args.push('-c:v', 'h264_videotoolbox', '-q:v', '85');
           } else if (isWin) {
-            args.push('-c:v', 'h264_nvenc', '-preset', 'p4', '-cq', '23');
+            args.push('-c:v', 'h264_nvenc', '-preset', 'p4', '-cq', '19');
           } else {
-            args.push('-c:v', 'libx264', '-preset', 'fast', '-crf', '23');
+            args.push('-c:v', 'libx264', '-preset', 'fast', '-crf', '18');
           }
         } else {
-          args.push('-c:v', 'libx264', '-preset', 'fast', '-crf', '23');
+          args.push('-c:v', 'libx264', '-preset', 'fast', '-crf', '18');
         }
         if (hasAudio) args.push('-c:a', 'aac', '-b:a', '192k');
       } else if (format === 'mov') {
         args.push('-pix_fmt', 'yuv420p'); // Ensure compatibility with all players
         if (hw === 'gpu' || (hw === 'auto' && isMac)) {
           if (isMac) {
-            args.push('-c:v', 'h264_videotoolbox', '-q:v', '65');
+            args.push('-c:v', 'h264_videotoolbox', '-q:v', '85');
           } else {
-            args.push('-c:v', 'libx264', '-preset', 'fast', '-crf', '23');
+            args.push('-c:v', 'libx264', '-preset', 'fast', '-crf', '18');
           }
         } else {
-          args.push('-c:v', 'libx264', '-preset', 'fast', '-crf', '23');
+          args.push('-c:v', 'libx264', '-preset', 'fast', '-crf', '18');
         }
         if (hasAudio) args.push('-c:a', 'aac', '-b:a', '192k');
       } else if (format === 'gif') {

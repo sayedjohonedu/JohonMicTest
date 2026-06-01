@@ -796,7 +796,7 @@ const ALL_WALLPAPERS = [
   "waldrebell-trees-5899195_1920.jpg"
 ];
 
-let _CURRENT_WALLPAPERS = [...ALL_WALLPAPERS].sort(() => 0.5 - Math.random()).slice(0, 11);
+let _CURRENT_WALLPAPERS = [...ALL_WALLPAPERS].sort(() => 0.5 - Math.random()).slice(0, 14);
 
 function getGlobalSettingsHTML() {
   const AR_PRESETS = [
@@ -868,7 +868,7 @@ function getGlobalSettingsHTML() {
             Shuffle
           </button>
         </div>
-        <div class="bg-image-grid" id="bg-image-grid" style="display:grid;grid-template-columns:repeat(6,1fr);gap:4px">
+        <div class="bg-image-grid" id="bg-image-grid" style="display:grid;grid-template-columns:repeat(5,1fr);gap:4px">
           ${_CURRENT_WALLPAPERS.map(p=>`<div class="bg-image-thumb preset${S.viewport.bgMode==='image'&&S.viewport.bgImageSrc==='../assets/walpaper/'+p?' active':''}" data-src="../assets/walpaper/${p}" title="${p}"><img src="../assets/walpaper/${p}" alt="${p}" style="pointer-events:none;"></div>`).join('')}
           <label class="bg-image-thumb upload" title="Upload image">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
@@ -1046,7 +1046,7 @@ function wireGlobalSettingsEvents() {
   const btnShuffle = $('btn-shuffle-images');
   if (btnShuffle) {
     btnShuffle.addEventListener('click', () => {
-      _CURRENT_WALLPAPERS = [...ALL_WALLPAPERS].sort(() => 0.5 - Math.random()).slice(0, 11);
+      _CURRENT_WALLPAPERS = [...ALL_WALLPAPERS].sort(() => 0.5 - Math.random()).slice(0, 14);
       const grid = $('bg-image-grid');
       if (grid) {
         const uploadHtml = `
@@ -1699,6 +1699,13 @@ function showFFmpegDownloadModal() {
         errorEl.textContent = '⚠ Download failed: ' + (err.message || 'Network error. Check your internet connection and try again.');
       }
     });
+
+    // Automatically trigger the download
+    setTimeout(() => {
+      if (!downloadBtn.disabled) {
+        downloadBtn.click();
+      }
+    }, 100);
   });
 }
 
@@ -1718,15 +1725,98 @@ async function ensureFFmpeg() {
   return showFFmpegDownloadModal();
 }
 
+/* ── Helpers for Fast Export: render static styles once ── */
+async function generateBackgroundLayoutDataUrl(cw, ch) {
+  const canvas = document.createElement('canvas');
+  canvas.width = cw;
+  canvas.height = ch;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return null;
+
+  const vw = video.videoWidth, vh = video.videoHeight;
+  const { radius, padding, shadow, bg, aspectRatio, bgMode, blurIntensity, bgImageSrc } = S.viewport;
+
+  if (bgMode === 'blur') {
+    // Dynamic blur is handled by FFmpeg filter complex natively
+    return null;
+  }
+
+  if (bgMode === 'image' && bgImageSrc) {
+    if (!bgImageObj || bgImageObj.src !== bgImageSrc) {
+      await new Promise((resolve) => {
+        const img = new Image();
+        img.onload = () => {
+          bgImageObj = img;
+          resolve();
+        };
+        img.onerror = () => resolve();
+        img.src = bgImageSrc;
+      });
+    }
+  }
+
+  // Background layer (exactly matches renderFrame)
+  if (bgMode === 'image' && bgImageObj) {
+    ctx.save();
+    const iAR = bgImageObj.naturalWidth / bgImageObj.naturalHeight;
+    const cAR = cw / ch;
+    let sx = 0, sy = 0, sw = bgImageObj.naturalWidth, sh = bgImageObj.naturalHeight;
+    if (iAR > cAR) { sw = bgImageObj.naturalHeight * cAR; sx = (bgImageObj.naturalWidth - sw) / 2; }
+    else { sh = bgImageObj.naturalWidth / cAR; sy = (bgImageObj.naturalHeight - sh) / 2; }
+    ctx.drawImage(bgImageObj, sx, sy, sw, sh, 0, 0, cw, ch);
+    if (blurIntensity > 0) {
+      ctx.filter = `blur(${Math.round(blurIntensity * 0.5)}px)`;
+      ctx.drawImage(bgImageObj, sx, sy, sw, sh, -6, -6, cw + 12, ch + 12);
+    }
+    ctx.restore();
+  } else if (bg && bg !== 'none') {
+    if (bg.startsWith('linear-gradient')) {
+      try {
+        const m = bg.match(/linear-gradient\(([^,]+),([^,)]+),([^)]+)\)/);
+        if (m) {
+          const angle = parseFloat(m[1]) * Math.PI / 180;
+          const x0 = cw/2 - Math.cos(angle)*cw/2, y0 = ch/2 - Math.sin(angle)*ch/2;
+          const x1 = cw/2 + Math.cos(angle)*cw/2, y1 = ch/2 + Math.sin(angle)*ch/2;
+          const grad = ctx.createLinearGradient(x0, y0, x1, y1);
+          const color1 = m[2].trim().split(/\s+/)[0];
+          const color2 = m[3].trim().split(/\s+/)[0];
+          grad.addColorStop(0, color1);
+          grad.addColorStop(1, color2);
+          ctx.fillStyle = grad;
+        } else { ctx.fillStyle = '#0f0f1a'; }
+      } catch (err) {
+        console.warn('Failed to parse linear-gradient layout background, falling back:', err);
+        ctx.fillStyle = '#0f0f1a';
+      }
+    } else { ctx.fillStyle = bg; }
+    ctx.fillRect(0, 0, cw, ch);
+  }
+  return canvas.toDataURL('image/png');
+}
+
+function generateCornerRadiusMaskDataUrl(dw, dh, radius) {
+  const canvas = document.createElement('canvas');
+  canvas.width = dw;
+  canvas.height = dh;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return null;
+
+  ctx.fillStyle = '#000000';
+  ctx.fillRect(0, 0, dw, dh);
+  ctx.fillStyle = '#ffffff';
+  ctx.beginPath();
+  const r = Math.min(radius, dw/2, dh/2);
+  ctx.roundRect(0, 0, dw, dh, r);
+  ctx.fill();
+  return canvas.toDataURL('image/png');
+}
+
 async function showExportDialog() {
   // ── Step 1: Ensure FFmpeg is available ──
   const ffmpegReady = await ensureFFmpeg();
   if (!ffmpegReady) return; // User cancelled the FFmpeg download
   const srcName = S.filePath.replace(/\\/g, '/').split('/').pop().replace(/\.[^.]+$/, '');
   const defaultName = srcName + '-edited';
-  const hasZoom = S.zoomKeyframes.length > 0;
-
-  const isUnedited = S.segments.length === 1 && S.segments[0].startSec < 0.05 && S.segments.filter(s => s.isMuted).length === 0;
 
   let hwInfoHtml = '';
   let hasGpu = true;
@@ -1746,81 +1836,114 @@ async function showExportDialog() {
       console.warn('Failed to fetch hardware info:', e);
     }
   }
-      const overlay = document.createElement('div');
-      overlay.className = 'dialog-overlay';
-      overlay.innerHTML = `
-        <div class="dialog-box">
-          <div class="dialog-title">Export Video</div>
-          <div class="dialog-sub">Choose a name, format, and hardware acceleration mode.</div>
-          <div style="margin-bottom:14px">
-            <label style="font:500 10px/1 'Inter',sans-serif; color:#6b7280; display:block; margin-bottom:6px">Filename</label>
-            <input type="text" id="export-filename" value="${defaultName}" style="
-              width:100%; padding:8px 12px; border-radius:8px; border:1px solid #1e1e2a;
-              background:rgba(255,255,255,0.03); color:#e2e2e8; font:500 12px/1 'Inter',sans-serif;
-              outline:none;
-            " />
-          </div>
-          <label style="font:500 10px/1 'Inter',sans-serif; color:#6b7280; display:block; margin-bottom:6px">Hardware Acceleration</label>
-          ${hwInfoHtml}
-          <div class="hw-selector" id="hw-selector">
-            <div class="hw-option ${hasGpu ? 'active' : ''}" data-hw="auto">
-              <span class="hw-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg></span>
-              <span class="hw-label">Auto</span>
-            </div>
-            <div class="hw-option ${!hasGpu ? 'active' : ''}" data-hw="cpu">
-              <span class="hw-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="4" width="16" height="16" rx="2"/><rect x="9" y="9" width="6" height="6"/><path d="M15 2v2M9 2v2M15 20v2M9 20v2M2 15h2M2 9h2M20 15h2M20 9h2"/></svg></span>
-              <span class="hw-label">CPU</span>
-            </div>
-            ${hasGpu ? `
-            <div class="hw-option" data-hw="gpu">
-              <span class="hw-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="6" width="20" height="12" rx="2"/><path d="M6 12h.01M10 12h.01M14 12h4"/></svg></span>
-              <span class="hw-label">GPU</span>
-            </div>
-            ` : ''}
-          </div>
-          <label style="font:500 10px/1 'Inter',sans-serif; color:#6b7280; display:block; margin-bottom:6px; margin-top:12px">Frame Rate</label>
-          <div style="display:flex; gap:6px; margin-bottom:14px;" id="fps-selector">
-            ${['source','24','30','60'].map((f, i) => `
-              <div data-fps="${f}" style="
-                flex:1; text-align:center; padding:6px 4px; border-radius:7px; cursor:pointer;
-                border:1px solid ${i === 0 ? 'rgba(99,102,241,0.5)' : 'rgba(255,255,255,0.07)'};
-                background:${i === 0 ? 'rgba(99,102,241,0.12)' : 'rgba(255,255,255,0.02)'};
-                font:${i === 0 ? '600' : '500'} 10px/1 'Inter',sans-serif;
-                color:${i === 0 ? '#818cf8' : '#6b7280'};
-                transition:all .15s;
-              ">${f === 'source' ? 'Source' : f + ' fps'}</div>`).join('')}
-          </div>
-          ${hasZoom ? `
-          <div style="margin-bottom:14px; padding:10px 12px; border-radius:8px; border:1px solid rgba(139,92,246,0.2); background:rgba(139,92,246,0.05);">
-            <label style="display:flex; align-items:center; gap:8px; cursor:pointer;">
-              <input type="checkbox" id="export-zoom-canvas" style="accent-color:#8b5cf6; width:14px; height:14px;">
-              <div>
-                <div style="font:600 10px/1 'Inter',sans-serif; color:rgba(139,92,246,0.9);">Include Zoom Keyframes (Slower Export)</div>
-                <div style="font:400 9px/1.3 'Inter',sans-serif; color:rgba(139,92,246,0.4); margin-top:3px;">Render dynamic cursor-tracking zooms. Leave unchecked to <b>ignore zooms</b> and export extremely fast.</div>
-              </div>
-            </label>
-          </div>
-          ` : ''}
-          <div style="display:flex; gap:6px; flex-wrap:wrap; margin-bottom:16px;">
-            <button class="dialog-btn ${isUnedited && !hasZoom ? 'primary' : ''}" data-fmt="webm">WebM ${isUnedited && !hasZoom ? '(Instant)' : ''}</button>
-            <button class="dialog-btn ${!isUnedited || hasZoom ? 'primary' : ''}" data-fmt="mp4">MP4 ${!isUnedited || hasZoom ? '(Fast HW)' : ''}</button>
-            <button class="dialog-btn" data-fmt="gif">GIF</button>
-            <button class="dialog-btn" data-fmt="mov">MOV</button>
-          </div>
-          <div class="dialog-actions">
-            <button class="dialog-btn" id="export-cancel">Cancel</button>
-          </div>
-        </div>`;
+  const overlay = document.createElement('div');
+  overlay.className = 'dialog-overlay';
+  overlay.innerHTML = `
+    <div class="dialog-box">
+      <div class="dialog-title">Export Video</div>
+      <div class="dialog-sub">Choose render mode, name, format, and hardware options.</div>
+      <div style="margin-bottom:14px">
+        <label style="font:500 10px/1 'Inter',sans-serif; color:#6b7280; display:block; margin-bottom:6px">Filename</label>
+        <input type="text" id="export-filename" value="${defaultName}" style="
+          width:100%; padding:8px 12px; border-radius:8px; border:1px solid #1e1e2a;
+          background:rgba(255,255,255,0.03); color:#e2e2e8; font:500 12px/1 'Inter',sans-serif;
+          outline:none;
+        " />
+      </div>
+
+      <label style="font:500 10px/1 'Inter',sans-serif; color:#6b7280; display:block; margin-bottom:6px">Render Mode</label>
+      <div style="display:flex; gap:6px; margin-bottom:14px;" id="render-mode-selector">
+        <div data-mode="fast" class="hw-option active" style="
+          flex:1; padding:8px 10px; border-radius:8px; cursor:pointer;
+          transition:all .15s; text-align:left; display:flex; flex-direction:column;
+        ">
+          <div style="font:600 11px/1.2 'Inter',sans-serif; color:#818cf8;">Fast Export</div>
+          <div style="font:400 9px/1.3 'Inter',sans-serif; color:rgba(255,255,255,0.4); margin-top:2px; white-space:normal;">Ultra-fast native render, ignores zooms.</div>
+        </div>
+        <div data-mode="slow" class="hw-option" style="
+          flex:1; padding:8px 10px; border-radius:8px; cursor:pointer;
+          transition:all .15s; text-align:left; display:flex; flex-direction:column;
+        ">
+          <div style="font:500 11px/1.2 'Inter',sans-serif; color:#6b7280;">Original Export</div>
+          <div style="font:400 9px/1.3 'Inter',sans-serif; color:rgba(255,255,255,0.4); margin-top:2px; white-space:normal;">Slower canvas render, includes dynamic zooms.</div>
+        </div>
+      </div>
+
+
+      <label style="font:500 10px/1 'Inter',sans-serif; color:#6b7280; display:block; margin-bottom:6px">Hardware Acceleration</label>
+      ${hwInfoHtml}
+      <div class="hw-selector" id="hw-selector">
+        <div class="hw-option ${hasGpu ? 'active' : ''}" data-hw="auto">
+          <span class="hw-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg></span>
+          <span class="hw-label">Auto</span>
+        </div>
+        <div class="hw-option ${!hasGpu ? 'active' : ''}" data-hw="cpu">
+          <span class="hw-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="4" width="16" height="16" rx="2"/><rect x="9" y="9" width="6" height="6"/><path d="M15 2v2M9 2v2M15 20v2M9 20v2M2 15h2M2 9h2M20 15h2M20 9h2"/></svg></span>
+          <span class="hw-label">CPU</span>
+        </div>
+        ${hasGpu ? `
+        <div class="hw-option" data-hw="gpu">
+          <span class="hw-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="6" width="20" height="12" rx="2"/><path d="M6 12h.01M10 12h.01M14 12h4"/></svg></span>
+          <span class="hw-label">GPU</span>
+        </div>
+        ` : ''}
+      </div>
+      <label style="font:500 10px/1 'Inter',sans-serif; color:#6b7280; display:block; margin-bottom:6px; margin-top:12px">Frame Rate</label>
+      <div style="display:flex; gap:6px; margin-bottom:14px;" id="fps-selector">
+        ${['source','24','30','60'].map((f, i) => `
+          <div data-fps="${f}" style="
+            flex:1; text-align:center; padding:6px 4px; border-radius:7px; cursor:pointer;
+            border:1px solid ${i === 0 ? 'rgba(99,102,241,0.5)' : 'rgba(255,255,255,0.07)'};
+            background:${i === 0 ? 'rgba(99,102,241,0.12)' : 'rgba(255,255,255,0.02)'};
+            font:${i === 0 ? '600' : '500'} 10px/1 'Inter',sans-serif;
+            color:${i === 0 ? '#818cf8' : '#6b7280'};
+            transition:all .15s;
+          ">${f === 'source' ? 'Source' : f + ' fps'}</div>`).join('')}
+      </div>
+      <div style="text-align:center; margin:24px 0 16px 0; border-top:1px solid rgba(255,255,255,0.05); padding-top:20px;">
+        <div style="font:500 11px/1 'Inter',sans-serif; color:rgba(255,255,255,0.6); margin-bottom:12px;">Select format to start exporting:</div>
+        <div style="display:flex; gap:8px; justify-content:center; flex-wrap:wrap;">
+          <button class="export-action-btn" data-fmt="webm">Export WebM</button>
+          <button class="export-action-btn" data-fmt="mp4">Export MP4</button>
+          <button class="export-action-btn" data-fmt="gif">Export GIF</button>
+          <button class="export-action-btn" data-fmt="mov">Export MOV</button>
+        </div>
+      </div>
+      <div class="dialog-actions">
+        <button class="dialog-btn" id="export-cancel">Cancel</button>
+      </div>
+    </div>`;
   document.body.appendChild(overlay);
 
   const nameInput = overlay.querySelector('#export-filename');
   nameInput.focus(); nameInput.select();
 
+  // Render Mode selector
+  let selectedMode = 'fast';
+  overlay.querySelectorAll('#render-mode-selector .hw-option').forEach(opt => {
+    opt.addEventListener('click', () => {
+      overlay.querySelectorAll('#render-mode-selector .hw-option').forEach(o => {
+        o.classList.remove('active');
+        const label = o.querySelector('div');
+        if (label) label.style.color = '#6b7280';
+        o.style.border = '1px solid rgba(255,255,255,0.07)';
+        o.style.background = 'rgba(255,255,255,0.02)';
+      });
+      opt.classList.add('active');
+      const activeLabel = opt.querySelector('div');
+      if (activeLabel) activeLabel.style.color = '#818cf8';
+      opt.style.border = '1px solid rgba(99,102,241,0.5)';
+      opt.style.background = 'rgba(99,102,241,0.12)';
+      
+      selectedMode = opt.dataset.mode;
+    });
+  });
+
   // HW selector
   let selectedHw = 'auto';
-  overlay.querySelectorAll('.hw-option').forEach(opt => {
+  overlay.querySelectorAll('#hw-selector .hw-option').forEach(opt => {
     opt.addEventListener('click', () => {
-      overlay.querySelectorAll('.hw-option').forEach(o => o.classList.remove('active'));
+      overlay.querySelectorAll('#hw-selector .hw-option').forEach(o => o.classList.remove('active'));
       opt.classList.add('active');
       selectedHw = opt.dataset.hw;
     });
@@ -1845,8 +1968,10 @@ async function showExportDialog() {
   overlay.querySelectorAll('[data-fmt]').forEach(btn => {
     btn.addEventListener('click', () => {
       const name = nameInput.value.trim() || defaultName;
-      const zoomCanvasCheckbox = overlay.querySelector('#export-zoom-canvas');
-      const useCanvasZoom = zoomCanvasCheckbox ? zoomCanvasCheckbox.checked : false;
+      const includePadding = S.viewport.aspectRatio !== 'original' || S.viewport.padding > 0 || S.viewport.bgMode !== 'color' || (S.viewport.bg && S.viewport.bg !== 'none');
+      const includeRadius = S.viewport.radius > 0;
+      const includeShadow = S.viewport.shadow > 0;
+
       overlay.remove();
 
       // Save custom gradient to history on export
@@ -1867,7 +1992,11 @@ async function showExportDialog() {
         updateInspector();
       }
 
-      doExport(btn.dataset.fmt, name, selectedHw, useCanvasZoom, selectedFps);
+      doExport(btn.dataset.fmt, name, selectedHw, selectedMode, selectedFps, {
+        includePadding,
+        includeRadius,
+        includeShadow
+      });
     });
   });
 }
@@ -1928,27 +2057,72 @@ function removeExportProgress() {
   if (exportProgressOverlay) { exportProgressOverlay.remove(); exportProgressOverlay = null; }
 }
 
-async function doExport(format, filename, hwaccel, useCanvasZoom, fpsChoice) {
+async function doExport(format, filename, hwaccel, renderMode, fpsChoice, fastStyleOpts) {
   saveProject();
 
-  // Route to canvas frame pipeline if zoom regions exist and user wants them
-  const hasZoom = S.zoomKeyframes.length > 0;
-  if (hasZoom && useCanvasZoom) {
+  if (renderMode === 'slow') {
     return canvasFrameExport(format, filename, hwaccel, fpsChoice);
   }
 
-  // Standard FFmpeg-only pipeline (super fast natively via filter_complex)
+  // Fast mode:
   showExportProgress(format);
   if (window.veditor && window.veditor.exportVideo) {
     try {
+      // Calculate layout dimensions
+      const vw = video.videoWidth, vh = video.videoHeight;
+      const ar = S.viewport.aspectRatio || 'original';
+      const sourceAR = vw / vh;
+      const arMap = { '16:9': 16/9, '9:16': 9/16, '1:1': 1, '4:3': 4/3, '3:4': 3/4, '4:5': 4/5, '21:9': 21/9 };
+      const targetAR = arMap[ar] || sourceAR;
+      const maxW = Math.min(vw, 1920), maxH = Math.min(vh, 1080);
+      let cw, ch;
+      if (Math.abs(targetAR - sourceAR) < 0.01) { cw = maxW; ch = maxH; }
+      else if (targetAR > sourceAR) { ch = maxH; cw = Math.round(ch * targetAR); }
+      else { cw = maxW; ch = Math.round(cw / targetAR); }
+      cw = cw % 2 === 0 ? cw : cw + 1;
+      ch = ch % 2 === 0 ? ch : ch + 1;
+
+      const pad = S.viewport.padding;
+      const availW = cw - pad * 2, availH = ch - pad * 2;
+      const scaleToFit = Math.min(availW / vw, availH / vh);
+      let dw = Math.round(vw * scaleToFit);
+      let dh = Math.round(vh * scaleToFit);
+      dw = dw % 2 === 0 ? dw : dw - 1;
+      dh = dh % 2 === 0 ? dh : dh - 1;
+
+      let bgDataUrl = null;
+      let maskDataUrl = null;
+
+      // Force layout padding to true if custom aspect ratio is chosen or layout padding is set
+      const padForce = S.viewport.padding > 0 || S.viewport.aspectRatio !== 'original';
+      const actualIncludePadding = !!(fastStyleOpts && fastStyleOpts.includePadding) || padForce;
+
+      if (actualIncludePadding) {
+        if (S.viewport.bgMode !== 'blur') {
+          bgDataUrl = await generateBackgroundLayoutDataUrl(cw, ch);
+        }
+      }
+      if (fastStyleOpts && fastStyleOpts.includeRadius) {
+        maskDataUrl = generateCornerRadiusMaskDataUrl(dw, dh, S.viewport.radius);
+      }
+
       const result = await window.veditor.exportVideo({
         filePath: S.filePath, format, filename,
         segments: S.segments,
         mutedSegments: S.segments.filter(s => s.isMuted).map(s => ({ startSec: s.startSec, endSec: s.endSec })),
         viewport: S.viewport,
-        zoomRegions: [], // Fast mode ignores zoom keyframes entirely, per user request
+        zoomRegions: [], // Fast mode ignores zoom keyframes entirely
         hwaccel: hwaccel || 'auto',
         fps: fpsChoice || 'source',
+
+        // Fast mode style parameters
+        fastMode: true,
+        includePadding: actualIncludePadding,
+        includeRadius: !!(fastStyleOpts && fastStyleOpts.includeRadius),
+        includeShadow: !!(fastStyleOpts && fastStyleOpts.includeShadow),
+        bgDataUrl,
+        maskDataUrl,
+        cw, ch, dw, dh
       });
       removeExportProgress();
       if (result && result.ok) {
