@@ -49,11 +49,9 @@ function showClipboardManager() {
         backgroundColor: '#00000000',
       }
     : {
-        transparent: false,
-        frame: false,
-        thickFrame: false,
+        titleBarStyle: 'default',
         backgroundColor: '#0D0D14',
-        hasShadow: true,
+        autoHideMenuBar: true,
       };
 
   _clipboardWindow = new BrowserWindow({

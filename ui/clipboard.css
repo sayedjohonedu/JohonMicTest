@@ -118,68 +118,14 @@ html, body {
 }
 
 .sidebar-header {
-  padding: 10px 14px 12px;
+  padding: 48px 14px 12px;
   border-bottom: 1px solid var(--border);
   -webkit-app-region: drag;
   user-select: none;
 }
 
-/* macOS-style traffic light buttons */
-.traffic-lights {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  margin-bottom: 10px;
-  -webkit-app-region: no-drag;
-}
 
-.tl-btn {
-  width: 12px;
-  height: 12px;
-  border-radius: 50%;
-  border: none;
-  cursor: pointer;
-  padding: 0;
-  position: relative;
-  transition: filter 0.15s;
-  outline: none;
-  flex-shrink: 0;
-}
-.tl-btn:hover { filter: brightness(1.25); }
 
-/* Red close */
-.tl-close {
-  background: #ff5f57;
-  box-shadow: 0 0 0 0.5px rgba(0,0,0,0.2);
-}
-/* Yellow minimize */
-.tl-min {
-  background: #ffbd2e;
-  box-shadow: 0 0 0 0.5px rgba(0,0,0,0.2);
-}
-/* Green (used as "hide") */
-.tl-max {
-  background: #28c940;
-  box-shadow: 0 0 0 0.5px rgba(0,0,0,0.2);
-}
-
-/* Show × ─ + symbols on hover */
-.tl-btn::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 8px;
-  font-weight: 800;
-  color: rgba(0,0,0,0.5);
-  opacity: 0;
-  transition: opacity 0.15s;
-}
-.traffic-lights:hover .tl-close::after { content: '✕'; opacity: 1; }
-.traffic-lights:hover .tl-min::after   { content: '─'; opacity: 1; }
-.traffic-lights:hover .tl-max::after   { content: '+'; opacity: 1; }
 
 .app-logo {
   display: flex;
@@ -322,7 +268,7 @@ html, body {
 }
 
 .content-header {
-  padding: 12px 16px 10px;
+  padding: 36px 16px 10px;
   border-bottom: 1px solid var(--border);
   display: flex;
   align-items: center;
