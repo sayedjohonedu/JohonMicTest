@@ -2194,7 +2194,12 @@ if (fontPickerTrigger) {
 }
 
 if (fontSearch) {
-  fontSearch.addEventListener('input', () => filterFontList(fontSearch.value));
+  let _fontSearchTimer = null;
+  // Debounced: prevents expensive font list DOM updates on every keystroke
+  fontSearch.addEventListener('input', () => {
+    clearTimeout(_fontSearchTimer);
+    _fontSearchTimer = setTimeout(() => filterFontList(fontSearch.value), 250);
+  });
   fontSearch.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') closeFontPicker();
     e.stopPropagation(); // prevent canvas keyboard shortcuts
