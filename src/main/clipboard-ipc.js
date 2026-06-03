@@ -40,6 +40,8 @@ function setupClipboardIpc() {
 
   ipcMain.handle('cb-get-entry-dates', () => hs.getEntryDates());
 
+  ipcMain.handle('cb-get-entry', (_, id) => hs.getEntryById(id));
+
   ipcMain.handle('cb-get-user-cats', () => {
     try {
       const meta = store.get('clipboardUserCategories') || [];

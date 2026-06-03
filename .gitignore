@@ -6,3 +6,4 @@ dist_actions/
 
 .gemini/
 gha-creds-*.json
+*.sqlite

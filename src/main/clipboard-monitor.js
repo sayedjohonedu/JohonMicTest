@@ -116,6 +116,14 @@ function _checkText() {
 }
 
 function _checkImage() {
+  // Optimization: check available formats first before doing an expensive readImage call
+  const formats = clipboard.availableFormats();
+  const hasImage = formats.some(f => f.startsWith('image/'));
+  if (!hasImage) {
+    if (_lastImgSize) _lastImgSize = '';
+    return;
+  }
+
   const img = clipboard.readImage();
   if (!img || img.isEmpty()) return;
 

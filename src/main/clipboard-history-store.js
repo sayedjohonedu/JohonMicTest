@@ -551,7 +551,10 @@ function query(options = {}) {
 
   // Get page
   const start = page * PAGE_SIZE;
-  const selectSql = `SELECT * FROM entries ${whereSql} ORDER BY timestamp DESC LIMIT ? OFFSET ?`;
+  // Performance Optimization:
+  // Select a truncated version of the text to avoid IPC lag and memory spikes when users copy large text blobs (e.g. 5MB log files).
+  // substr(text, 1, 3000) keeps the UI responsive since it only needs a preview. The full text is fetched on demand for editing.
+  const selectSql = `SELECT id, timestamp, type, substr(text, 1, 3000) as text, imagePath, isFavorite, isPinned, categories, userCategories, copyCount, byteSize, isDeleted FROM entries ${whereSql} ORDER BY timestamp DESC LIMIT ? OFFSET ?`;
   const rows = _db.prepare(selectSql).all(...params, PAGE_SIZE, start);
 
   const pageEntries = rows.map(parseEntryRow);

@@ -662,11 +662,23 @@ async function doAssignCategory(entry, catKey) {
 }
 
 // ── Edit modal ─────────────────────────────────────────────────────────────
-function openEditModal(entry) {
+async function openEditModal(entry) {
   if (entry.type !== 'text') return;
   _state.editingId = entry.id;
-  document.getElementById('edit-textarea').value = entry.text || '';
+
+  // Show modal immediately with preview text to avoid UI lag, then fetch full text
+  document.getElementById('edit-textarea').value = entry.text || 'Loading...';
   document.getElementById('edit-modal').style.display = 'flex';
+
+  try {
+    const fullEntry = await window.clipboardAPI.getEntry(entry.id);
+    if (fullEntry && fullEntry.text) {
+      document.getElementById('edit-textarea').value = fullEntry.text;
+    }
+  } catch (e) {
+    console.warn('[CB] Failed to fetch full entry text:', e);
+  }
+
   setTimeout(() => document.getElementById('edit-textarea').focus(), 100);
 }
 

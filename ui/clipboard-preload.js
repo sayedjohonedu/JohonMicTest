@@ -14,6 +14,7 @@ contextBridge.exposeInMainWorld('clipboardAPI', {
   getHistory:     (opts)        => ipcRenderer.invoke('cb-get-history', opts),
   getStats:       ()            => ipcRenderer.invoke('cb-get-stats'),
   getEntryDates:  ()            => ipcRenderer.invoke('cb-get-entry-dates'),
+  getEntry:       (id)          => ipcRenderer.invoke('cb-get-entry', id),
   getUserCats:    ()            => ipcRenderer.invoke('cb-get-user-cats'),
 
   // ── Actions ──────────────────────────────────────────────────────────────
