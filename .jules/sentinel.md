@@ -1,0 +1,4 @@
+## 2025-06-03 - [Fix] Disable Node Integration in Bridge Error Window
+**Vulnerability:** Node Integration was enabled (`nodeIntegration: true`, `contextIsolation: false`) on a `BrowserWindow` handling an error page (`bridge-error.html`), and it used inline require statements (`require('electron').shell.openExternal(url)`).
+**Learning:** `BrowserWindow` instances should never have `nodeIntegration: true` as it exposes full Node.js APIs to the renderer context, which is a major security risk (RCE) if the renderer ever executes untrusted content.
+**Prevention:** Always set `nodeIntegration: false` and `contextIsolation: true`. Use preload scripts and `contextBridge.exposeInMainWorld` to expose specific, safe APIs to the renderer. Use `ipcMain.on` in main process and `ipcRenderer.send` in preload script.

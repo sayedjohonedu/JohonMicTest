@@ -545,7 +545,9 @@
   <script>
     function openUrl(url) {
       try {
-        require('electron').shell.openExternal(url);
+        if (window.bridgeAPI && window.bridgeAPI.openUrl) {
+          window.bridgeAPI.openUrl(url);
+        }
       } catch (e) { }
     }
   </script>
