@@ -21,6 +21,7 @@
         let watchdogTimer = null;    // Detects frozen recognition (isActive=true but dead)
         let lastResultTime = 0;      // When onresult last fired — used by dead detector
         let deadDetectorTimer = null; // Detects recognition alive but not producing results
+        let proactiveRestartTimer = null; // Restarts recognition proactively before ~60s timeout for non-English languages
         let restartCount = 0;        // Consecutive onend restarts without receiving results
         const MAX_RESTART_COUNT = 5;  // Stop after this many consecutive restarts without results
         
@@ -417,6 +418,28 @@
             }
         }
 
+        // --- Proactive Restart ---
+        // Chrome's server-side session expires at ~60s for non-English languages.
+        // We restart it proactively at 50s to avoid dropping words right when the server hangs up.
+        function armProactiveRestart() {
+            clearProactiveRestart();
+            // Only arm for non-English languages
+            if (currentLang && !currentLang.startsWith('en-')) {
+                proactiveRestartTimer = setTimeout(() => {
+                    if (!isActive || !recognition || isRestarting) return;
+                    console.log(`[MicTab] Proactively restarting recognition for non-English language (${currentLang}) at 50s.`);
+                    try { recognition.stop(); } catch(e) {} // Triggers onend -> hard restart
+                }, 50000); // 50 seconds
+            }
+        }
+
+        function clearProactiveRestart() {
+            if (proactiveRestartTimer) {
+                clearTimeout(proactiveRestartTimer);
+                proactiveRestartTimer = null;
+            }
+        }
+
         function startListening(lang) {
             const newLang = lang || currentLang;
 
@@ -455,6 +478,7 @@
                 armSilenceTimer();
                 armWatchdog();
                 armDeadDetector();
+                armProactiveRestart();
             });
         }
 
@@ -475,6 +499,7 @@
             clearSilenceTimer();
             clearWatchdog();
             clearDeadDetector();
+            clearProactiveRestart();
             restartCount = 0;
             if (analyserInterval) {
                 clearInterval(analyserInterval);
