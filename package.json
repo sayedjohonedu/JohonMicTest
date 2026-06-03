@@ -86,6 +86,7 @@
     "better-sqlite3": "^12.9.0",
     "electron-store": "^8.1.0",
     "electron-updater": "^6.8.3",
+    "fix-webm-duration": "^1.0.6",
     "google-translate-api-x": "^10.7.2",
     "msedge-tts": "^2.0.5",
     "node-addon-api": "^8.7.0",
