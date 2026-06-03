@@ -11,7 +11,7 @@
  */
 
 const {
-  BrowserWindow, ipcMain, app, shell, dialog, nativeImage,
+  BrowserWindow, ipcMain, app, shell, dialog, nativeImage, clipboard,
 } = require('electron');
 const path = require('path');
 const fs   = require('fs');
@@ -394,6 +394,26 @@ function setupGalleryIpc() {
       return { ok: true, filePath: galleryFilePath };
     } catch (err) {
       console.error('[Lens] Overwrite save failed:', err.message, err.stack);
+      return { ok: false, error: err.message };
+    }
+  });
+
+  // ── Copy file to clipboard ─────────────────────────────────────────────
+  ipcMain.handle('gallery-copy-to-clipboard', async (_, { filePath, fileType }) => {
+    try {
+      if (fileType === 'image') {
+        // Copy image pixels directly to clipboard
+        const img = nativeImage.createFromPath(filePath);
+        if (!img.isEmpty()) {
+          clipboard.writeImage(img);
+          return { ok: true };
+        }
+        // Fallback: write as file if nativeImage failed
+      }
+      // For videos and image fallback: write the file path as a file-URL to clipboard
+      clipboard.writeText(filePath);
+      return { ok: true };
+    } catch (err) {
       return { ok: false, error: err.message };
     }
   });

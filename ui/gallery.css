@@ -215,23 +215,6 @@ html, body { width: 100%; height: 100%; overflow: hidden; background: var(--g-bg
   background: rgba(0,0,0,0.65); color: #e2e2e8; font: 600 9px/1 'SF Mono', monospace;
 }
 
-/* Hover actions */
-.card-actions {
-  position: absolute; top: 6px; right: 6px; display: flex; gap: 3px;
-  opacity: 0; transition: opacity 0.15s;
-}
-.media-card:hover .card-actions { opacity: 1; }
-.card-action {
-  width: 24px; height: 24px; border-radius: 6px;
-  background: rgba(0,0,0,0.6); backdrop-filter: blur(8px);
-  border: 1px solid rgba(255,255,255,0.1);
-  color: #c0c5d0; cursor: pointer;
-  display: flex; align-items: center; justify-content: center;
-  transition: all 0.12s;
-}
-.card-action:hover { background: rgba(255,255,255,0.15); color: #fff; }
-.card-action.del:hover { background: rgba(239,68,68,0.3); color: #f87171; }
-
 /* ── Player View ── */
 #player-view {
   display: none; flex: 1; flex-direction: column; overflow: hidden;
@@ -367,3 +350,58 @@ html, body { width: 100%; height: 100%; overflow: hidden; background: var(--g-bg
 .confirm-btn:hover { background: rgba(255,255,255,0.1); }
 .confirm-btn.danger { background: rgba(239,68,68,0.15); border-color: rgba(239,68,68,0.3); color: #f87171; }
 .confirm-btn.danger:hover { background: rgba(239,68,68,0.3); }
+
+/* ── Right-click Context Menu ── */
+.ctx-menu {
+  position: fixed; z-index: 200;
+  min-width: 210px;
+  background: rgba(16,16,26,0.97);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 12px;
+  padding: 6px;
+  box-shadow: 0 16px 48px rgba(0,0,0,0.65), 0 4px 16px rgba(0,0,0,0.4);
+  backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+  opacity: 0; transform: scale(0.95) translateY(-4px);
+  transform-origin: top left;
+  transition: opacity 0.1s ease, transform 0.1s ease;
+  pointer-events: none;
+  user-select: none; -webkit-user-select: none;
+}
+.ctx-menu.ctx-menu-visible {
+  opacity: 1; transform: scale(1) translateY(0);
+  pointer-events: all;
+}
+.ctx-item {
+  display: flex; align-items: center; gap: 10px;
+  padding: 8px 12px; border-radius: 8px;
+  font: 500 12px/1 'Inter', sans-serif; color: #c8cdd8;
+  cursor: pointer; transition: background 0.1s, color 0.1s;
+}
+.ctx-item:hover {
+  background: rgba(255,255,255,0.08); color: #f0f0f8;
+}
+.ctx-item svg { flex-shrink: 0; color: #6b7280; transition: color 0.1s; }
+.ctx-item:hover svg { color: var(--g-accent, #7c6fff); }
+.ctx-item.danger { color: #f87171; }
+.ctx-item.danger svg { color: #f87171; }
+.ctx-item.danger:hover { background: rgba(239,68,68,0.15); color: #fca5a5; }
+.ctx-item.danger:hover svg { color: #fca5a5; }
+.ctx-sep {
+  height: 1px; background: rgba(255,255,255,0.07);
+  margin: 4px 6px;
+}
+
+/* ── Toast Notification ── */
+.gallery-toast {
+  position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%) translateY(8px);
+  background: rgba(20,20,32,0.97); border: 1px solid rgba(255,255,255,0.1);
+  color: #e2e2e8; font: 500 12px/1 'Inter', sans-serif;
+  padding: 10px 18px; border-radius: 24px;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+  opacity: 0; transition: opacity 0.2s ease, transform 0.2s ease;
+  pointer-events: none; z-index: 300; white-space: nowrap;
+}
+.gallery-toast.gallery-toast-visible {
+  opacity: 1; transform: translateX(-50%) translateY(0);
+}
+

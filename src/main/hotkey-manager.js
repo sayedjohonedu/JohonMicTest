@@ -9,6 +9,7 @@ let middleMouseTimer = null;
 let middleMousePressed = false;
 let pttStartedSession = false;
 let pttGraceTimer = null;   // Grace period timer: delays stop after PTT key release
+let pttSafetyTimer = null;  // Safety: auto-stops if keyup is missed (prevents frozen mic)
 let _pttToggleListening = null; // Stored reference to toggleListening for grace timer callback
 
 const registeredHotkeys = { keydown: [], keyup: [], mousedown: [], mouseup: [] };
@@ -108,6 +109,24 @@ function uiohookKeyName(keycode) {
     }
   }
   return uiohookKeyName._map[keycode] || String(keycode);
+}
+
+// ── PTT Safety Timer ─────────────────────────────────────────────────────────
+// macOS can silently drop keyup events during rapid key tapping (uiohook-napi
+// limitation). Without this guard, holdKeyPressed stays true forever and
+// the mic icon freezes (orange dot stuck in macOS menu bar).
+// 30 seconds is generous — any real dictation session will end before that.
+function armPttSafetyTimer(toggleListeningFn) {
+  if (pttSafetyTimer) { clearTimeout(pttSafetyTimer); pttSafetyTimer = null; }
+  pttSafetyTimer = setTimeout(() => {
+    pttSafetyTimer = null;
+    console.warn('[PTT Safety] keyup was never received — force-stopping mic session');
+    holdKeyPressed = false;
+    if (pttStartedSession) {
+      pttStartedSession = false;
+      try { toggleListeningFn(); } catch (e) {}
+    }
+  }, 30000); // 30-second hard cap
 }
 
 function registerHotkeys(toggleListening) {
@@ -342,12 +361,19 @@ function registerHotkeys(toggleListening) {
           if (pttGraceTimer) {
             clearTimeout(pttGraceTimer);
             pttGraceTimer = null;
+            // Reset safety timer too — session is still alive
+            if (pttSafetyTimer) { clearTimeout(pttSafetyTimer); pttSafetyTimer = null; }
+            armPttSafetyTimer(toggleListening);
             return; // Session is still alive, just keep listening
           }
           const isCurrentlyListening = _getIsListening ? _getIsListening() : false;
           if (!isCurrentlyListening) {
             pttStartedSession = true;
             toggleListening();
+            // ── Safety timer: auto-stop if keyup is missed by uiohook-napi ──
+            // macOS can drop keyup events during rapid tapping, leaving the mic
+            // stuck on (orange dot never goes away). 30s cap prevents this.
+            armPttSafetyTimer(toggleListening);
           } else {
             pttStartedSession = false;
           }
@@ -357,6 +383,8 @@ function registerHotkeys(toggleListening) {
       addHotkey('keyup', (e) => {
         if (e.keycode === holdKeyCodeValue && holdKeyPressed) {
           holdKeyPressed = false;
+          // Keyup received — cancel safety timer, keyup was NOT missed
+          if (pttSafetyTimer) { clearTimeout(pttSafetyTimer); pttSafetyTimer = null; }
           const isCurrentlyListening = _getIsListening ? _getIsListening() : true;
           if (isCurrentlyListening && pttStartedSession) {
             const hasPending = _hasPendingText ? _hasPendingText() : false;
@@ -392,12 +420,15 @@ function registerHotkeys(toggleListening) {
         if (pttGraceTimer) {
           clearTimeout(pttGraceTimer);
           pttGraceTimer = null;
+          if (pttSafetyTimer) { clearTimeout(pttSafetyTimer); pttSafetyTimer = null; }
+          armPttSafetyTimer(toggleListening);
           return; // Session is still alive, just keep listening
         }
         const isCurrentlyListening = _getIsListening ? _getIsListening() : false;
         if (!isCurrentlyListening) {
           pttStartedSession = true;
           toggleListening();
+          armPttSafetyTimer(toggleListening);
         } else {
           pttStartedSession = false;
         }
@@ -408,6 +439,8 @@ function registerHotkeys(toggleListening) {
         if (released !== holdKeyName) return;
         if (holdKeyPressed) {
           holdKeyPressed = false;
+          // Keyup received — cancel safety timer, keyup was NOT missed
+          if (pttSafetyTimer) { clearTimeout(pttSafetyTimer); pttSafetyTimer = null; }
           const isCurrentlyListening = _getIsListening ? _getIsListening() : true;
           if (isCurrentlyListening && pttStartedSession) {
             const hasPending = _hasPendingText ? _hasPendingText() : false;
@@ -524,6 +557,11 @@ module.exports = {
       clearTimeout(pttGraceTimer);
       pttGraceTimer = null;
     }
+    if (pttSafetyTimer) {
+      clearTimeout(pttSafetyTimer);
+      pttSafetyTimer = null;
+    }
+    holdKeyPressed = false;
     if (pttStartedSession && _pttToggleListening) {
       _pttToggleListening();
       pttStartedSession = false;

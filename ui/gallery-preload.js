@@ -7,6 +7,7 @@ contextBridge.exposeInMainWorld('gallery', {
   deleteFile:       (filePath)              => ipcRenderer.invoke('gallery-delete-file', filePath),
   revealInFinder:   (filePath)              => ipcRenderer.send('gallery-reveal-in-finder', filePath),
   getSaveDir:       ()                      => ipcRenderer.invoke('gallery-get-save-dir'),
+  copyToClipboard:  (filePath, fileType)    => ipcRenderer.invoke('gallery-copy-to-clipboard', { filePath, fileType }),
 
   // FFmpeg / conversion
   checkFFmpeg:      ()                      => ipcRenderer.invoke('gallery-check-ffmpeg'),

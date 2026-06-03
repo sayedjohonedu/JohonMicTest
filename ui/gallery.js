@@ -212,20 +212,9 @@ function createCard(file) {
     </div>`;
   }
 
-  // Actions
-  const actions = `<div class="card-actions">
-    <button class="card-action" data-action="reveal" data-path="${file.path}" title="Reveal in Finder">
-      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
-    </button>
-    <button class="card-action del" data-action="delete" data-path="${file.path}" data-name="${file.name}" title="Delete">
-      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
-    </button>
-  </div>`;
-
   card.innerHTML = `
     ${thumbHtml}
     ${badge}
-    ${actions}
     <div class="card-overlay">
       <div class="card-name">${file.name}</div>
       <div class="card-meta">${formatDate(file.createdAt)} · ${formatSize(file.size)}</div>
@@ -233,14 +222,10 @@ function createCard(file) {
 
   // Click handler: Cmd/Ctrl = toggle selection, plain click = open (or select if others selected)
   card.addEventListener('click', (e) => {
-    if (e.target.closest('.card-action')) return; // don't interfere with action btns
-
     if (e.metaKey || e.ctrlKey) {
-      // Toggle this card's selection
       toggleSelect(file.path);
       e.preventDefault();
     } else if (selectedPaths.size > 0) {
-      // If there are selected items, click clears selection and opens
       clearSelection();
       openPlayer(file);
     } else {
@@ -248,14 +233,11 @@ function createCard(file) {
     }
   });
 
-  // Action buttons
-  card.querySelectorAll('.card-action').forEach(btn => {
-    btn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      const action = btn.dataset.action;
-      if (action === 'reveal') window.gallery.revealInFinder(btn.dataset.path);
-      if (action === 'delete') showDeleteConfirm(btn.dataset.path, btn.dataset.name);
-    });
+  // Right-click context menu
+  card.addEventListener('contextmenu', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    showCardContextMenu(e.clientX, e.clientY, file);
   });
 
   return card;
@@ -500,6 +482,158 @@ async function commitRename() {
     allFiles = await window.gallery.scanFiles();
     applyFilterSort();
   }
+}
+
+/* ═══════════════════════════════════════════════════════════
+   CARD CONTEXT MENU (right-click)
+   ═══════════════════════════════════════════════════════════ */
+
+let _activeCtxMenu = null;
+
+function dismissContextMenu() {
+  if (_activeCtxMenu) {
+    _activeCtxMenu.remove();
+    _activeCtxMenu = null;
+  }
+}
+
+function showCardContextMenu(x, y, file) {
+  dismissContextMenu();
+
+  const isSelected = selectedPaths.has(file.path);
+  const hasMultiSelect = selectedPaths.size > 1;
+  const openLabel = file.type === 'video' ? 'Play Video' : 'View Image';
+  const editLabel = file.type === 'video' ? 'Open in Video Editor' : 'Open in Lens Editor';
+  const clipLabel = file.type === 'image' ? 'Copy Image to Clipboard' : 'Copy File Path';
+
+  const menu = document.createElement('div');
+  menu.className = 'ctx-menu';
+  menu.setAttribute('role', 'menu');
+  menu.innerHTML = `
+    <div class="ctx-item" data-action="open">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+      <span>${openLabel}</span>
+    </div>
+    <div class="ctx-item" data-action="edit">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+      <span>${editLabel}</span>
+    </div>
+    <div class="ctx-item" data-action="select">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="m9 12 2 2 4-4"/></svg>
+      <span>${isSelected ? 'Deselect' : 'Select'}</span>
+    </div>
+    <div class="ctx-sep"></div>
+    <div class="ctx-item" data-action="reveal">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+      <span>Open File Location</span>
+    </div>
+    <div class="ctx-item" data-action="clipboard">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="2" width="6" height="4" rx="1"/><path d="M8 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2h-2"/></svg>
+      <span>${clipLabel}</span>
+    </div>
+    <div class="ctx-item" data-action="copy-path">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+      <span>Copy File Path</span>
+    </div>
+    <div class="ctx-sep"></div>
+    <div class="ctx-item danger" data-action="delete">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+      <span>Delete${hasMultiSelect && isSelected ? ` (${selectedPaths.size} selected)` : ''}</span>
+    </div>
+  `;
+
+  // Position within viewport
+  document.body.appendChild(menu);
+  const mw = menu.offsetWidth;
+  const mh = menu.offsetHeight;
+  const vw = window.innerWidth;
+  const vh = window.innerHeight;
+  const px = x + mw > vw ? vw - mw - 6 : x;
+  const py = y + mh > vh ? vh - mh - 6 : y;
+  menu.style.left = px + 'px';
+  menu.style.top  = py + 'px';
+  menu.classList.add('ctx-menu-visible');
+  _activeCtxMenu = menu;
+
+  // Handle actions
+  menu.addEventListener('click', async (e) => {
+    const item = e.target.closest('[data-action]');
+    if (!item) return;
+    const action = item.dataset.action;
+    dismissContextMenu();
+
+    switch (action) {
+      case 'open':
+        openPlayer(file);
+        break;
+      case 'edit':
+        if (file.type === 'image') window.gallery.openInLens(file.path);
+        else if (file.type === 'video') window.gallery.openEditor(file.path);
+        break;
+      case 'select':
+        toggleSelect(file.path);
+        break;
+      case 'reveal':
+        window.gallery.revealInFinder(file.path);
+        break;
+      case 'clipboard':
+        if (file.type === 'image') {
+          const r = await window.gallery.copyToClipboard(file.path, 'image');
+          showToast(r.ok ? 'Image copied to clipboard' : 'Copy failed');
+        } else {
+          const r = await window.gallery.copyToClipboard(file.path, 'file');
+          showToast(r.ok ? 'File path copied to clipboard' : 'Copy failed');
+        }
+        break;
+      case 'copy-path':
+        await window.gallery.copyToClipboard(file.path, 'file');
+        showToast('File path copied to clipboard');
+        break;
+      case 'delete':
+        if (hasMultiSelect && isSelected) {
+          showBulkDeleteConfirm();
+        } else {
+          showDeleteConfirm(file.path, file.name);
+        }
+        break;
+    }
+  });
+
+  // Dismiss on outside click or Escape
+  const outsideClick = (e) => {
+    if (!menu.contains(e.target)) {
+      dismissContextMenu();
+      document.removeEventListener('mousedown', outsideClick);
+    }
+  };
+  const escKey = (e) => {
+    if (e.key === 'Escape') {
+      dismissContextMenu();
+      document.removeEventListener('keydown', escKey);
+    }
+  };
+  // Slight delay so the current mousedown doesn't immediately dismiss
+  setTimeout(() => {
+    document.addEventListener('mousedown', outsideClick);
+    document.addEventListener('keydown', escKey);
+  }, 10);
+}
+
+/* ── Toast notification ── */
+function showToast(message) {
+  // Remove existing toasts
+  document.querySelectorAll('.gallery-toast').forEach(t => t.remove());
+
+  const toast = document.createElement('div');
+  toast.className = 'gallery-toast';
+  toast.textContent = message;
+  document.body.appendChild(toast);
+  // Trigger fade-in
+  requestAnimationFrame(() => toast.classList.add('gallery-toast-visible'));
+  setTimeout(() => {
+    toast.classList.remove('gallery-toast-visible');
+    setTimeout(() => toast.remove(), 300);
+  }, 2000);
 }
 
 /* ── Delete Confirm ── */
