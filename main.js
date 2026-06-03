@@ -36,25 +36,37 @@ const gotTheLock = app.requestSingleInstanceLock();
 
 if (!gotTheLock) {
   app.quit();
-  // We cannot use return here because we are not in a function, 
-  // but app.quit() is sufficient to begin the termination process.
 } else {
   // Primary instance: listen for second instances
   app.on('second-instance', (event, commandLine, workingDirectory) => {
     dialog.showMessageBox({
-      type: 'info',
-      title: 'MicTab',
+      type: 'warning',
+      title: 'MicTab Watchdog',
       message: 'MicTab is already running.',
-      detail: 'An instance of MicTab is already active in the background.',
+      detail: 'An instance of MicTab is already active in the background.\n\nIf the app is frozen or not responding, you can force kill it to reset everything.',
       icon: path.join(__dirname, 'assets', 'icon.png'),
-      buttons: ['Open Settings', 'Quit Existing App', 'Cancel'],
+      buttons: ['Open Settings', 'Quit App', 'Force Kill', 'Cancel'],
       defaultId: 0,
-      cancelId: 2
+      cancelId: 3
     }).then(({ response }) => {
       if (response === 0) {
         showSettings();
       } else if (response === 1) {
         app.quit();
+      } else if (response === 2) {
+        // Force kill logic
+        const { execSync } = require('child_process');
+        try {
+          if (process.platform === 'darwin') {
+            execSync('pkill -9 -f "chrome-bridge-data"');
+            execSync('pkill -9 -i mictab');
+          } else if (process.platform === 'win32') {
+            execSync('taskkill /F /IM MicTab.exe /T');
+          }
+        } catch (e) {
+          console.error('Watchdog kill failed:', e);
+        }
+        process.exit(1);
       }
     });
   });
@@ -922,6 +934,27 @@ function setupHttpServer() {
 }
 
 app.whenReady().then(() => {
+  app.on('web-contents-created', (event, contents) => {
+    contents.on('console-message', (event, messageParams, ...args) => {
+      let message, line;
+      if (typeof messageParams === 'object' && messageParams !== null) {
+        message = messageParams.message;
+        line = messageParams.line;
+      } else {
+        message = args[0];
+        line = args[1];
+      }
+      
+      let title = 'Frontend';
+      try {
+        const win = require('electron').BrowserWindow.fromWebContents(contents);
+        if (win && win.getTitle()) title = win.getTitle();
+      } catch (e) {}
+      
+      console.log(`[${title}] ${message} (line ${line})`);
+    });
+  });
+
   ipcMain.on('bridge-error-open-url', (event, url) => {
     require('electron').shell.openExternal(url);
   });
@@ -1029,9 +1062,6 @@ app.whenReady().then(() => {
 
   createTray(toggleListening, showSettings, app, switchTrayLanguage, isListening);
   createOverlay();
-  getOverlayWindow().webContents.on('console-message', (event, level, message, line, sourceId) => {
-    console.log(`[Overlay Console] ${message} (line ${line})`);
-  });
   // Wire AI instant-process trigger (Right Alt) into hotkey-manager
   setAiSendNow(processAiBufferAndContinue);
   // Wire AI mode toggle (Alt+Shift+C) into hotkey-manager

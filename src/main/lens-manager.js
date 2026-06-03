@@ -163,11 +163,6 @@ function showEditor(croppedDataUrl, region) {
     editorWindow.webContents.send('lens-load-image', croppedDataUrl);
   });
 
-  editorWindow.webContents.on('console-message', (_, level, message, line) => {
-    if (!editorWindow || editorWindow.isDestroyed()) return;
-    console.log(`[Lens Editor] ${message} (line ${line})`);
-  });
-
   editorWindow.on('closed', () => {
     editorWindow = null;
     editorDirty = false;
@@ -394,11 +389,6 @@ function showEditorFromGallery(dataUrl, originFilePath, size) {
     // Send both the image data and the original file path for overwrite-save
     editorWindow.webContents.send('lens-load-image', dataUrl);
     editorWindow.webContents.send('lens-set-origin-path', originFilePath);
-  });
-
-  editorWindow.webContents.on('console-message', (_, level, message, line) => {
-    if (!editorWindow || editorWindow.isDestroyed()) return;
-    console.log(`[Lens Editor] ${message} (line ${line})`);
   });
 
   editorWindow.on('closed', () => {
