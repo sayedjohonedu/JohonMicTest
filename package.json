@@ -9,7 +9,7 @@
     "build:mac": "electron-builder --mac",
     "build:win": "electron-builder --win",
     "postinstall": "electron-builder install-app-deps",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "jest"
   },
   "build": {
     "appId": "com.mictab.app",
@@ -103,6 +103,7 @@
     "@electron/rebuild": "^4.0.3",
     "electron": "^41.0.4",
     "electron-builder": "^26.8.1",
+    "jest": "^30.4.2",
     "sharp": "^0.34.5"
   }
 }
