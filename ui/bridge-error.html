@@ -411,7 +411,7 @@
   <div class="panel">
     <div class="titlebar"></div>
 
-    <button class="close-btn" onclick="window.close()" title="Close">
+    <button class="close-btn" onclick="window.bridgeErrorAPI.closeWindow()" title="Close">
       <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.8"
         stroke-linecap="round">
         <line x1="1" y1="1" x2="9" y2="9" />
@@ -537,7 +537,7 @@
           Email
         </a>
       </div>
-      <button class="btn-ok" onclick="window.close()">Got it</button>
+      <button class="btn-ok" onclick="window.bridgeErrorAPI.closeWindow()">Got it</button>
     </div>
 
   </div>
@@ -545,7 +545,7 @@
   <script>
     function openUrl(url) {
       try {
-        require('electron').shell.openExternal(url);
+        window.bridgeErrorAPI.openExternal(url);
       } catch (e) { }
     }
   </script>

@@ -338,8 +338,9 @@ function toggleListening(forceLang = null, fromTranslator = false, forceStart = 
       width: 520,
       height: 580,
       webPreferences: {
-        nodeIntegration: true,
-        contextIsolation: false
+        nodeIntegration: false,
+        contextIsolation: true,
+        preload: path.join(__dirname, 'src/main/preload-bridge-error.js')
       },
       frame: false,
       transparent: true,
@@ -921,6 +922,16 @@ function setupHttpServer() {
 }
 
 app.whenReady().then(() => {
+  ipcMain.on('bridge-error-open-url', (event, url) => {
+    require('electron').shell.openExternal(url);
+  });
+
+  ipcMain.on('bridge-error-close', () => {
+    if (_bridgeErrorWin && !_bridgeErrorWin.isDestroyed()) {
+      _bridgeErrorWin.close();
+    }
+  });
+
   if (process.platform === 'darwin') {
     app.dock.hide();
     app.setActivationPolicy('accessory');
