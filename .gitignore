@@ -6,3 +6,5 @@ dist_actions/
 
 .gemini/
 gha-creds-*.json
+mock_apps_dir/
+mock_apps_dir2/

@@ -35,6 +35,9 @@ function ensureAppsDir() {
 }
 
 // ── Registry helpers ───────────────────────────────────────
+
+const _iconCache = new Map();
+
 function loadRegistry() {
   ensureAppsDir();
   try {
@@ -56,18 +59,25 @@ function loadRegistry() {
           iconPath = path.join(getAppsDir(), app.id, app.icon);
         }
 
-        if (fs.existsSync(iconPath)) {
-          const ext = path.extname(iconPath).toLowerCase();
-          const mime =
-            ext === ".svg"
-              ? "image/svg+xml"
-              : ext === ".png"
-                ? "image/png"
-                : ext === ".webp"
-                  ? "image/webp"
-                  : "image/jpeg";
-          const data = fs.readFileSync(iconPath, "base64");
-          app.iconBase64 = `data:${mime};base64,${data}`;
+        const cached = _iconCache.get(iconPath);
+        if (cached) {
+          app.iconBase64 = cached;
+        } else {
+          if (fs.existsSync(iconPath)) {
+            const ext = path.extname(iconPath).toLowerCase();
+            const mime =
+              ext === ".svg"
+                ? "image/svg+xml"
+                : ext === ".png"
+                  ? "image/png"
+                  : ext === ".webp"
+                    ? "image/webp"
+                    : "image/jpeg";
+            const data = fs.readFileSync(iconPath, "base64");
+            const dataUri = `data:${mime};base64,${data}`;
+            app.iconBase64 = dataUri;
+            _iconCache.set(iconPath, dataUri);
+          }
         }
       }
     }
@@ -75,6 +85,10 @@ function loadRegistry() {
   } catch {
     return [];
   }
+}
+
+function _clearIconCache() {
+  _iconCache.clear();
 }
 
 function saveRegistry(list) {
@@ -565,6 +579,8 @@ function _finalizeInstall(id, appDir, fallbackName, forcedCategory) {
     } catch {}
   }
 
+  _clearIconCache(); // Ensure fresh icons are loaded
+
   // Provide a random icon if none exists
   if (!appIcon && !manifest.icon) {
     const iconsDir = path.join(__dirname, "../../assets/icons");
@@ -707,6 +723,8 @@ function uninstallApp(appId) {
   const appDir = path.join(getAppsDir(), appId);
   if (fs.existsSync(appDir))
     fs.rmSync(appDir, { recursive: true, force: true });
+
+  _clearIconCache(); // Clear cache when uninstalling apps
 
   registry.splice(idx, 1);
   saveRegistry(registry);
@@ -1731,6 +1749,8 @@ function setupAppStoreIpc() {
     const b64 = base64Data.replace(/^data:image\/[^;]+;base64,/, "");
     fs.writeFileSync(targetIcon, b64, "base64");
 
+    _clearIconCache(); // Icon has changed, invalidate cache
+
     // Update registry so UI refresh sees it
     appEntry.icon = "appicon" + ext;
     saveRegistry(registry);
@@ -1890,6 +1910,8 @@ function setupAppStoreIpc() {
           fs.rmSync(tempDir, { recursive: true, force: true });
         } catch (e) {}
       }
+
+      _clearIconCache();
 
       return { success: true };
     } catch (err) {
