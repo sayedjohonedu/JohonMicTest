@@ -125,7 +125,13 @@ document.querySelectorAll('[data-filter]').forEach(btn => {
 });
 
 sortSelect.addEventListener('change', () => { currentSort = sortSelect.value; applyFilterSort(); });
-searchInput.addEventListener('input', () => { currentSearch = searchInput.value; applyFilterSort(); });
+let _searchTimer = null;
+// ⚡ Bolt: Debounced search input to prevent expensive grid re-renders on every keystroke
+searchInput.addEventListener('input', () => {
+  currentSearch = searchInput.value;
+  clearTimeout(_searchTimer);
+  _searchTimer = setTimeout(() => { applyFilterSort(); }, 250);
+});
 
 /* ── Refresh ── */
 document.getElementById('btn-refresh').addEventListener('click', async () => {
