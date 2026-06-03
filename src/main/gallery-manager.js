@@ -33,39 +33,44 @@ let galleryWindow = null;
  * Scan the save directory for all MicTab media files.
  * Returns an array of file info objects sorted by creation date (newest first).
  */
-function scanMediaFiles() {
+async function scanMediaFiles() {
   const saveDir = getSaveDir();
   if (!fs.existsSync(saveDir)) return [];
 
-  const entries = fs.readdirSync(saveDir);
-  const mediaFiles = [];
+  const entries = await fs.promises.readdir(saveDir, { withFileTypes: true });
+  const promises = [];
 
-  for (const name of entries) {
-    // Skip hidden files and non-media
-    if (name.startsWith('.')) continue;
+  for (const dirent of entries) {
+    // Skip hidden files
+    if (dirent.name.startsWith('.')) continue;
 
-    const ext = path.extname(name).toLowerCase();
+    // Optimization: Skip non-files immediately to avoid expensive fs.promises.stat
+    if (!dirent.isFile()) continue;
+
+    const ext = path.extname(dirent.name).toLowerCase();
     const isVideo = ['.webm', '.mp4', '.mov', '.gif'].includes(ext);
     const isImage = ['.png', '.jpg', '.jpeg', '.webp', '.bmp', '.tiff'].includes(ext);
 
     if (!isVideo && !isImage) continue;
 
-    const filePath = path.join(saveDir, name);
-    try {
-      const stat = fs.statSync(filePath);
-      mediaFiles.push({
-        name,
+    const filePath = path.join(saveDir, dirent.name);
+
+    // Push the promise so we can fetch all file stats concurrently
+    promises.push(
+      fs.promises.stat(filePath).then(stat => ({
+        name: dirent.name,
         path: filePath,
         type: isVideo ? 'video' : 'image',
         ext: ext.slice(1), // remove dot
         size: stat.size,
         createdAt: stat.birthtime.toISOString(),
         modifiedAt: stat.mtime.toISOString(),
-      });
-    } catch (_) {
-      // Skip unreadable files
-    }
+      })).catch(() => null)
+    );
   }
+
+  const results = await Promise.all(promises);
+  const mediaFiles = results.filter(Boolean); // Remove any failed stats (nulls)
 
   // Sort newest first
   mediaFiles.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
@@ -84,12 +89,12 @@ function formatSize(bytes) {
 
 /* ── Gallery Window ─────────────────────────────────────── */
 
-function openGallery(autoPlayFile = null) {
+async function openGallery(autoPlayFile = null) {
   if (galleryWindow && !galleryWindow.isDestroyed()) {
     galleryWindow.focus();
     if (autoPlayFile) {
       // Rescan so the new file appears in allFiles before navigating
-      const files = scanMediaFiles();
+      const files = await scanMediaFiles();
       galleryWindow.webContents.send('gallery-file-list', files);
       setTimeout(() => {
         if (galleryWindow && !galleryWindow.isDestroyed()) {
@@ -121,10 +126,10 @@ function openGallery(autoPlayFile = null) {
 
   galleryWindow.loadFile(path.join(__dirname, '..', '..', 'ui', 'gallery.html'));
 
-  galleryWindow.webContents.on('did-finish-load', () => {
+  galleryWindow.webContents.on('did-finish-load', async () => {
     if (!galleryWindow || galleryWindow.isDestroyed()) return;
     // Send the initial file list
-    const files = scanMediaFiles();
+    const files = await scanMediaFiles();
     console.log('[Gallery] did-finish-load — sending', files.length, 'files, autoPlayFile:', autoPlayFile);
     galleryWindow.webContents.send('gallery-file-list', files);
     // If there's a file to auto-navigate to, send it after a longer delay
@@ -339,7 +344,7 @@ function setupGalleryIpc() {
       if (isAlreadyInGallery) {
         // ── Standard gallery edit: just refresh the gallery window ──
         if (galleryWindow && !galleryWindow.isDestroyed()) {
-          const files = scanMediaFiles();
+          const files = await scanMediaFiles();
           galleryWindow.webContents.send('gallery-file-list', files);
           setTimeout(() => {
             if (galleryWindow && !galleryWindow.isDestroyed()) {
