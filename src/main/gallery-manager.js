@@ -207,15 +207,22 @@ function setupGalleryIpc() {
       // Check for clipboard-origin sidecar — delete original clipboard image too
       const baseName = filePath.replace(/\.[^.]+$/, '');
       const clipOriginSidecar = baseName + '.mictab-clip-origin.json';
-      if (fs.existsSync(clipOriginSidecar)) {
+
+      try {
+        await fs.promises.access(clipOriginSidecar);
         try {
-          const originData = JSON.parse(fs.readFileSync(clipOriginSidecar, 'utf8'));
-          if (originData.originalPath && fs.existsSync(originData.originalPath)) {
-            try { fs.unlinkSync(originData.originalPath); } catch (_) {}
-            console.log('[Gallery] Deleted original clipboard image:', originData.originalPath);
+          const data = await fs.promises.readFile(clipOriginSidecar, 'utf8');
+          const originData = JSON.parse(data);
+
+          if (originData.originalPath) {
+            try {
+              await fs.promises.access(originData.originalPath);
+              try { await fs.promises.unlink(originData.originalPath); } catch (_) {}
+              console.log('[Gallery] Deleted original clipboard image:', originData.originalPath);
+            } catch (_) {} // original file does not exist
           }
         } catch (_) {}
-      }
+      } catch (_) {} // sidecar does not exist
 
       // Also delete all sidecar files
       for (const ext of SIDECAR_EXTS) {
