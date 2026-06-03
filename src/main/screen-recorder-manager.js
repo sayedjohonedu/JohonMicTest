@@ -346,7 +346,6 @@ async function openControlBar(region, fullscreen, settings = {}) {
       preload: path.join(__dirname, '..', '..', 'ui', 'screen-recorder-preload.js'),
       contextIsolation: true,
       nodeIntegration: false,
-      webSecurity: false,
     },
   });
 
