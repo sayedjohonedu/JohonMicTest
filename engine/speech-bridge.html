@@ -23,6 +23,7 @@
         let deadDetectorTimer = null; // Detects recognition alive but not producing results
         let proactiveRestartTimer = null; // Restarts recognition proactively before ~60s timeout for non-English languages
         let restartCount = 0;        // Consecutive onend restarts without receiving results
+        let proactiveRestartPending = false; // Set true just before proactive recognition.stop() so onend knows
         const MAX_RESTART_COUNT = 5;  // Stop after this many consecutive restarts without results
         
         // --- Web Audio API for Visualizer ---
@@ -188,8 +189,10 @@
                     return;
                 }
 
-                // Exponential backoff: 400 → 800 → 1600 → 3200 → 5000ms (capped)
-                const delay = Math.min(400 * Math.pow(2, restartCount - 1), 5000);
+                // Exponential backoff for error-driven restarts; flat 200ms for proactive (scheduled) restarts.
+                // Proactive restarts happen while speech IS flowing, so a long delay = lost words.
+                const delay = proactiveRestartPending ? 200 : Math.min(400 * Math.pow(2, restartCount - 1), 5000);
+                proactiveRestartPending = false; // consume the flag
 
                 restartTimer = setTimeout(() => {
                     restartTimer = null;
@@ -428,6 +431,9 @@
                 proactiveRestartTimer = setTimeout(() => {
                     if (!isActive || !recognition || isRestarting) return;
                     console.log(`[MicTab] Proactively restarting recognition for non-English language (${currentLang}) at 50s.`);
+                    // Reset restartCount — this is a clean scheduled restart, not an error
+                    restartCount = 0;
+                    proactiveRestartPending = true; // Tell onend to use fast fixed delay
                     try { recognition.stop(); } catch(e) {} // Triggers onend -> hard restart
                 }, 50000); // 50 seconds
             }
@@ -501,6 +507,7 @@
             clearDeadDetector();
             clearProactiveRestart();
             restartCount = 0;
+            proactiveRestartPending = false;
             if (analyserInterval) {
                 clearInterval(analyserInterval);
                 analyserInterval = null;

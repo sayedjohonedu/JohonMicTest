@@ -126,7 +126,7 @@ function armPttSafetyTimer(toggleListeningFn) {
       pttStartedSession = false;
       try { toggleListeningFn(); } catch (e) {}
     }
-  }, 30000); // 30-second hard cap
+  }, 300000); // 5-minute hard cap — only triggers if keyup is truly lost
 }
 
 function registerHotkeys(toggleListening) {
@@ -470,12 +470,14 @@ function registerHotkeys(toggleListening) {
 
   // ── Whisper AI Polish mode toggle shortcut: Right Alt + Right Shift + Slash ──
   // Uses uiohook for key combo tracking since it needs to detect Right-side modifier keys.
-  // The slash/question key (/) shares one key — hold Right Alt + Right Shift, then press it.
+  // Hold Right Alt + Right Shift, then press / (or ?) to toggle Whisper AI Polish mode.
+  // Works on both macOS and Windows — uiohook uses its own keycode system, not browser codes.
   let rightAltHeldForAi = false;
   let rightShiftHeldForAi = false;
-  const SLASH_KEYCODE_MAC = 53;   // macOS: the '/' (also '?') key
-  const SLASH_KEYCODE_WIN = 191;  // Windows: Slash/Question Mark key
-  const SLASH_KEYCODE = process.platform === 'darwin' ? SLASH_KEYCODE_MAC : SLASH_KEYCODE_WIN;
+  // uiohook-napi uses its own internal keycodes (NOT browser keycodes or Windows VK codes).
+  // UiohookKey.Slash = 0x35 (53) on all platforms — the same value for macOS and Windows.
+  // The old WIN value of 191 was the browser event.keyCode for '/', which was wrong here.
+  const SLASH_KEYCODE = UiohookKey.Slash; // 53 (0x35) on all platforms
 
   if (_whisperAiModeToggle) {
     addHotkey('keydown', (e) => {
