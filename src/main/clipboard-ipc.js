@@ -40,6 +40,9 @@ function setupClipboardIpc() {
 
   ipcMain.handle('cb-get-entry-dates', () => hs.getEntryDates());
 
+  // Fetch full (untruncated) single entry — used by edit modal since list query truncates text to 3000 chars
+  ipcMain.handle('cb-get-entry', (_, id) => hs.getEntryById(id));
+
   ipcMain.handle('cb-get-user-cats', () => {
     try {
       const meta = store.get('clipboardUserCategories') || [];
