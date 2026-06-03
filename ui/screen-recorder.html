@@ -80,6 +80,7 @@
   }
   #status.show { opacity: 1; }
 </style>
+  <script src="../src/main/fix-webm-duration/fix-webm-duration.js"></script>
 </head>
 <body>
 
@@ -129,6 +130,7 @@
 'use strict';
 
 let seconds = 0, timerInterval = null, isPaused = false, cameraOn = false;
+let recordingStartTime = 0, accumulatedDuration = 0;
 let mediaRecorder = null, recordedChunks = [], screenStream = null;
 let micStream = null, micTrack = null, micEnabled = false;
 
@@ -231,6 +233,7 @@ function drawClock() {
 
 function startTimer() {
   drawClock();
+  recordingStartTime = Date.now();
   timerInterval = setInterval(() => {
     if (!isPaused) { seconds++; drawClock(); }
   }, 1000);
@@ -511,9 +514,20 @@ window.screenRecorder.onStartInfo(async (info) => {
       screenStream.getTracks().forEach(t => t.stop());
       if (micStream) micStream.getTracks().forEach(t => t.stop());
 
-      const blob = new Blob(recordedChunks, { type: mimeType });
+      let blob = new Blob(recordedChunks, { type: mimeType });
       console.log('[Recorder] Blob size:', blob.size, 'bytes');
       showStatus('Saving…', 10000);
+
+      // Fix WebM duration metadata so the seekbar works in all media players
+      if (typeof ysFixWebmDuration !== 'undefined' && accumulatedDuration > 0) {
+        try {
+          blob = await ysFixWebmDuration(blob, accumulatedDuration);
+          console.log('[Recorder] WebM duration fixed to', accumulatedDuration, 'ms');
+        } catch (e) {
+          console.error('[Recorder] Failed to fix WebM duration', e);
+        }
+      }
+
       const arrayBuf = await blob.arrayBuffer();
       const uint8 = new Uint8Array(arrayBuf);
       await window.screenRecorder.saveBlobReady(uint8);
@@ -531,6 +545,9 @@ window.screenRecorder.onStartInfo(async (info) => {
 window.screenRecorder.onCommand((cmd) => {
   if (cmd === 'start') startTimer();
   else if (cmd === 'stop' && mediaRecorder && mediaRecorder.state !== 'inactive') {
+    if (!isPaused && !isStopping) {
+      accumulatedDuration += (Date.now() - recordingStartTime);
+    }
     clearInterval(timerInterval); mediaRecorder.stop();
   } else if (cmd === 'saved') showStatus('✓ Saved to Downloads', 3000);
   else if (cmd === 'camera-closed') { cameraOn = false; btnCam.classList.remove('cam-active'); }
@@ -542,11 +559,13 @@ btnPause.addEventListener('click', () => {
   isPaused = !isPaused;
   drawClock();
   if (isPaused) {
+    accumulatedDuration += (Date.now() - recordingStartTime);
     mediaRecorder.pause();
     pauseSvg.innerHTML = '<polygon points="5,3 19,12 5,21"/>';
     btnPause.title = 'Resume (Space)';
     showStatus('⏸ Paused');
   } else {
+    recordingStartTime = Date.now();
     mediaRecorder.resume();
     pauseSvg.innerHTML = '<rect x="6" y="4" width="4" height="16" rx="1"/><rect x="14" y="4" width="4" height="16" rx="1"/>';
     btnPause.title = 'Pause (Space)';
@@ -559,6 +578,9 @@ let isStopping = false;
 btnStop.addEventListener('click', () => {
   if (!mediaRecorder || mediaRecorder.state === 'inactive' || isStopping) return;
   isStopping = true;
+  if (!isPaused) {
+    accumulatedDuration += (Date.now() - recordingStartTime);
+  }
   clearInterval(timerInterval);
   btnStop.disabled = true;
   btnPause.disabled = true;
@@ -576,6 +598,8 @@ btnRestart.addEventListener('click', () => {
   clearInterval(timerInterval);
   recordedChunks = [];
   seconds = 0;
+  accumulatedDuration = 0;
+  recordingStartTime = 0;
   drawClock();
   if (mediaRecorder && mediaRecorder.state !== 'inactive') {
     mediaRecorder.onstop = () => {

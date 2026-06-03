@@ -18,7 +18,7 @@
 
     <!-- Jarvis pill — always in header -->
     <div class="jarvis-pill" id="jarvis-pill">
-      <button class="jarvis-pill-name" id="jarvis-peek-btn" title="Click to peek at Jarvis config">
+      <button class="jarvis-pill-name" id="jarvis-peek-btn" title="Click to peek at Jarvis config" aria-label="Click to peek at Jarvis config">
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/></svg>
         Jarvis
       </button>
@@ -28,7 +28,7 @@
       </label>
     </div>
 
-    <button class="header-btn" id="btn-close" title="Close">
+    <button class="header-btn" id="btn-close" title="Close" aria-label="Close">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
     </button>
   </div>
@@ -42,7 +42,7 @@
       <!-- Home top bar -->
       <div class="home-topbar">
         <h2 class="home-title">My Agents</h2>
-        <button class="btn-add-home" id="btn-add-agent" title="New Agent">
+        <button class="btn-add-home" id="btn-add-agent" title="New Agent" aria-label="New Agent">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
           New Agent
         </button>
@@ -64,7 +64,7 @@
 
       <!-- Editor back button + top bar -->
       <div class="editor-top">
-        <button class="editor-back-btn" id="btn-back" title="Back to home">
+        <button class="editor-back-btn" id="btn-back" title="Back to home" aria-label="Back to home">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M19 12H5M12 5l-7 7 7 7"/></svg>
         </button>
         <input type="text" id="agent-name" placeholder="Agent Name" spellcheck="false">
@@ -73,10 +73,10 @@
         <select id="agent-profile" title="LLM Profile" style="display:none;">
           <option value="">Vault Default</option>
         </select>
-        <button class="btn-delete-agent" id="btn-delete" title="Delete Agent">
+        <button class="btn-delete-agent" id="btn-delete" title="Delete Agent" aria-label="Delete Agent">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/></svg>
         </button>
-        <button class="btn-reset-jarvis" id="btn-reset-jarvis" title="Reset Jarvis to defaults" style="display:none;">
+        <button class="btn-reset-jarvis" id="btn-reset-jarvis" title="Reset Jarvis to defaults" style="display:none;" aria-label="Reset Jarvis to defaults">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
           Reset
         </button>

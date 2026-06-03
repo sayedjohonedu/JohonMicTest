@@ -14,47 +14,47 @@
       <div class="dot dot-accent" id="dot-min" title="Minimize"></div>
 
       <div id="nav-controls">
-        <button class="nav-btn" id="btn-back" title="Back">
+        <button class="nav-btn" id="btn-back" title="Back" aria-label="Back">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
         </button>
-        <button class="nav-btn" id="btn-forward" title="Forward">
+        <button class="nav-btn" id="btn-forward" title="Forward" aria-label="Forward">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg>
         </button>
-        <button class="nav-btn" id="btn-reload" title="Reload">
+        <button class="nav-btn" id="btn-reload" title="Reload" aria-label="Reload">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
         </button>
       </div>
 
       <div id="url-container">
         <input type="text" id="url-input" placeholder="Search or enter URL…" autocomplete="off" spellcheck="false"/>
-        <button class="nav-btn url-btn" id="btn-star" title="Bookmark this page">
+        <button class="nav-btn url-btn" id="btn-star" title="Bookmark this page" aria-label="Bookmark this page">
           <svg id="star-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
         </button>
-        <button class="nav-btn url-btn" id="btn-find-open" title="Find in page (⌘F)">
+        <button class="nav-btn url-btn" id="btn-find-open" title="Find in page (⌘F)" aria-label="Find in page (⌘F)">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
         </button>
       </div>
 
       <div id="titlebar-right">
         <!-- Bookmarks -->
-        <button class="nav-btn url-btn" id="btn-bookmarks-open" title="Bookmarks">
+        <button class="nav-btn url-btn" id="btn-bookmarks-open" title="Bookmarks" aria-label="Bookmarks">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>
         </button>
 
         <!-- History -->
-        <button class="nav-btn url-btn" id="btn-history-drop" title="History">
+        <button class="nav-btn url-btn" id="btn-history-drop" title="History" aria-label="History">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
         </button>
 
         <!-- Downloads -->
-        <button class="nav-btn url-btn" id="btn-dl-drop" title="Downloads">
+        <button class="nav-btn url-btn" id="btn-dl-drop" title="Downloads" aria-label="Downloads">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
         </button>
 
-        <button class="nav-btn url-btn" id="btn-settings-open" title="Browser settings">
+        <button class="nav-btn url-btn" id="btn-settings-open" title="Browser settings" aria-label="Browser settings">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
         </button>
-        <button class="nav-btn url-btn" id="btn-power-off" title="Power Off (Free RAM)">
+        <button class="nav-btn url-btn" id="btn-power-off" title="Power Off (Free RAM)" aria-label="Power Off (Free RAM)">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18.36 6.64a9 9 0 1 1-12.73 0"/><line x1="12" y1="2" x2="12" y2="12"/></svg>
         </button>
       </div>
@@ -63,7 +63,7 @@
     <!-- ── Tab strip ── -->
     <div id="tab-strip">
       <div id="tab-list">
-        <button id="btn-new-tab" title="New tab">
+        <button id="btn-new-tab" title="New tab" aria-label="New tab">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
         </button>
       </div>
@@ -75,13 +75,13 @@
       <svg class="find-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
       <input id="find-input" placeholder="Find in page…" autocomplete="off"/>
       <span id="find-count"></span>
-      <button class="find-btn" id="find-prev" title="Previous">
+      <button class="find-btn" id="find-prev" title="Previous" aria-label="Previous">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="18 15 12 9 6 15"/></svg>
       </button>
-      <button class="find-btn" id="find-next" title="Next">
+      <button class="find-btn" id="find-next" title="Next" aria-label="Next">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="6 9 12 15 18 9"/></svg>
       </button>
-      <button class="find-btn" id="find-close" title="Close">
+      <button class="find-btn" id="find-close" title="Close" aria-label="Close">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
       </button>
     </div>
