@@ -249,6 +249,33 @@ function setupLensIpc() {
     return filePath;
   });
 
+  // Save screenshot with a user-supplied name
+  ipcMain.handle('lens-save-image-named', async (_, { dataUrl, name }) => {
+    const downloads = app.getPath('downloads');
+    const saveDir   = path.join(downloads, 'MicTab ScreenRec');
+    if (!fs.existsSync(saveDir)) fs.mkdirSync(saveDir, { recursive: true });
+
+    // Sanitize name — strip path separators and control chars, ensure .png
+    let safeName = (name || '').replace(/[/\\:*?"<>|]/g, '_').trim();
+    if (!safeName) {
+      // Fallback to timestamp if empty
+      const ts = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+      safeName = `MicTab-Lens-${ts}`;
+    }
+    if (!safeName.toLowerCase().endsWith('.png')) safeName += '.png';
+
+    const filePath = path.join(saveDir, safeName);
+    const base64 = dataUrl.replace(/^data:image\/\w+;base64,/, '');
+    fs.writeFileSync(filePath, Buffer.from(base64, 'base64'));
+    editorDirty = false;
+
+    // Open (or focus) the gallery and navigate to the new screenshot
+    const { openGallery } = require('./gallery-manager');
+    openGallery(filePath);
+
+    return { ok: true, filePath };
+  });
+
   // Copy image to clipboard
   ipcMain.on('lens-copy-image', (_, dataUrl) => {
     const base64 = dataUrl.replace(/^data:image\/\w+;base64,/, '');

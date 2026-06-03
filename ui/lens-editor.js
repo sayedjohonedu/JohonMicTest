@@ -3545,21 +3545,17 @@ function roundRect(ctx, x, y, w, h, r) {
 document.getElementById('btn-save').addEventListener('click', async () => {
   const dataUrl = getMergedDataUrl();
   if (originFilePath && window.lensEditor.saveOverwrite) {
-    // Gallery edit mode — overwrite the original file in-place
+    // Gallery edit mode — overwrite the original file in-place, no rename dialog
     const result = await window.lensEditor.saveOverwrite(dataUrl, originFilePath);
     if (result.ok) {
       window.lensEditor.markClean();
-      // Close editor — gallery will auto-refresh and reopen the image
       window.lensEditor.closeEditor();
     } else {
       showToast('Save failed: ' + result.error);
     }
   } else {
-    // Normal mode — save new file, gallery opens automatically from main process
-    const filePath = await window.lensEditor.saveImage(dataUrl);
-    window.lensEditor.markClean();
-    // Close editor — gallery is being opened by main process
-    window.lensEditor.closeEditor();
+    // Normal mode — show rename dialog before saving
+    showLensSaveDialog(dataUrl);
   }
 });
 
@@ -3707,8 +3703,166 @@ function showToast(msg) {
 }
 
 /* ─────────────────────────────────────────────
-   AUTO-SAVE (triggered by main process when user re-captures)
+   LENS SAVE DIALOG  (rename before saving)
    ───────────────────────────────────────────── */
+
+function showLensSaveDialog(dataUrl) {
+  // Generate a readable default name: "Screenshot YYYY-MM-DD HH-MM"
+  const now = new Date();
+  const pad = n => String(n).padStart(2, '0');
+  const defaultName = `Screenshot ${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())} ${pad(now.getHours())}-${pad(now.getMinutes())}`;
+
+  // Build dialog overlay
+  const overlay = document.createElement('div');
+  overlay.id = 'lens-save-overlay';
+  overlay.style.cssText = [
+    'position:fixed;inset:0;z-index:9000',
+    'background:rgba(0,0,0,0.65)',
+    'backdrop-filter:blur(8px)',
+    'display:flex;align-items:center;justify-content:center',
+    'animation:lsDialogFade 0.15s ease',
+  ].join(';');
+
+  overlay.innerHTML = `
+    <style>
+      @keyframes lsDialogFade { from { opacity:0; } to { opacity:1; } }
+      #lens-save-box {
+        background: #13131f;
+        border: 1px solid rgba(255,255,255,0.1);
+        border-radius: 16px;
+        padding: 24px;
+        min-width: 380px;
+        max-width: 480px;
+        box-shadow: 0 20px 60px rgba(0,0,0,0.6);
+      }
+      #lens-save-title {
+        font: 600 14px/1 'Inter', sans-serif;
+        color: #f4f4fa;
+        margin-bottom: 16px;
+      }
+      #lens-save-input-wrap {
+        display: flex;
+        align-items: center;
+        background: rgba(255,255,255,0.04);
+        border: 1px solid rgba(255,255,255,0.1);
+        border-radius: 10px;
+        padding: 0 12px;
+        margin-bottom: 6px;
+        transition: border-color 0.15s;
+      }
+      #lens-save-input-wrap:focus-within {
+        border-color: rgba(124,111,255,0.5);
+        background: rgba(124,111,255,0.05);
+      }
+      #lens-save-input {
+        flex: 1;
+        background: transparent;
+        border: none;
+        outline: none;
+        color: #f0f0f8;
+        font: 500 13px/1 'Inter', sans-serif;
+        padding: 11px 0;
+        user-select: text;
+        -webkit-user-select: text;
+      }
+      #lens-save-input::selection { background: rgba(124,111,255,0.35); }
+      #lens-save-ext {
+        font: 500 13px/1 'Inter', sans-serif;
+        color: #4b5563;
+        padding-left: 2px;
+        white-space: nowrap;
+      }
+      #lens-save-hint {
+        font: 400 10px/1 'Inter', sans-serif;
+        color: #3b3b52;
+        margin-bottom: 20px;
+      }
+      #lens-save-error {
+        font: 500 11px/1 'Inter', sans-serif;
+        color: #f87171;
+        min-height: 14px;
+        margin-bottom: 12px;
+        margin-top: -12px;
+      }
+      #lens-save-actions {
+        display: flex;
+        gap: 8px;
+        justify-content: flex-end;
+      }
+      .lsBtn {
+        padding: 8px 16px;
+        border-radius: 8px;
+        border: 1px solid rgba(255,255,255,0.1);
+        background: rgba(255,255,255,0.05);
+        color: #c0c5d0;
+        font: 500 12px/1 'Inter', sans-serif;
+        cursor: pointer;
+        transition: all 0.12s;
+      }
+      .lsBtn:hover { background: rgba(255,255,255,0.1); }
+      .lsBtnAccent {
+        background: rgba(124,111,255,0.15) !important;
+        border-color: rgba(124,111,255,0.35) !important;
+        color: #b4a8ff !important;
+      }
+      .lsBtnAccent:hover { background: rgba(124,111,255,0.28) !important; }
+    </style>
+    <div id="lens-save-box">
+      <div id="lens-save-title">Save Screenshot</div>
+      <div id="lens-save-input-wrap">
+        <input id="lens-save-input" type="text" value="${defaultName}" spellcheck="false" autocomplete="off">
+        <span id="lens-save-ext">.png</span>
+      </div>
+      <div id="lens-save-hint">Enter to save &middot; Escape to cancel</div>
+      <div id="lens-save-error"></div>
+      <div id="lens-save-actions">
+        <button class="lsBtn" id="ls-cancel">Cancel</button>
+        <button class="lsBtn lsBtnAccent" id="ls-save">Save to Gallery</button>
+      </div>
+    </div>`;
+
+  document.body.appendChild(overlay);
+
+  const input = overlay.querySelector('#lens-save-input');
+  const errorEl = overlay.querySelector('#lens-save-error');
+
+  // Select all text on open
+  requestAnimationFrame(() => { input.focus(); input.select(); });
+
+  async function doSave() {
+    const name = input.value.trim();
+    if (!name) { errorEl.textContent = 'Name cannot be empty.'; return; }
+    const saveBtn = overlay.querySelector('#ls-save');
+    saveBtn.disabled = true;
+    saveBtn.textContent = 'Saving…';
+
+    try {
+      const result = await window.lensEditor.saveImageNamed(dataUrl, name);
+      if (result && result.ok) {
+        overlay.remove();
+        window.lensEditor.markClean();
+        window.lensEditor.closeEditor();
+      } else {
+        errorEl.textContent = 'Save failed. Please try again.';
+        saveBtn.disabled = false;
+        saveBtn.textContent = 'Save to Gallery';
+      }
+    } catch (err) {
+      errorEl.textContent = 'Save error: ' + (err.message || err);
+      saveBtn.disabled = false;
+      saveBtn.textContent = 'Save to Gallery';
+    }
+  }
+
+  input.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') { e.preventDefault(); e.stopPropagation(); doSave(); }
+    if (e.key === 'Escape') { e.stopPropagation(); overlay.remove(); }
+  });
+  overlay.querySelector('#ls-save').addEventListener('click', doSave);
+  overlay.querySelector('#ls-cancel').addEventListener('click', () => overlay.remove());
+  // Don't dismiss on outside click — save dialog is intentional
+}
+
 
 window.lensEditor.onAutoSave(async () => {
   try {

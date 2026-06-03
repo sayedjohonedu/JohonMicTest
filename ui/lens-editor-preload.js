@@ -5,6 +5,7 @@ contextBridge.exposeInMainWorld('lensEditor', {
   onAutoSave:       (cb)          => ipcRenderer.on('lens-auto-save', () => cb()),
   onSetOriginPath:  (cb)          => ipcRenderer.on('lens-set-origin-path', (_, p) => cb(p)),
   saveImage:        (dataUrl)     => ipcRenderer.invoke('lens-save-image', dataUrl),
+  saveImageNamed:   (dataUrl, name) => ipcRenderer.invoke('lens-save-image-named', { dataUrl, name }),
   saveOverwrite:    (dataUrl, filePath) => ipcRenderer.invoke('lens-save-overwrite', { dataUrl, filePath }),
   copyImage:        (dataUrl)     => ipcRenderer.send('lens-copy-image', dataUrl),
   closeEditor:      ()            => ipcRenderer.send('lens-close-editor'),
