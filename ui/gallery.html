@@ -12,14 +12,14 @@
 
 <!-- ═══ TITLE BAR ═══ -->
 <div id="titlebar">
-  <button class="tb-btn close" id="btn-close" title="Close">
+  <button class="tb-btn close" id="btn-close" title="Close" aria-label="Close">
     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M18 6 6 18M6 6l12 12"/></svg>
   </button>
   <span class="tb-title">MicTab Gallery</span>
-  <button class="tb-btn" id="btn-minimize" title="Minimize">
+  <button class="tb-btn" id="btn-minimize" title="Minimize" aria-label="Minimize">
     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14"/></svg>
   </button>
-  <button class="tb-btn" id="btn-maximize" title="Maximize">
+  <button class="tb-btn" id="btn-maximize" title="Maximize" aria-label="Maximize">
     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/></svg>
   </button>
 </div>
@@ -55,10 +55,10 @@
     <div class="toolbar-spacer"></div>
     <input class="search-input" id="search-input" type="text" placeholder="Search files…">
     <div class="toolbar-sep"></div>
-    <button class="tool-btn" id="btn-refresh" title="Refresh">
+    <button class="tool-btn" id="btn-refresh" title="Refresh" aria-label="Refresh">
       <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 4v6h6"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>
     </button>
-    <button class="tool-btn" id="btn-open-folder" title="Open folder">
+    <button class="tool-btn" id="btn-open-folder" title="Open folder" aria-label="Open folder">
       <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
     </button>
   </div>
@@ -70,15 +70,15 @@
   <div id="bulk-bar" class="bulk-bar hidden">
     <span id="bulk-count">0 selected</span>
     <div style="flex:1;"></div>
-    <button class="tool-btn" id="bulk-select-all" title="Select All">
+    <button class="tool-btn" id="bulk-select-all" title="Select All" aria-label="Select All">
       <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="m9 12 2 2 4-4"/></svg>
       Select All
     </button>
-    <button class="tool-btn" id="bulk-deselect" title="Deselect All">
+    <button class="tool-btn" id="bulk-deselect" title="Deselect All" aria-label="Deselect All">
       <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"/></svg>
       Deselect
     </button>
-    <button class="tool-btn bulk-delete-btn" id="bulk-delete" title="Delete Selected">
+    <button class="tool-btn bulk-delete-btn" id="bulk-delete" title="Delete Selected" aria-label="Delete Selected">
       <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
       Delete
     </button>
@@ -95,15 +95,15 @@
         Gallery
       </button>
       <div class="toolbar-spacer"></div>
-      <button class="tool-btn" id="btn-player-edit" title="Open in Editor" style="color:#b4a8ff; border-color:rgba(124,111,255,0.25); background:rgba(124,111,255,0.08);">
+      <button class="tool-btn" id="btn-player-edit" title="Open in Editor" style="color:#b4a8ff; border-color:rgba(124,111,255,0.25); background:rgba(124,111,255,0.08);" aria-label="Open in Editor">
         <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
         Edit
       </button>
-      <button class="tool-btn" id="btn-player-reveal" title="Reveal in Finder">
+      <button class="tool-btn" id="btn-player-reveal" title="Reveal in Finder" aria-label="Reveal in Finder">
         <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
         Reveal
       </button>
-      <button class="tool-btn" id="btn-player-delete" title="Delete">
+      <button class="tool-btn" id="btn-player-delete" title="Delete" aria-label="Delete">
         <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
         Delete
       </button>
@@ -135,23 +135,23 @@
     <!-- ═══ EXPORT PANEL ═══ -->
     <div id="export-panel" style="display:none; align-items:center; gap:6px; padding:8px 16px; background:rgba(15,15,22,0.95); border-top:1px solid rgba(255,255,255,0.04); flex-shrink:0;">
       <span style="font:600 10px/1 'Inter',sans-serif; color:rgba(124,111,255,0.7); text-transform:uppercase; letter-spacing:1px; margin-right:6px;">Export As</span>
-      <button class="tool-btn export-btn" data-format="mp4" title="MP4 (H.264 + AAC)">
+      <button class="tool-btn export-btn" data-format="mp4" title="MP4 (H.264 + AAC)" aria-label="MP4 (H.264 + AAC)">
         <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
         MP4
       </button>
-      <button class="tool-btn export-btn" data-format="mp4-youtube" title="MP4 optimized for YouTube">
+      <button class="tool-btn export-btn" data-format="mp4-youtube" title="MP4 optimized for YouTube" aria-label="MP4 optimized for YouTube">
         <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg>
         YouTube
       </button>
-      <button class="tool-btn export-btn" data-format="mp4-twitter" title="MP4 optimized for social media">
+      <button class="tool-btn export-btn" data-format="mp4-twitter" title="MP4 optimized for social media" aria-label="MP4 optimized for social media">
         <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4l11.733 16h4.267l-11.733 -16z"/><path d="M4 20l6.768 -6.768m2.46 -2.46l6.772 -6.772"/></svg>
         Social
       </button>
-      <button class="tool-btn export-btn" data-format="gif" title="Animated GIF">
+      <button class="tool-btn export-btn" data-format="gif" title="Animated GIF" aria-label="Animated GIF">
         <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M8 12h.01M16 12h.01M12 12h.01"/></svg>
         GIF
       </button>
-      <button class="tool-btn export-btn" data-format="mov" title="MOV (Apple ProRes)">
+      <button class="tool-btn export-btn" data-format="mov" title="MOV (Apple ProRes)" aria-label="MOV (Apple ProRes)">
         <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="2" width="20" height="20" rx="2.18"/><path d="m7 2 10 20M17 2 7 22"/></svg>
         MOV
       </button>

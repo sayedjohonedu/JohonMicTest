@@ -16,38 +16,38 @@
       MicTab Lens
     </div>
     <div class="titlebar-actions">
-      <button class="tb-action-btn" id="btn-undo" title="Undo (Ctrl+Z)">
+      <button class="tb-action-btn" id="btn-undo" title="Undo (Ctrl+Z)" aria-label="Undo (Ctrl+Z)">
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7v6h6"/><path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13"/></svg>
         Undo
       </button>
-      <button class="tb-action-btn" id="btn-redo" title="Redo (Ctrl+Shift+Z)">
+      <button class="tb-action-btn" id="btn-redo" title="Redo (Ctrl+Shift+Z)" aria-label="Redo (Ctrl+Shift+Z)">
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 7v6h-6"/><path d="M3 17a9 9 0 0 1 9-9 9 9 0 0 1 6 2.3l3 3.7"/></svg>
         Redo
       </button>
-      <button class="tb-action-btn" id="btn-reset" title="Reset to original">
+      <button class="tb-action-btn" id="btn-reset" title="Reset to original" aria-label="Reset to original">
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
         Reset
       </button>
       <span class="tb-divider"></span>
-      <button class="tb-action-btn" id="btn-open-panel" title="Extract Text / Translate">
+      <button class="tb-action-btn" id="btn-open-panel" title="Extract Text / Translate" aria-label="Extract Text / Translate">
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"/><path d="M14 2v6h6"/><path d="M16 13H8"/><path d="M16 17H8"/><path d="M10 9H8"/></svg>
         Extract Text
       </button>
-      <button class="tb-action-btn screen-rec" id="btn-screen-record" title="Screen Record">
+      <button class="tb-action-btn screen-rec" id="btn-screen-record" title="Screen Record" aria-label="Screen Record">
         <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" stroke="none"><circle cx="12" cy="12" r="6"/></svg>
         Record
       </button>
       <span class="tb-divider"></span>
-      <button class="tb-action-btn green" id="btn-copy" title="Copy to clipboard (Ctrl+C)">
+      <button class="tb-action-btn green" id="btn-copy" title="Copy to clipboard (Ctrl+C)" aria-label="Copy to clipboard (Ctrl+C)">
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
         Copy
       </button>
-      <button class="tb-action-btn primary" id="btn-save" title="Save (Ctrl+S)">
+      <button class="tb-action-btn primary" id="btn-save" title="Save (Ctrl+S)" aria-label="Save (Ctrl+S)">
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>
         Save
       </button>
       <span class="tb-divider"></span>
-      <button class="tb-btn close" id="btn-close" title="Close">
+      <button class="tb-btn close" id="btn-close" title="Close" aria-label="Close">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
       </button>
     </div>
@@ -57,31 +57,31 @@
   <div class="toolbar">
     <!-- Drawing tools -->
     <div class="tool-group" id="drawing-tools">
-      <button class="tool-btn active" data-tool="select" title="Select / Move (V)">
+      <button class="tool-btn active" data-tool="select" title="Select / Move (V)" aria-label="Select / Move (V)">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4l7 19 3-8 8-3z"/></svg>
       </button>
-      <button class="tool-btn" data-tool="crop" title="Crop Image">
+      <button class="tool-btn" data-tool="crop" title="Crop Image" aria-label="Crop Image">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 2v14a2 2 0 0 0 2 2h14"/><path d="M18 22V8a2 2 0 0 0-2-2H2"/></svg>
       </button>
-      <button class="tool-btn" data-tool="rect" title="Rectangle (R)">
+      <button class="tool-btn" data-tool="rect" title="Rectangle (R)" aria-label="Rectangle (R)">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/></svg>
       </button>
-      <button class="tool-btn" data-tool="fillrect" title="Fill Box (B)">
+      <button class="tool-btn" data-tool="fillrect" title="Fill Box (B)" aria-label="Fill Box (B)">
         <svg viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="1"><rect x="3" y="3" width="18" height="18" rx="2" opacity="0.4"/><rect x="3" y="3" width="18" height="18" rx="2" fill="none" stroke-width="2"/></svg>
       </button>
-      <button class="tool-btn" data-tool="squarehighlight" title="Square Highlight (Q)">
+      <button class="tool-btn" data-tool="squarehighlight" title="Square Highlight (Q)" aria-label="Square Highlight (Q)">
         <svg viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="3" fill="currentColor" opacity="0.25" stroke="none"/><rect x="3" y="3" width="18" height="18" rx="3" fill="none" stroke-width="2" opacity="0.7"/></svg>
       </button>
-      <button class="tool-btn" data-tool="circle" title="Circle (C)">
+      <button class="tool-btn" data-tool="circle" title="Circle (C)" aria-label="Circle (C)">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/></svg>
       </button>
-      <button class="tool-btn" data-tool="line" title="Line (L)">
+      <button class="tool-btn" data-tool="line" title="Line (L)" aria-label="Line (L)">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 20 20 4"/></svg>
       </button>
 
       <!-- Arrow with dropdown -->
       <div class="tool-dropdown-wrap" id="arrow-dropdown-wrap">
-        <button class="tool-btn has-dropdown" data-tool="arrow" data-dropdown="arrow-dropdown" title="Arrow (A)">
+        <button class="tool-btn has-dropdown" data-tool="arrow" data-dropdown="arrow-dropdown" title="Arrow (A)" aria-label="Arrow (A)">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 19 19 5"/><path d="M12 5h7v7"/></svg>
           <span class="btn-chevron"><svg viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 3.5l3 3 3-3"/></svg></span>
         </button>
@@ -95,7 +95,7 @@
 
       <!-- Text with dropdown -->
       <div class="tool-dropdown-wrap" id="text-dropdown-wrap">
-        <button class="tool-btn has-dropdown" data-tool="text" data-dropdown="text-dropdown" title="Text (T)">
+        <button class="tool-btn has-dropdown" data-tool="text" data-dropdown="text-dropdown" title="Text (T)" aria-label="Text (T)">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="4 7 4 4 20 4 20 7"/><line x1="9.5" x2="14.5" y1="20" y2="20"/><line x1="12" x2="12" y1="4" y2="20"/></svg>
           <span class="btn-chevron"><svg viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 3.5l3 3 3-3"/></svg></span>
         </button>
@@ -109,7 +109,7 @@
 
       <!-- Blur with dropdown -->
       <div class="tool-dropdown-wrap" id="blur-dropdown-wrap">
-        <button class="tool-btn has-dropdown" data-tool="blur" data-dropdown="blur-dropdown" title="Blur / Pixelate (U)">
+        <button class="tool-btn has-dropdown" data-tool="blur" data-dropdown="blur-dropdown" title="Blur / Pixelate (U)" aria-label="Blur / Pixelate (U)">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M7 7h2v2H7zM11 7h2v2h-2zM15 7h2v2h-2zM7 11h2v2H7zM11 11h2v2h-2zM15 11h2v2h-2zM7 15h2v2H7zM11 15h2v2h-2zM15 15h2v2h-2z" fill="currentColor" opacity="0.4" stroke="none"/></svg>
           <span class="btn-chevron"><svg viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 3.5l3 3 3-3"/></svg></span>
         </button>
@@ -122,7 +122,7 @@
 
       <!-- Circle Blur with dropdown -->
       <div class="tool-dropdown-wrap" id="circleblur-dropdown-wrap">
-        <button class="tool-btn has-dropdown" data-tool="circleblur" data-dropdown="circleblur-dropdown" title="Circle Blur (J)">
+        <button class="tool-btn has-dropdown" data-tool="circleblur" data-dropdown="circleblur-dropdown" title="Circle Blur (J)" aria-label="Circle Blur (J)">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M8 9h2v2H8zM11 9h2v2h-2zM14 9h2v2h-2zM8 12h2v2H8zM11 12h2v2h-2zM14 12h2v2h-2z" fill="currentColor" opacity="0.4" stroke="none"/></svg>
           <span class="btn-chevron"><svg viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 3.5l3 3 3-3"/></svg></span>
         </button>
@@ -133,22 +133,22 @@
         </div>
       </div>
 
-      <button class="tool-btn" data-tool="spotlight" title="Spotlight (S)">
+      <button class="tool-btn" data-tool="spotlight" title="Spotlight (S)" aria-label="Spotlight (S)">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="2" width="20" height="20" rx="2" fill="currentColor" opacity="0.3" stroke="none"/><rect x="6" y="6" width="12" height="12" rx="1" fill="#000" opacity="0.5" stroke="none"/><rect x="6" y="6" width="12" height="12" rx="1"/></svg>
       </button>
-      <button class="tool-btn" data-tool="circlespotlight" title="Circle Spotlight (G)">
+      <button class="tool-btn" data-tool="circlespotlight" title="Circle Spotlight (G)" aria-label="Circle Spotlight (G)">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="2" width="20" height="20" rx="2" fill="currentColor" opacity="0.3" stroke="none"/><circle cx="12" cy="12" r="6" fill="#000" opacity="0.5" stroke="none"/><circle cx="12" cy="12" r="6"/></svg>
       </button>
-      <button class="tool-btn" data-tool="number" title="Numbering (N)">
+      <button class="tool-btn" data-tool="number" title="Numbering (N)" aria-label="Numbering (N)">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><text x="12" y="16.5" text-anchor="middle" fill="currentColor" stroke="none" font-size="13" font-weight="700" font-family="Inter, sans-serif">1</text></svg>
       </button>
-      <button class="tool-btn" data-tool="freehand" title="Drawing (F)">
+      <button class="tool-btn" data-tool="freehand" title="Drawing (F)" aria-label="Drawing (F)">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 17c3-3 6-8 9-8s3 4 6 4 3-3 3-3"/></svg>
       </button>
-      <button class="tool-btn" data-tool="highlighter" title="Highlighter (H)">
+      <button class="tool-btn" data-tool="highlighter" title="Highlighter (H)" aria-label="Highlighter (H)">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m9 11-6 6v3h9l3-3"/><path d="m22 12-4.6 4.6a2 2 0 0 1-2.8 0l-5.2-5.2a2 2 0 0 1 0-2.8L14 4"/></svg>
       </button>
-      <button class="tool-btn" data-tool="eraser" title="Eraser (E)">
+      <button class="tool-btn" data-tool="eraser" title="Eraser (E)" aria-label="Eraser (E)">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m7 21-4.3-4.3c-1-1-1-2.5 0-3.4l9.6-9.6c1-1 2.5-1 3.4 0l5.6 5.6c1 1 1 2.5 0 3.4L13 21"/><path d="M22 21H7"/><path d="m5 11 9 9"/></svg>
       </button>
     </div>
@@ -196,7 +196,7 @@
 
     <!-- Background Image Controls -->
     <div class="tool-group bg-controls-wrap" id="bg-controls">
-      <button class="bg-trigger" id="bg-trigger" title="Background image">
+      <button class="bg-trigger" id="bg-trigger" title="Background image" aria-label="Background image">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-5-5L5 21"/></svg>
         BG
       </button>
@@ -213,12 +213,12 @@
 
         <div class="bg-action-buttons" style="display: flex; gap: 8px; margin-top: 4px; padding: 0 12px 12px 12px;">
           <!-- Shuffle Button -->
-          <button class="bg-upload-btn" id="bg-shuffle-btn" title="Shuffle Wallpapers" style="flex:1;">
+          <button class="bg-upload-btn" id="bg-shuffle-btn" title="Shuffle Wallpapers" style="flex:1;" aria-label="Shuffle Wallpapers">
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 3h5v5"/><path d="M4 20L21 3"/><path d="M21 16v5h-5"/><path d="M15 15l6 6"/><path d="M4 4l5 5"/></svg>
             Shuffle
           </button>
           <!-- Random Gradient -->
-          <button class="bg-upload-btn" id="bg-random-btn" title="Generate Random Gradient" style="flex:1;">
+          <button class="bg-upload-btn" id="bg-random-btn" title="Generate Random Gradient" style="flex:1;" aria-label="Generate Random Gradient">
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2.5 2v6h6M21.5 22v-6h-6"/><path d="M22 11.5A10 10 0 0 0 3.2 7.2M2 12.5a10 10 0 0 0 18.8 4.2"/></svg>
             Magic
           </button>
@@ -255,35 +255,35 @@
             <span class="bg-aspect-value" id="bg-aspect-value">Free</span>
           </div>
           <div class="bg-aspect-grid" id="bg-aspect-grid">
-            <button class="aspect-btn active" data-ratio="free" title="Original / Free">
+            <button class="aspect-btn active" data-ratio="free" title="Original / Free" aria-label="Original / Free">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="5" width="18" height="14" rx="2" stroke-dasharray="3 2"/></svg>
               <span>Free</span>
             </button>
-            <button class="aspect-btn" data-ratio="16:9" title="16:9 — YouTube, Widescreen">
+            <button class="aspect-btn" data-ratio="16:9" title="16:9 — YouTube, Widescreen" aria-label="16:9 — YouTube, Widescreen">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="6" width="20" height="12" rx="2"/></svg>
               <span>16:9</span>
             </button>
-            <button class="aspect-btn" data-ratio="1:1" title="1:1 — Instagram Square">
+            <button class="aspect-btn" data-ratio="1:1" title="1:1 — Instagram Square" aria-label="1:1 — Instagram Square">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="4" y="4" width="16" height="16" rx="2"/></svg>
               <span>1:1</span>
             </button>
-            <button class="aspect-btn" data-ratio="4:3" title="4:3 — Classic">
+            <button class="aspect-btn" data-ratio="4:3" title="4:3 — Classic" aria-label="4:3 — Classic">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="5" width="18" height="14" rx="2"/></svg>
               <span>4:3</span>
             </button>
-            <button class="aspect-btn" data-ratio="9:16" title="9:16 — Stories, Reels">
+            <button class="aspect-btn" data-ratio="9:16" title="9:16 — Stories, Reels" aria-label="9:16 — Stories, Reels">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="6" y="2" width="12" height="20" rx="2"/></svg>
               <span>9:16</span>
             </button>
-            <button class="aspect-btn" data-ratio="4:5" title="4:5 — Instagram Portrait">
+            <button class="aspect-btn" data-ratio="4:5" title="4:5 — Instagram Portrait" aria-label="4:5 — Instagram Portrait">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="4" y="2" width="16" height="20" rx="2"/></svg>
               <span>4:5</span>
             </button>
-            <button class="aspect-btn" data-ratio="3:2" title="3:2 — DSLR Photo">
+            <button class="aspect-btn" data-ratio="3:2" title="3:2 — DSLR Photo" aria-label="3:2 — DSLR Photo">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="5" width="18" height="14" rx="2"/></svg>
               <span>3:2</span>
             </button>
-            <button class="aspect-btn" data-ratio="21:9" title="21:9 — Ultrawide">
+            <button class="aspect-btn" data-ratio="21:9" title="21:9 — Ultrawide" aria-label="21:9 — Ultrawide">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="1" y="7" width="22" height="10" rx="2"/></svg>
               <span>21:9</span>
             </button>
@@ -346,7 +346,7 @@
       <!-- Font picker -->
       <span class="slider-label" style="margin-left: 8px;">Font</span>
       <div class="font-picker-wrap" id="font-picker-wrap">
-        <button class="font-picker-trigger" id="font-picker-trigger" title="Change font">
+        <button class="font-picker-trigger" id="font-picker-trigger" title="Change font" aria-label="Change font">
           <span id="font-picker-label">Inter</span>
           <svg width="8" height="8" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 3.5l3 3 3-3"/></svg>
         </button>
@@ -420,7 +420,7 @@
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"/><path d="M14 2v6h6"/><path d="M16 13H8"/><path d="M16 17H8"/><path d="M10 9H8"/></svg>
               <span id="extract-label">Extract All Text</span>
             </button>
-            <button class="action-btn" id="btn-copy-text" title="Copy text">
+            <button class="action-btn" id="btn-copy-text" title="Copy text" aria-label="Copy text">
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
             </button>
           </div>

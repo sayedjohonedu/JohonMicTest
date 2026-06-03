@@ -55,7 +55,7 @@
       <div class="toolbar-actions">
         <!-- ── Collections Button ────────────────────────────── -->
         <div class="import-dropdown-wrap" id="collections-dropdown-wrap">
-          <button id="btn-collections" class="action-btn action-btn-icon" title="Collections"><!-- app store grid icon -->
+          <button id="btn-collections" class="action-btn action-btn-icon" title="Collections" aria-label="Collections"><!-- app store grid icon -->
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
           </button>
           <div class="import-dropdown collections-panel" id="collections-dropdown" style="width: 310px; right: 0; padding: 0; cursor: default;">
@@ -70,7 +70,7 @@
         </div>
         <!-- ── Security Button ────────────────────────────────── -->
         <div class="import-dropdown-wrap" id="dev-mode-wrap">
-          <button id="btn-dev-mode" class="action-btn action-btn-icon" title="Security Settings">
+          <button id="btn-dev-mode" class="action-btn action-btn-icon" title="Security Settings" aria-label="Security Settings">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
           </button>
           <div class="import-dropdown" id="dev-mode-dropdown" style="width: 280px; right: 0; padding: 12px; cursor: default;">
@@ -92,7 +92,7 @@
         </div>
         <!-- ── Backup / Restore Button ────────────────────────── -->
         <div class="import-dropdown-wrap" id="backup-dropdown-wrap">
-          <button id="btn-backup-restore" class="action-btn action-btn-icon" title="Backup &amp; Restore">
+          <button id="btn-backup-restore" class="action-btn action-btn-icon" title="Backup &amp; Restore" aria-label="Backup &amp; Restore">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
           </button>
           <div class="import-dropdown" id="backup-dropdown">
@@ -109,7 +109,7 @@
 
         <!-- ── Import Button ──────────────────────────────────── -->
         <div class="import-dropdown-wrap" id="import-dropdown-wrap">
-          <button id="btn-import" class="action-btn action-btn-icon" title="Import App">
+          <button id="btn-import" class="action-btn action-btn-icon" title="Import App" aria-label="Import App">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
           </button>
           <div class="import-dropdown" id="import-dropdown">
@@ -128,7 +128,7 @@
           </div>
         </div>
         <!-- ── AI Build Button ───────────────────────────────── -->
-        <button id="btn-ai-build" class="action-btn action-btn-accent action-btn-icon" title="Build an App with AI">
+        <button id="btn-ai-build" class="action-btn action-btn-accent action-btn-icon" title="Build an App with AI" aria-label="Build an App with AI">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.5 2A2.5 2.5 0 0 1 12 4.5v15a2.5 2.5 0 0 1-4.96.44 2.5 2.5 0 0 1-2.96-3.08 3 3 0 0 1-.34-5.58 2.5 2.5 0 0 1 1.32-4.24 2.5 2.5 0 0 1 1.44-4.04Z"/><path d="M14.5 2A2.5 2.5 0 0 0 12 4.5v15a2.5 2.5 0 0 0 4.96.44 2.5 2.5 0 0 0 2.96-3.08 3 3 0 0 0 .34-5.58 2.5 2.5 0 0 0-1.32-4.24 2.5 2.5 0 0 0-1.44-4.04Z"/></svg>
         </button>
       </div>
@@ -170,7 +170,7 @@
             </button>
 
             <!-- All Chats back button — only visible when inside an app's chat context -->
-            <button id="ai-back-btn" class="action-btn" title="Exit to all chats" style="padding: 6px 10px; font-size: 11px; flex-shrink: 0; display: none;">
+            <button id="ai-back-btn" class="action-btn" title="Exit to all chats" style="padding: 6px 10px; font-size: 11px; flex-shrink: 0; display: none;" aria-label="Exit to all chats">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
               All Chats
             </button>
@@ -249,7 +249,7 @@
         <div class="paste-fields">
           <div class="input-row">
             <input type="text" id="paste-name" class="paste-name-input" placeholder="App name (optional — auto-detected from <title>)" />
-            <button id="paste-icon-btn" class="action-btn" title="Select custom app icon">
+            <button id="paste-icon-btn" class="action-btn" title="Select custom app icon" aria-label="Select custom app icon">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
               Icon
             </button>

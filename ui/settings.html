@@ -48,7 +48,7 @@
       </div>
     </nav>
     <div class="sidebar-footer">
-      <button class="btn-action tg-btn" onclick="window.electronAPI.openUrl('https://t.me/junoverseai')" title="Join our Telegram" style="width: 100%; display: flex; align-items: center; justify-content: center; gap: 6px; padding: 7px; cursor: pointer; border-color: rgba(41, 169, 234, 0.4); background: rgba(41, 169, 234, 0.1); color: #29A9EA;">
+      <button class="btn-action tg-btn" onclick="window.electronAPI.openUrl('https://t.me/junoverseai')" title="Join our Telegram" style="width: 100%; display: flex; align-items: center; justify-content: center; gap: 6px; padding: 7px; cursor: pointer; border-color: rgba(41, 169, 234, 0.4); background: rgba(41, 169, 234, 0.1); color: #29A9EA;" aria-label="Join our Telegram">
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
         JunoverseAI
       </button>
@@ -552,7 +552,7 @@
             <div class="row-info"><label>Model</label><small>The AI model to use</small></div>
             <div style="display:flex; gap:6px; align-items:center; flex-wrap:wrap;">
               <select class="duration-select" id="vault-llm-model" style="width:210px; font-family:monospace; font-size:12px;"></select>
-              <button class="btn-action" id="btn-vault-ollama-refresh" onclick="refreshVaultOllamaModels()" style="display:none; padding:5px 8px; font-size:11px;" title="Refresh Ollama models">↺</button>
+              <button class="btn-action" id="btn-vault-ollama-refresh" onclick="refreshVaultOllamaModels()" style="display:none; padding:5px 8px; font-size:11px;" title="Refresh Ollama models" aria-label="Refresh Ollama models">↺</button>
             </div>
           </div>
           <!-- Inline custom model input (shown when '— Enter custom model —' is selected) -->

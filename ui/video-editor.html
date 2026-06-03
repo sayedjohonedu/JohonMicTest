@@ -12,17 +12,17 @@
 
 <!-- ═══ TITLE BAR ═══ -->
 <div id="titlebar">
-  <button class="tb-btn close" id="btn-close" title="Close">
+  <button class="tb-btn close" id="btn-close" title="Close" aria-label="Close">
     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M18 6 6 18M6 6l12 12"/></svg>
   </button>
   <span class="tb-title">MicTab Editor</span>
-  <button class="tb-btn" id="btn-style" title="Style Settings">
+  <button class="tb-btn" id="btn-style" title="Style Settings" aria-label="Style Settings">
     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
   </button>
-  <button class="tb-btn" id="btn-minimize" title="Minimize">
+  <button class="tb-btn" id="btn-minimize" title="Minimize" aria-label="Minimize">
     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14"/></svg>
   </button>
-  <button class="tb-btn" id="btn-maximize" title="Maximize">
+  <button class="tb-btn" id="btn-maximize" title="Maximize" aria-label="Maximize">
     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/></svg>
   </button>
 </div>
@@ -62,13 +62,13 @@
 
       <!-- Timeline toolbar -->
       <div id="tl-toolbar">
-        <button class="tl-btn" id="btn-skip-back" title="Back 5s (←)">
+        <button class="tl-btn" id="btn-skip-back" title="Back 5s (←)" aria-label="Back 5s (←)">
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="11 19 2 12 11 5 11 19"/><polygon points="22 19 13 12 22 5 22 19"/></svg>
         </button>
-        <button class="tl-btn play" id="btn-play" title="Play / Pause (Space)">
+        <button class="tl-btn play" id="btn-play" title="Play / Pause (Space)" aria-label="Play / Pause (Space)">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" stroke="none"><polygon points="5 3 19 12 5 21 5 3"/></svg>
         </button>
-        <button class="tl-btn" id="btn-skip-fwd" title="Forward 5s (→)">
+        <button class="tl-btn" id="btn-skip-fwd" title="Forward 5s (→)" aria-label="Forward 5s (→)">
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 19 22 12 13 5 13 19"/><polygon points="2 19 11 12 2 5 2 19"/></svg>
         </button>
 
@@ -80,37 +80,37 @@
 
         <div class="tl-sep"></div>
 
-        <button class="tl-toolbar-btn" id="tl-btn-undo" title="Undo (⌘Z)">
+        <button class="tl-toolbar-btn" id="tl-btn-undo" title="Undo (⌘Z)" aria-label="Undo (⌘Z)">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7v6h6"/><path d="M21 17a9 9 0 00-9-9 9 9 0 00-6 2.3L3 13"/></svg>
           <span>Undo</span>
         </button>
-        <button class="tl-toolbar-btn" id="tl-btn-redo" title="Redo (⌘⇧Z)">
+        <button class="tl-toolbar-btn" id="tl-btn-redo" title="Redo (⌘⇧Z)" aria-label="Redo (⌘⇧Z)">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 7v6h-6"/><path d="M3 17a9 9 0 019-9 9 9 0 016 2.3l3 2.7"/></svg>
           <span>Redo</span>
         </button>
         <div class="tl-sep"></div>
-        <button class="tl-toolbar-btn active" id="tl-btn-select" title="Select (V)">
+        <button class="tl-toolbar-btn active" id="tl-btn-select" title="Select (V)" aria-label="Select (V)">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3l7.07 16.97 2.51-7.39 7.39-2.51L3 3z"/><path d="M13 13l6 6"/></svg>
           <span>Select</span>
         </button>
-        <button class="tl-toolbar-btn" id="tl-btn-split" title="Split (C)">
+        <button class="tl-toolbar-btn" id="tl-btn-split" title="Split (C)" aria-label="Split (C)">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 4L8.12 15.88M14.47 14.48L20 20M8.12 8.12L12 12"/><circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/></svg>
           <span>Split (C)</span>
         </button>
-        <button class="tl-toolbar-btn" id="tl-btn-erase-left" title="Erase Left (Q)">
+        <button class="tl-toolbar-btn" id="tl-btn-erase-left" title="Erase Left (Q)" aria-label="Erase Left (Q)">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="3" x2="12" y2="21"/><path d="M8 12l-4-4v8z"/></svg>
           <span>Erase L (Q)</span>
         </button>
-        <button class="tl-toolbar-btn" id="tl-btn-erase-right" title="Erase Right (E)">
+        <button class="tl-toolbar-btn" id="tl-btn-erase-right" title="Erase Right (E)" aria-label="Erase Right (E)">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="3" x2="12" y2="21"/><path d="M16 12l4-4v8z"/></svg>
           <span>Erase R (E)</span>
         </button>
-        <button class="tl-toolbar-btn" id="tl-btn-delete" title="Delete (Del)">
+        <button class="tl-toolbar-btn" id="tl-btn-delete" title="Delete (Del)" aria-label="Delete (Del)">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>
           <span>Delete (Del)</span>
         </button>
         <div class="tl-sep"></div>
-        <button class="tl-toolbar-btn" id="tl-btn-silence" title="Silence Remover">
+        <button class="tl-toolbar-btn" id="tl-btn-silence" title="Silence Remover" aria-label="Silence Remover">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 5L6 9H2v6h4l5 4V5z"/><line x1="23" y1="9" x2="17" y2="15"/><line x1="17" y1="9" x2="23" y2="15"/></svg>
           <span>Auto-Trim</span>
         </button>
@@ -125,7 +125,7 @@
 
         <div class="tl-spacer"></div>
 
-        <button class="tl-btn export" id="btn-export" title="Export video">
+        <button class="tl-btn export" id="btn-export" title="Export video" aria-label="Export video">
           <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
           Export
         </button>
