@@ -35,6 +35,8 @@ function ensureAppsDir() {
 }
 
 // ── Registry helpers ───────────────────────────────────────
+const _iconCache = new Map();
+
 function loadRegistry() {
   ensureAppsDir();
   try {
@@ -56,18 +58,25 @@ function loadRegistry() {
           iconPath = path.join(getAppsDir(), app.id, app.icon);
         }
 
-        if (fs.existsSync(iconPath)) {
-          const ext = path.extname(iconPath).toLowerCase();
-          const mime =
-            ext === ".svg"
-              ? "image/svg+xml"
-              : ext === ".png"
-                ? "image/png"
-                : ext === ".webp"
-                  ? "image/webp"
-                  : "image/jpeg";
-          const data = fs.readFileSync(iconPath, "base64");
-          app.iconBase64 = `data:${mime};base64,${data}`;
+        const stat = fs.statSync(iconPath, { throwIfNoEntry: false });
+        if (stat) {
+          const cached = _iconCache.get(iconPath);
+          if (cached && cached.mtimeMs === stat.mtimeMs) {
+            app.iconBase64 = cached.data;
+          } else {
+            const ext = path.extname(iconPath).toLowerCase();
+            const mime =
+              ext === ".svg"
+                ? "image/svg+xml"
+                : ext === ".png"
+                  ? "image/png"
+                  : ext === ".webp"
+                    ? "image/webp"
+                    : "image/jpeg";
+            const data = fs.readFileSync(iconPath, "base64");
+            app.iconBase64 = `data:${mime};base64,${data}`;
+            _iconCache.set(iconPath, { mtimeMs: stat.mtimeMs, data: app.iconBase64 });
+          }
         }
       }
     }
