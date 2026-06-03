@@ -338,8 +338,9 @@ function toggleListening(forceLang = null, fromTranslator = false, forceStart = 
       width: 520,
       height: 580,
       webPreferences: {
-        nodeIntegration: true,
-        contextIsolation: false
+        nodeIntegration: false,
+        contextIsolation: true,
+        preload: path.join(__dirname, 'ui', 'bridge-error-preload.js')
       },
       frame: false,
       transparent: true,
