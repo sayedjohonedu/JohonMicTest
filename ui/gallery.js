@@ -523,6 +523,10 @@ function showCardContextMenu(x, y, file) {
       <span>${isSelected ? 'Deselect' : 'Select'}</span>
     </div>
     <div class="ctx-sep"></div>
+    <div class="ctx-item" data-action="rename">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+      <span>Rename</span>
+    </div>
     <div class="ctx-item" data-action="reveal">
       <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
       <span>Open File Location</span>
@@ -573,6 +577,9 @@ function showCardContextMenu(x, y, file) {
       case 'select':
         toggleSelect(file.path);
         break;
+      case 'rename':
+        showRenameDialog(file);
+        break;
       case 'reveal':
         window.gallery.revealInFinder(file.path);
         break;
@@ -617,6 +624,77 @@ function showCardContextMenu(x, y, file) {
     document.addEventListener('mousedown', outsideClick);
     document.addEventListener('keydown', escKey);
   }, 10);
+}
+
+/* ── Rename Dialog ── */
+function showRenameDialog(file) {
+  const ext = file.name.includes('.') ? '.' + file.name.split('.').pop() : '';
+  const baseName = ext ? file.name.slice(0, -ext.length) : file.name;
+
+  const overlay = document.createElement('div');
+  overlay.className = 'confirm-overlay';
+  overlay.innerHTML = `
+    <div class="confirm-box rename-box">
+      <div class="confirm-title">Rename File</div>
+      <div class="rename-input-wrap">
+        <input class="rename-input" id="rename-input" type="text" value="${baseName}" spellcheck="false" autocomplete="off">
+        <span class="rename-ext">${ext}</span>
+      </div>
+      <div class="rename-hint">Press Enter to save · Escape to cancel</div>
+      <div class="rename-error" id="rename-error"></div>
+      <div class="confirm-actions">
+        <button class="confirm-btn" id="rename-cancel">Cancel</button>
+        <button class="confirm-btn" id="rename-confirm" style="background:rgba(124,111,255,0.15);border-color:rgba(124,111,255,0.3);color:#b4a8ff;">Rename</button>
+      </div>
+    </div>`;
+  document.body.appendChild(overlay);
+
+  const input = overlay.querySelector('#rename-input');
+  const errorEl = overlay.querySelector('#rename-error');
+
+  // Focus and select all on open
+  requestAnimationFrame(() => {
+    input.focus();
+    input.select();
+  });
+
+  async function doRename() {
+    const newName = input.value.trim();
+    if (!newName) { errorEl.textContent = 'Name cannot be empty.'; return; }
+    if (newName === baseName) { overlay.remove(); return; } // no change
+
+    const result = await window.gallery.renameFile(file.path, newName);
+    if (result.ok) {
+      overlay.remove();
+      // Update the file object in place so the card reflects new name
+      const oldPath = file.path;
+      file.path = result.newPath;
+      file.name = result.newName;
+      // Update the card DOM directly for instant feedback
+      const card = gridView.querySelector(`.media-card[data-path="${oldPath}"]`);
+      if (card) {
+        card.dataset.path = result.newPath;
+        const nameEl = card.querySelector('.card-name');
+        if (nameEl) nameEl.textContent = result.newName;
+      }
+      // Also update allFiles array
+      const idx = allFiles.findIndex(f => f.path === oldPath);
+      if (idx >= 0) { allFiles[idx].path = result.newPath; allFiles[idx].name = result.newName; }
+      showToast(`Renamed to "${result.newName}"`);
+    } else {
+      errorEl.textContent = result.error || 'Rename failed.';
+      input.focus();
+      input.select();
+    }
+  }
+
+  input.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') { e.preventDefault(); doRename(); }
+    if (e.key === 'Escape') { overlay.remove(); }
+  });
+  overlay.querySelector('#rename-confirm').addEventListener('click', doRename);
+  overlay.querySelector('#rename-cancel').addEventListener('click', () => overlay.remove());
+  overlay.addEventListener('click', (e) => { if (e.target === overlay) overlay.remove(); });
 }
 
 /* ── Toast notification ── */
