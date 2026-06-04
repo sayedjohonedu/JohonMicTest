@@ -936,6 +936,13 @@ function setupHttpServer() {
 }
 
 app.whenReady().then(() => {
+  // ── Early IPC: register 'get-config' before any window loads ────────────
+  // Multiple preloads (overlay, gallery, settings, etc.) invoke 'get-config'
+  // on did-finish-load. If setupIpcHandlers() hasn't run yet (it depends on
+  // wiring up many callbacks first), the promise rejects with
+  // "No handler registered" which causes unhandled-rejection freezes.
+  ipcMain.handle('get-config', () => store.store);
+
   app.on('web-contents-created', (event, contents) => {
     contents.on('console-message', (event, messageParams, ...args) => {
       let message, line;

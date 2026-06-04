@@ -942,68 +942,76 @@ async function closeAiTest() {
 
 // ── Built-in apps installer ────────────────────────────────
 function installBuiltInApps() {
-  const registry = loadRegistry();
-  const builtInDir = path.join(__dirname, "../../assets/builtin-apps");
-  if (!fs.existsSync(builtInDir)) return;
+  try {
+    const registry = loadRegistry();
+    const builtInDir = path.join(__dirname, "../../assets/builtin-apps");
+    if (!fs.existsSync(builtInDir)) return;
 
-  const dirs = fs
-    .readdirSync(builtInDir, { withFileTypes: true })
-    .filter((d) => d.isDirectory());
-  const deleted = store.get("deletedBuiltins") || [];
-  for (const dir of dirs) {
-    const appId = `builtin_${dir.name}`;
-    if (registry.find((a) => a.id === appId)) continue;
-    if (deleted.includes(appId)) continue;
+    const dirs = fs
+      .readdirSync(builtInDir, { withFileTypes: true })
+      .filter((d) => d.isDirectory());
+    const deleted = store.get("deletedBuiltins") || [];
+    for (const dir of dirs) {
+      const appId = `builtin_${dir.name}`;
+      if (registry.find((a) => a.id === appId)) continue;
+      if (deleted.includes(appId)) continue;
 
-    const srcDir = path.join(builtInDir, dir.name);
-    const destDir = path.join(getAppsDir(), `builtin_${dir.name}`);
-    fs.mkdirSync(destDir, { recursive: true });
+      const srcDir = path.join(builtInDir, dir.name);
+      const destDir = path.join(getAppsDir(), `builtin_${dir.name}`);
 
-    // Copy all files
-    for (const file of fs.readdirSync(srcDir)) {
-      fs.copyFileSync(path.join(srcDir, file), path.join(destDir, file));
-    }
-
-    // Read manifest
-    let manifest = {};
-    const manifestPath = path.join(destDir, "manifest.json");
-    if (fs.existsSync(manifestPath)) {
       try {
-        manifest = JSON.parse(fs.readFileSync(manifestPath, "utf-8"));
-      } catch {}
-    }
+        fs.mkdirSync(destDir, { recursive: true });
 
-    // Detect app icon (appicon.*)
-    let appIcon = manifest.icon || null;
-    try {
-      const currentFiles = fs.readdirSync(destDir);
-      const iconFiles = currentFiles.filter((f) =>
-        /^appicon\.(png|jpe?g|webp|gif|svg)$/i.test(f),
-      );
-      if (iconFiles.length > 0) {
-        iconFiles.sort(
-          (a, b) =>
-            fs.statSync(path.join(destDir, b)).mtimeMs -
-            fs.statSync(path.join(destDir, a)).mtimeMs,
-        );
-        appIcon = iconFiles[0];
+        // Deep-copy the entire source tree (handles subdirectories safely)
+        copyDirRecursive(srcDir, destDir);
+      } catch (copyErr) {
+        console.error(`[AppStore] Failed to copy built-in app "${dir.name}":`, copyErr.message);
+        continue; // skip this app, don't crash the rest
       }
-    } catch {}
 
-    registry.push({
-      id: `builtin_${dir.name}`,
-      name: manifest.name || dir.name,
-      description: manifest.description || "",
-      icon: appIcon,
-      entry: manifest.entry || "index.html",
-      width: manifest.width || 600,
-      height: manifest.height || 500,
-      category: manifest.category || "tools",
-      installedAt: Date.now(),
-      builtIn: true,
-    });
+      // Read manifest
+      let manifest = {};
+      const manifestPath = path.join(destDir, "manifest.json");
+      if (fs.existsSync(manifestPath)) {
+        try {
+          manifest = JSON.parse(fs.readFileSync(manifestPath, "utf-8"));
+        } catch {}
+      }
+
+      // Detect app icon (appicon.*)
+      let appIcon = manifest.icon || null;
+      try {
+        const currentFiles = fs.readdirSync(destDir);
+        const iconFiles = currentFiles.filter((f) =>
+          /^appicon\.(png|jpe?g|webp|gif|svg)$/i.test(f),
+        );
+        if (iconFiles.length > 0) {
+          iconFiles.sort(
+            (a, b) =>
+              fs.statSync(path.join(destDir, b)).mtimeMs -
+              fs.statSync(path.join(destDir, a)).mtimeMs,
+          );
+          appIcon = iconFiles[0];
+        }
+      } catch {}
+
+      registry.push({
+        id: `builtin_${dir.name}`,
+        name: manifest.name || dir.name,
+        description: manifest.description || "",
+        icon: appIcon,
+        entry: manifest.entry || "index.html",
+        width: manifest.width || 600,
+        height: manifest.height || 500,
+        category: manifest.category || "tools",
+        installedAt: Date.now(),
+        builtIn: true,
+      });
+    }
+    saveRegistry(registry);
+  } catch (err) {
+    console.error('[AppStore] installBuiltInApps failed:', err.message);
   }
-  saveRegistry(registry);
 }
 
 // ── IPC Setup ──────────────────────────────────────────────

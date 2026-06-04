@@ -55,7 +55,8 @@ function setupIpcHandlers(toggleListening, registerHotkeys, getWsClient, resetSi
     });
   });
 
-  ipcMain.handle('get-config', () => store.store);
+  // NOTE: 'get-config' is registered early in main.js (before any windows load)
+  // to avoid race conditions. Do NOT register it again here.
 
   ipcMain.handle('get-stats', () => ({
     totalWords:    store.get('statsWords')     || 0,

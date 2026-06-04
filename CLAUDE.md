@@ -1,7 +1,8 @@
 # Git and GitHub Instructions
 
-1. **Version Bumping**: BEFORE pushing ANY changes to GitHub, you MUST bump the `version` field in `package.json`.
-2. **Tagging**: When pushing, create a git tag that exactly matches the new version in `package.json` (e.g., `v1.3.11`) and push the tags along with the commit. This triggers the necessary GitHub Actions for releasing the application.
+1. **Always Ask Before Pushing**: NEVER push to GitHub without asking the user for explicit confirmation first. This includes commits, tags, and version bumps.
+2. **Version Bumping**: BEFORE pushing ANY changes to GitHub, you MUST bump the `version` field in `package.json` — but only AFTER the user confirms the push.
+3. **Tagging**: When pushing, create a git tag that exactly matches the new version in `package.json` (e.g., `v1.3.11`) and push the tags along with the commit. This triggers the necessary GitHub Actions for releasing the application.
 
 # Build & Release
 - Always ensure `npm run build:mac` or `build:win` can succeed if changing main process code.
