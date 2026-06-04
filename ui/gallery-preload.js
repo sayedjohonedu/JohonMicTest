@@ -9,6 +9,10 @@ contextBridge.exposeInMainWorld('gallery', {
   getSaveDir:       ()                      => ipcRenderer.invoke('gallery-get-save-dir'),
   copyToClipboard:  (filePath, fileType)    => ipcRenderer.invoke('gallery-copy-to-clipboard', { filePath, fileType }),
 
+  // Thumbnail cache
+  getThumb:         (filePath, mtime)          => ipcRenderer.invoke('gallery-get-thumb', { filePath, mtime }),
+  saveThumb:        (filePath, mtime, dataUrl) => ipcRenderer.invoke('gallery-save-thumb', { filePath, mtime, dataUrl }),
+
   // FFmpeg / conversion
   checkFFmpeg:      ()                      => ipcRenderer.invoke('gallery-check-ffmpeg'),
   downloadFFmpeg:   ()                      => ipcRenderer.invoke('gallery-download-ffmpeg'),

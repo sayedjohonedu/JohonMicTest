@@ -205,7 +205,7 @@ function createCard(file) {
   if (file.type === 'image') {
     thumbHtml = `<img class="card-thumb" src="${toFileUrl(file.path)}" loading="lazy">`;
   } else {
-    thumbHtml = `<div class="card-thumb-placeholder" data-video-thumb="${file.path}">
+    thumbHtml = `<div class="card-thumb-placeholder" data-video-thumb="${file.path}" data-video-mtime="${file.modifiedAt}">
       <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><polygon points="5 3 19 12 5 21 5 3"/></svg>
     </div>`;
   }
@@ -242,21 +242,52 @@ function createCard(file) {
 }
 
 /* ── Video Thumbnail Generation ── */
-function generateThumbnails() {
-  const placeholders = gridView.querySelectorAll('[data-video-thumb]');
-  for (const ph of placeholders) {
+
+/**
+ * Generates (or restores from cache) a single video thumbnail.
+ * Returns a Promise that resolves when the thumbnail is shown (or fails).
+ */
+function generateOneThumbnail(ph) {
+  return new Promise(async (resolve) => {
     const videoPath = ph.dataset.videoThumb;
+    const videoMtime = ph.dataset.videoMtime || '';
+    // Placeholder may have already been replaced (e.g. double renderGrid call)
+    if (!ph.parentElement) { resolve(); return; }
+
+    // ── Cache-hit: restore instantly without loading the video ──
+    try {
+      const cached = await window.gallery.getThumb(videoPath, videoMtime);
+      if (cached) {
+        // Make sure the placeholder is still in the DOM (grid may have re-rendered)
+        if (!ph.parentElement) { resolve(); return; }
+        const img = document.createElement('img');
+        img.className = 'card-thumb';
+        img.src = cached;
+        ph.parentElement.replaceChild(img, ph);
+        resolve();
+        return;
+      }
+    } catch { /* cache unavailable — fall through to video decode */ }
+
+    // ── Cache-miss: decode via <video> element ──
     const tempVideo = document.createElement('video');
     tempVideo.preload = 'metadata';
     tempVideo.muted = true;
-    tempVideo.src = toFileUrl(videoPath);
 
     let durationResolved = false;
     let thumbCaptured = false;
+    let settled = false;
+
+    function done() {
+      if (settled) return;
+      settled = true;
+      resolve();
+    }
 
     function captureThumb() {
       if (thumbCaptured) return;
       thumbCaptured = true;
+
       const canvas = document.createElement('canvas');
       canvas.width = tempVideo.videoWidth || 320;
       canvas.height = tempVideo.videoHeight || 180;
@@ -277,13 +308,18 @@ function generateThumbnails() {
         durEl.textContent = formatTime(tempVideo.duration);
         card.appendChild(durEl);
       }
+
+      // Persist the thumbnail so next open is instant
+      window.gallery.saveThumb(videoPath, videoMtime, dataUrl).catch(() => {});
+
       tempVideo.src = '';
       tempVideo.load();
+      done();
     }
 
     tempVideo.addEventListener('loadedmetadata', () => {
       if (!isFinite(tempVideo.duration)) {
-        // WebM duration bug: seek to huge time to force browser to calculate
+        // WebM duration bug: seek far to force the browser to resolve duration
         tempVideo.currentTime = 1e10;
       } else {
         durationResolved = true;
@@ -294,13 +330,43 @@ function generateThumbnails() {
     tempVideo.addEventListener('seeked', () => {
       if (!durationResolved && isFinite(tempVideo.duration)) {
         durationResolved = true;
-        // Now seek to a good frame for thumbnail
+        // Seek to the actual thumbnail frame now that duration is known
         tempVideo.currentTime = Math.min(1, tempVideo.duration * 0.1);
         return;
       }
       captureThumb();
     });
+
+    // Safety timeout — if the video never loads/seeks, unblock the queue
+    tempVideo.addEventListener('error', done);
+    setTimeout(done, 8000);
+
+    // Start loading only after all event listeners are set up
+    tempVideo.src = toFileUrl(videoPath);
+  });
+}
+
+/**
+ * Kick off thumbnail generation for all video placeholder elements.
+ * Runs at most CONCURRENCY thumbnails at a time so we don't saturate
+ * disk I/O and the browser's video decode pipeline simultaneously.
+ */
+function generateThumbnails() {
+  const CONCURRENCY = 3;
+  const placeholders = Array.from(gridView.querySelectorAll('[data-video-thumb]'));
+  if (placeholders.length === 0) return;
+
+  let nextIndex = 0;
+
+  function runNext() {
+    if (nextIndex >= placeholders.length) return;
+    const ph = placeholders[nextIndex++];
+    generateOneThumbnail(ph).then(runNext);
   }
+
+  // Seed the initial batch (up to CONCURRENCY workers)
+  const initialBatch = Math.min(CONCURRENCY, placeholders.length);
+  for (let i = 0; i < initialBatch; i++) runNext();
 }
 
 /* ═══════════════════════════════════════════════════════════

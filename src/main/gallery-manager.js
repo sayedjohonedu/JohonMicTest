@@ -24,6 +24,23 @@ function getSaveDir() {
   return path.join(app.getPath('downloads'), SAVE_DIR_NAME);
 }
 
+/* ── Thumbnail cache ─────────────────────────────────────── */
+
+/**
+ * Returns the cache file path for a given video file + its mtime.
+ * Using basename + mtime means: if the video is replaced/modified,
+ * the old cache entry is simply ignored (new key → new file).
+ */
+function getThumbCachePath(filePath, mtime) {
+  if (!thumbCacheDir) return null;
+  // Sanitise the basename so it's a safe filename on all platforms
+  const base = path.basename(filePath).replace(/[^a-zA-Z0-9._-]/g, '_');
+  const ts   = typeof mtime === 'number' ? mtime : new Date(mtime).getTime();
+  return path.join(thumbCacheDir, `${base}_${ts}.jpg`);
+}
+
+let thumbCacheDir = null; // set lazily once app is ready
+
 /* ── Window reference ───────────────────────────────────── */
 let galleryWindow = null;
 
@@ -184,9 +201,47 @@ function getGalleryWindow() {
 /* ── IPC Handlers ───────────────────────────────────────── */
 
 function setupGalleryIpc() {
+  // Resolve the cache dir now that app is ready
+  thumbCacheDir = path.join(app.getPath('userData'), 'gallery-thumb-cache');
+
   // Scan files
   // scanMediaFiles is async — ipcMain.handle automatically resolves returned promises
   ipcMain.handle('gallery-scan-files', () => scanMediaFiles());
+
+  // ── Thumbnail cache ─────────────────────────────────────────────────────
+
+  /**
+   * Returns the cached thumbnail data-URL for a video, or null if not cached.
+   * `mtime` is the video's last-modified timestamp (ISO string or epoch ms).
+   * If the video file has changed, its mtime will differ → different cache key
+   * → null is returned and the caller regenerates the thumbnail.
+   */
+  ipcMain.handle('gallery-get-thumb', (_, { filePath, mtime }) => {
+    try {
+      const cachePath = getThumbCachePath(filePath, mtime);
+      if (!cachePath || !fs.existsSync(cachePath)) return null;
+      const data = fs.readFileSync(cachePath);
+      return `data:image/jpeg;base64,${data.toString('base64')}`;
+    } catch { return null; }
+  });
+
+  /**
+   * Saves a generated thumbnail data-URL to the cache.
+   * Creates the cache directory if needed.
+   */
+  ipcMain.handle('gallery-save-thumb', (_, { filePath, mtime, dataUrl }) => {
+    try {
+      if (!thumbCacheDir) return { ok: false };
+      if (!fs.existsSync(thumbCacheDir)) {
+        fs.mkdirSync(thumbCacheDir, { recursive: true });
+      }
+      const cachePath = getThumbCachePath(filePath, mtime);
+      if (!cachePath) return { ok: false };
+      const base64 = dataUrl.replace(/^data:image\/\w+;base64,/, '');
+      fs.writeFileSync(cachePath, Buffer.from(base64, 'base64'));
+      return { ok: true };
+    } catch { return { ok: false }; }
+  });
 
   const SIDECAR_EXTS = ['.mictab-cursor.json', '.mictab-edit.json', '.mictab-whisper.json', '.mictab-clip-origin.json'];
 
