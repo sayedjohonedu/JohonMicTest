@@ -109,13 +109,27 @@ function openGallery(autoPlayFile = null) {
     return;
   }
 
+  const isMac = process.platform === 'darwin';
+  const platformOptions = isMac
+    ? {
+        titleBarStyle: 'hiddenInset',
+        vibrancy: 'sidebar',
+        visualEffectState: 'active',
+        backgroundColor: '#00000000',
+      }
+    : {
+        titleBarStyle: 'default',
+        backgroundColor: '#0a0a12',
+        autoHideMenuBar: true,
+      };
+
   galleryWindow = new BrowserWindow({
     width: 1100,
     height: 720,
     minWidth: 800,
     minHeight: 520,
     center: true,
-    frame: false,
+    ...platformOptions,
     transparent: false,
     resizable: true,
     title: 'MicTab Gallery',
