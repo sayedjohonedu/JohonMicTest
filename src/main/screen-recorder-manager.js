@@ -679,6 +679,9 @@ function setupScreenRecorderIpc() {
       showSavedToast(filePath, filename);
       openGallery(filePath);
 
+      // Notify main.js so the tray can revert from "Stop Recording" → "Record Screen"
+      ipcMain.emit('srec-recording-ended');
+
       return { ok: true, filePath };
     } catch (err) {
       console.error('[ScreenRecorder] Save failed:', err);
@@ -691,6 +694,35 @@ function setupScreenRecorderIpc() {
   ipcMain.handle('srec-get-cameras', async () => []);
 }
 
+/**
+ * Start a fullscreen recording immediately (no region-select dialog).
+ * Respects the license check via tryOpenScreenRecorder.
+ */
+function startFullscreenRecording() {
+  tryOpenScreenRecorder(() => openControlBar(null, true, {}));
+}
 
+/**
+ * Stop the current recording from the tray (same as pressing Stop in the control bar).
+ * Sends the stop command to the control bar renderer.
+ */
+function stopRecordingFromTray() {
+  if (controlBar && !controlBar.isDestroyed() && !controlBarFrameDead) {
+    try {
+      controlBar.webContents.send('srec-command', 'stop');
+    } catch (e) {
+      console.error('[ScreenRecorder] stopRecordingFromTray failed:', e.message);
+    }
+  }
+}
 
-module.exports = { setupScreenRecorderIpc, showRegionOverlay };
+/** Returns whether a screen recording session is currently active. */
+function getIsRecording() { return isRecording; }
+
+module.exports = {
+  setupScreenRecorderIpc,
+  showRegionOverlay,
+  startFullscreenRecording,
+  stopRecordingFromTray,
+  getIsRecording,
+};

@@ -22,10 +22,12 @@ const { registerHotkeys, stopUiohook, setTranslatorCtx, setAiSendNow, setAiModeT
 const { checkAuthStatus, checkAndResetDailyWords, checkAiTrialExpiry } = require('./src/main/licensing');
 const { setupUpdater } = require('./src/main/updater');
 const { setupIpcHandlers, aiDictationManager } = require('./src/main/ipc-handlers');
-const { createTray, updateTrayMenu, setCaptureAction, setTranslatorAction } = require('./src/main/tray-manager');
+const { createTray, updateTrayMenu, setCaptureAction, setTranslatorAction,
+        setAppStoreAction, setBrowserAction, setClipboardAction, setGalleryAction,
+        setRecordAction, setStopRecordAction, setScreenshotAction, setRecordingState } = require('./src/main/tray-manager');
 const translatorManager = require('./src/main/translator-manager');
-const { showCaptureOverlay, setupLensIpc, isCaptureOverlayOpen, closeCaptureOverlay } = require('./src/main/lens-manager');
-const { setupScreenRecorderIpc } = require('./src/main/screen-recorder-manager');
+const { showCaptureOverlay, setupLensIpc, isCaptureOverlayOpen, closeCaptureOverlay, captureFullscreen } = require('./src/main/lens-manager');
+const { setupScreenRecorderIpc, startFullscreenRecording, stopRecordingFromTray, getIsRecording } = require('./src/main/screen-recorder-manager');
 const { setupGalleryIpc, openGallery } = require('./src/main/gallery-manager');
 const { setupEditorIpc } = require('./src/main/video-editor-manager');
 const appStoreManager = require('./src/main/appstore-manager');
@@ -1099,7 +1101,10 @@ app.whenReady().then(() => {
     else showCaptureOverlay();
   };
   setLensCaptureCallback(lensAction);
-  setCaptureAction(lensAction);   // ← tray "Capture" menu item
+  setCaptureAction(lensAction);   // ← tray "Capture Area" menu item
+
+  // ── Tray: Screenshot (instant fullscreen, no overlay) ───────────
+  setScreenshotAction(() => captureFullscreen());
 
   // ── Translator Panel (Alt+Shift+T) ──────────────────────────────
   const translatorAction = () => {
@@ -1115,8 +1120,29 @@ app.whenReady().then(() => {
   ipcMain.on('open-lens-capture', lensAction);
   registerHotkeys(toggleListening);
 
-  // ── Screen Recorder (launched from Lens editor toolbar) ───────────
+  // ── Screen Recorder (launched from Lens editor toolbar or tray) ──
   setupScreenRecorderIpc();
+
+  // ── Tray: Record Screen / Stop Recording (dynamic) ──────────────
+  // Helper to sync recording state into the tray and rebuild the menu
+  function syncRecordingTray() {
+    setRecordingState(getIsRecording());
+    updateTrayMenu(toggleListening, showSettings, app, switchTrayLanguage, isListening);
+  }
+  setRecordAction(() => {
+    startFullscreenRecording();
+    // Give the recorder a tick to set isRecording=true before syncing
+    setTimeout(syncRecordingTray, 300);
+  });
+  setStopRecordAction(() => {
+    stopRecordingFromTray();
+    // Tray reverts when srec-save-blob or srec-cancel-recording fires (below)
+  });
+  // Sync tray back to idle when recording finishes (save or cancel)
+  ipcMain.on('srec-cancel-recording', () => setTimeout(syncRecordingTray, 50));
+  // srec-save-blob is a handle (invoke), so we hook the after-save path via ipcMain.on wrapper
+  ipcMain.on('srec-recording-ended', () => syncRecordingTray());
+
 
   // ── Media Gallery ─────────────────────────────────────────────────
   setupGalleryIpc();
@@ -1131,8 +1157,18 @@ app.whenReady().then(() => {
     else appStoreManager.showAppStore();
   };
   setAppStoreCallback(appStoreAction);
+  setAppStoreAction(appStoreAction);   // ← tray "App Store" menu item
   ipcMain.on('open-appstore', appStoreAction);
   registerHotkeys(toggleListening);
+
+  // ── Tray: Browser ────────────────────────────────────────────────
+  setBrowserAction(toggleFloatingBrowser);
+
+  // ── Tray: Clipboard Manager ──────────────────────────────────────
+  setClipboardAction(toggleClipboardManager);
+
+  // ── Tray: Gallery ────────────────────────────────────────────────
+  setGalleryAction(() => openGallery());
 
   // ── Whisper API (Cloud) init ──────────────────────────────────────
   const whisperApiManager = require('./src/main/whisper-api-manager');

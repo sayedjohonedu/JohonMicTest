@@ -4,8 +4,16 @@ const { LANGUAGES } = require('./constants');
 const store = require('../../store/config');
 
 let tray = null;
-let _captureAction = null;
-let _translatorAction = null;
+let _captureAction     = null;
+let _translatorAction  = null;
+let _appStoreAction    = null;
+let _browserAction     = null;
+let _clipboardAction   = null;
+let _galleryAction     = null;
+let _recordAction      = null;
+let _stopRecordAction  = null;
+let _screenshotAction  = null;
+let _isRecording       = false;
 
 /* ─── Icon helpers ────────────────────────────────────────────────── */
 const ICON_DIR = path.join(__dirname, '../../assets/tray-icons');
@@ -41,11 +49,23 @@ function getTrayIcon(baseName) {
   return icon;
 }
 
-/** Register the function that should fire when the user clicks "Capture" in the tray. */
-function setCaptureAction(fn) { _captureAction = fn; }
+/** Register the function that should fire when the user clicks "Capture Area" in the tray. */
+function setCaptureAction(fn)    { _captureAction    = fn; }
 
 /** Register the function that should fire when the user clicks "Translator" in the tray. */
 function setTranslatorAction(fn) { _translatorAction = fn; }
+
+/** Register tray action callbacks for new panels. */
+function setAppStoreAction(fn)   { _appStoreAction   = fn; }
+function setBrowserAction(fn)    { _browserAction    = fn; }
+function setClipboardAction(fn)  { _clipboardAction  = fn; }
+function setGalleryAction(fn)    { _galleryAction    = fn; }
+function setRecordAction(fn)     { _recordAction     = fn; }
+function setStopRecordAction(fn) { _stopRecordAction = fn; }
+function setScreenshotAction(fn) { _screenshotAction = fn; }
+
+/** Call this when recording state changes, then call updateTrayMenu to rebuild. */
+function setRecordingState(isRec) { _isRecording = !!isRec; }
 
 function createTray(toggleListening, showSettings, app, switchTrayLanguage, isListening) {
   const isMac = process.platform === 'darwin';
@@ -91,6 +111,8 @@ function createTray(toggleListening, showSettings, app, switchTrayLanguage, isLi
 function updateTrayMenu(toggleListening, showSettings, app, switchTrayLanguage, isListening) {
   if (!tray) return;
   const currentLang = store.get('language') || 'en-US';
+  const currentWhisperLang = store.get('whisperApiLanguage') || '';
+  const whisperEnabled = store.get('whisperApiEnabled') === true;
   const isMac = process.platform === 'darwin';
 
   const makeItem = (lang) => ({
@@ -112,33 +134,149 @@ function updateTrayMenu(toggleListening, showSettings, app, switchTrayLanguage, 
     { label: 'Pacific & Other', submenu: filterByCodes(['mi-NZ','sm-WS','to-TO','fj-FJ']).map(makeItem) },
   ];
 
+  // --- Whisper Language Submenu Logic ---
+  const switchWhisperTrayLanguage = (langCode) => {
+    store.set('whisperApiLanguage', langCode);
+    try {
+      const { getSettingsWindow } = require('./window-manager');
+      const settingsWindow = getSettingsWindow();
+      if (settingsWindow && !settingsWindow.isDestroyed()) {
+        settingsWindow.webContents.send('whisper-language-changed', langCode);
+      }
+    } catch(e) {}
+    updateTrayMenu(toggleListening, showSettings, app, switchTrayLanguage, isListening);
+  };
+
+  const { WHISPER_LANGUAGES } = require('./whisper-api-engine');
+  
+  const enrichedWhisperLangs = WHISPER_LANGUAGES.map(wl => {
+    if (wl.code === '') return { ...wl, flag: '🌍' };
+    const match = LANGUAGES.find(l => l.code.startsWith(wl.code + '-'));
+    return { ...wl, flag: match ? match.flag : '🏳️' };
+  });
+
+  const filterWhisperByCodes = (codes) => enrichedWhisperLangs.filter(l => codes.includes(l.code));
+  
+  const whisperWestern = filterWhisperByCodes(['en','es','pt','fr','de','nl','sv','da','no','it']);
+  const whisperEuropean = filterWhisperByCodes(['ru','pl','cs','uk','ro','el','fi','hu','bg']);
+  const whisperAsia = filterWhisperByCodes(['ja','zh','ko','th','vi','id','ms']);
+  const whisperSouthAsia = filterWhisperByCodes(['hi','bn','ur']);
+  const whisperMEAfrica = filterWhisperByCodes(['ar','tr','he','fa']);
+
+  const makeWhisperItem = (lang) => ({
+    label: isMac ? `${lang.flag}  ${lang.name}` : lang.name,
+    type: 'radio',
+    checked: lang.code === currentWhisperLang,
+    click: () => switchWhisperTrayLanguage(lang.code)
+  });
+
+  const whisperLangSubmenu = [
+    { label: 'Auto-detect', icon: getTrayIcon('language'), type: 'radio', checked: currentWhisperLang === '', click: () => switchWhisperTrayLanguage('') },
+    { type: 'separator' },
+    { label: 'Western',       submenu: whisperWestern.map(makeWhisperItem) },
+    { label: 'European',      submenu: whisperEuropean.map(makeWhisperItem) },
+    { label: 'East & SE Asia', submenu: whisperAsia.map(makeWhisperItem) },
+    { label: 'South Asia',    submenu: whisperSouthAsia.map(makeWhisperItem) },
+    { label: 'Middle East & Africa', submenu: whisperMEAfrica.map(makeWhisperItem) },
+  ];
+
   const contextMenu = Menu.buildFromTemplate([
+    // ── Core: Listening ───────────────────────────────────────────────
     {
       label: isListening ? 'Stop Listening' : 'Start Listening',
       icon: getTrayIcon(isListening ? 'microphone-off' : 'microphone'),
       click: () => toggleListening()
     },
     { type: 'separator' },
+
+    // ── Screen Capture ────────────────────────────────────────────────
     {
-      label: 'Capture',
-      icon: getTrayIcon('capture'),
+      label: 'Screenshot',
+      icon: getTrayIcon('screenshot'),
+      accelerator: 'Alt+Shift+S',
+      click: () => { if (_screenshotAction) _screenshotAction(); }
+    },
+    // Dynamic: show Stop Recording while recording, Record Screen otherwise
+    ...(_isRecording
+      ? [{
+          label: 'Stop Recording',
+          icon: getTrayIcon('screen-record-stop'),
+          click: () => { if (_stopRecordAction) _stopRecordAction(); }
+        }]
+      : [{
+          label: 'Record Screen',
+          icon: getTrayIcon('screen-record'),
+          click: () => { if (_recordAction) _recordAction(); }
+        }]
+    ),
+    {
+      label: 'Capture Area',
+      icon: getTrayIcon('capture-area'),
       accelerator: 'Alt+Shift+S',
       click: () => { if (_captureAction) _captureAction(); }
     },
+    {
+      label: 'Gallery',
+      icon: getTrayIcon('gallery'),
+      click: () => { if (_galleryAction) _galleryAction(); }
+    },
+    { type: 'separator' },
+
+    // ── Communication Tools ───────────────────────────────────────────
     {
       label: 'Translator',
       icon: getTrayIcon('translator'),
       accelerator: 'Alt+Shift+T',
       click: () => { if (_translatorAction) _translatorAction(); }
     },
+    {
+      label: 'Clipboard',
+      icon: getTrayIcon('clipboard'),
+      accelerator: 'Alt+V',
+      enabled: store.get('clipboardEnabled') !== false,
+      click: () => { if (_clipboardAction) _clipboardAction(); }
+    },
     { type: 'separator' },
-    { label: 'Language', icon: getTrayIcon('language'), submenu: langSubmenu },
+
+    // ── Panels & Apps ─────────────────────────────────────────────────
+    {
+      label: 'App Store',
+      icon: getTrayIcon('appstore'),
+      accelerator: 'Alt+Shift+A',
+      click: () => { if (_appStoreAction) _appStoreAction(); }
+    },
+    {
+      label: 'Browser',
+      icon: getTrayIcon('browser'),
+      accelerator: 'Alt+Shift+B',
+      click: () => { if (_browserAction) _browserAction(); }
+    },
+    { type: 'separator' },
+
+    // ── Preferences ───────────────────────────────────────────────────
+    { 
+      label: 'STT Language', 
+      icon: getTrayIcon('language'), 
+      submenu: whisperEnabled 
+        ? [
+            { label: 'Regular', submenu: langSubmenu },
+            { label: 'Whisper', submenu: whisperLangSubmenu }
+          ]
+        : langSubmenu 
+    },
     { type: 'separator' },
     { label: 'Settings', icon: getTrayIcon('settings'), click: () => showSettings() },
     { type: 'separator' },
-    { label: 'Quit', icon: getTrayIcon('quit'), click: () => app.quit() }
+    { label: 'Quit',     icon: getTrayIcon('quit'),     click: () => app.quit() }
+
   ]);
   tray.setContextMenu(contextMenu);
 }
 
-module.exports = { createTray, updateTrayMenu, setCaptureAction, setTranslatorAction };
+module.exports = {
+  createTray, updateTrayMenu,
+  setCaptureAction, setTranslatorAction,
+  setAppStoreAction, setBrowserAction, setClipboardAction, setGalleryAction,
+  setRecordAction, setStopRecordAction, setScreenshotAction,
+  setRecordingState,
+};

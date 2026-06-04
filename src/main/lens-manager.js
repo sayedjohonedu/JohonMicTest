@@ -238,7 +238,8 @@ function setupLensIpc() {
     editorDirty = false;
 
     // Open (or focus) the gallery and navigate to the new screenshot
-    const { openGallery } = require('./gallery-manager');
+    const { openGallery, invalidateCache } = require('./gallery-manager');
+    invalidateCache();
     openGallery(filePath);
 
     return filePath;
@@ -265,7 +266,8 @@ function setupLensIpc() {
     editorDirty = false;
 
     // Open (or focus) the gallery and navigate to the new screenshot
-    const { openGallery } = require('./gallery-manager');
+    const { openGallery, invalidateCache } = require('./gallery-manager');
+    invalidateCache();
     openGallery(filePath);
 
     return { ok: true, filePath };
@@ -397,4 +399,25 @@ function showEditorFromGallery(dataUrl, originFilePath, size) {
   });
 }
 
-module.exports = { showCaptureOverlay, showEditorFromGallery, setupLensIpc, isCaptureOverlayOpen, closeCaptureOverlay };
+/**
+ * Capture the full screen and open the Lens editor directly,
+ * bypassing the region-selection overlay. Used by the tray "Screenshot" item.
+ */
+async function captureFullscreen() {
+  // If editor is open with unsaved changes, just close it — tray action is intentional
+  if (editorWindow && !editorWindow.isDestroyed()) {
+    editorWindow.destroy();
+    editorWindow = null;
+    editorDirty = false;
+  }
+  const img = await captureScreen();
+  if (!img) {
+    console.error('[Lens] captureFullscreen: could not capture screen');
+    return;
+  }
+  const primaryDisplay = screen.getPrimaryDisplay();
+  const { width, height } = primaryDisplay.size;
+  showEditor(img.toDataURL(), { x: 0, y: 0, width, height });
+}
+
+module.exports = { showCaptureOverlay, showEditorFromGallery, setupLensIpc, isCaptureOverlayOpen, closeCaptureOverlay, captureFullscreen };

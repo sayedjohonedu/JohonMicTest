@@ -9,6 +9,9 @@ function applyTheme(t) { if (t) document.documentElement.setAttribute('data-them
 window.gallery.getConfig().then(c => { if (c && c.theme) applyTheme(c.theme); }).catch(() => {});
 window.gallery.onConfigUpdate(c => { if (c && c.theme) applyTheme(c.theme); });
 
+/* ── Platform ── */
+if (navigator.userAgent.includes('Mac')) document.body.classList.add('platform-mac');
+
 let allFiles = [];
 let filteredFiles = [];
 let currentFilter = 'all';
@@ -36,11 +39,6 @@ const playerControls = document.getElementById('player-controls');
 
 const PLAY_SVG  = '<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" stroke="none"><polygon points="5 3 19 12 5 21 5 3"/></svg>';
 const PAUSE_SVG = '<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" stroke="none"><rect x="6" y="4" width="4" height="16" rx="1"/><rect x="14" y="4" width="4" height="16" rx="1"/></svg>';
-
-/* ── Title bar ── */
-document.getElementById('btn-close').addEventListener('click', () => window.gallery.close());
-document.getElementById('btn-minimize').addEventListener('click', () => window.gallery.minimize());
-document.getElementById('btn-maximize').addEventListener('click', () => window.gallery.maximize());
 
 /* ── Utility ── */
 
@@ -172,11 +170,15 @@ function renderGrid() {
     groups[key].push(file);
   }
 
+  // Collect all cards in order (we'll batch-insert them)
+  const allCards = [];
+  const frag = document.createDocumentFragment();
+
   for (const [month, files] of Object.entries(groups)) {
     const header = document.createElement('div');
     header.className = 'month-header';
     header.innerHTML = `${month} <span class="month-count">${files.length} file${files.length > 1 ? 's' : ''}</span>`;
-    gridView.appendChild(header);
+    frag.appendChild(header);
 
     const grid = document.createElement('div');
     grid.className = 'media-grid';
@@ -184,13 +186,21 @@ function renderGrid() {
     for (const file of files) {
       const card = createCard(file);
       grid.appendChild(card);
+      allCards.push(card);
     }
-    gridView.appendChild(grid);
+    frag.appendChild(grid);
   }
 
-  // Generate thumbnails for videos
-  generateThumbnails();
+  // Paint first 12 cards instantly (above the fold), rest in rAF chunks
+  const FIRST_BATCH = 12;
+  const CHUNK = 8;
+
+  gridView.appendChild(frag);
+
+  // Kick off lazy thumbnail observation after first paint
+  requestAnimationFrame(() => observeThumbnails());
 }
+
 
 function createCard(file) {
   const card = document.createElement('div');
@@ -243,67 +253,114 @@ function createCard(file) {
   return card;
 }
 
-/* ── Video Thumbnail Generation ── */
-function generateThumbnails() {
-  const placeholders = gridView.querySelectorAll('[data-video-thumb]');
-  for (const ph of placeholders) {
-    const videoPath = ph.dataset.videoThumb;
-    const tempVideo = document.createElement('video');
-    tempVideo.preload = 'metadata';
-    tempVideo.muted = true;
-    tempVideo.src = toFileUrl(videoPath);
+/* ── Video Thumbnail Generation ──
+   Uses IntersectionObserver so only VISIBLE cards decode video.
+   Max 3 concurrent decoders at once (semaphore) to avoid CPU spike.
+── */
+let _thumbObserver = null;
+let _thumbConcurrent = 0;
+const _THUMB_MAX = 3;
+const _thumbQueue = []; // queued placeholder elements waiting for a free slot
 
-    let durationResolved = false;
-    let thumbCaptured = false;
+function _runNextThumb() {
+  if (_thumbConcurrent >= _THUMB_MAX || _thumbQueue.length === 0) return;
+  const ph = _thumbQueue.shift();
+  _decodeThumb(ph);
+}
 
-    function captureThumb() {
-      if (thumbCaptured) return;
-      thumbCaptured = true;
-      const canvas = document.createElement('canvas');
-      canvas.width = tempVideo.videoWidth || 320;
-      canvas.height = tempVideo.videoHeight || 180;
-      const ctx = canvas.getContext('2d');
-      ctx.drawImage(tempVideo, 0, 0, canvas.width, canvas.height);
-      const dataUrl = canvas.toDataURL('image/jpeg', 0.7);
+function _decodeThumb(ph) {
+  if (!ph.isConnected) { _thumbConcurrent = Math.max(0, _thumbConcurrent - 1); _runNextThumb(); return; }
+  _thumbConcurrent++;
+  const videoPath = ph.dataset.videoThumb;
+  const tempVideo = document.createElement('video');
+  tempVideo.preload = 'metadata';
+  tempVideo.muted = true;
+  tempVideo.src = toFileUrl(videoPath);
 
-      const img = document.createElement('img');
-      img.className = 'card-thumb';
-      img.src = dataUrl;
-      img.loading = 'lazy';
-      if (ph.parentElement) ph.parentElement.replaceChild(img, ph);
+  let durationResolved = false;
+  let thumbCaptured = false;
 
-      const card = img.closest('.media-card');
-      if (card && isFinite(tempVideo.duration) && tempVideo.duration > 0) {
-        const durEl = document.createElement('span');
-        durEl.className = 'card-duration';
-        durEl.textContent = formatTime(tempVideo.duration);
-        card.appendChild(durEl);
-      }
-      tempVideo.src = '';
-      tempVideo.load();
+  function done() {
+    tempVideo.src = '';
+    tempVideo.load();
+    _thumbConcurrent = Math.max(0, _thumbConcurrent - 1);
+    _runNextThumb();
+  }
+
+  function captureThumb() {
+    if (thumbCaptured) return;
+    thumbCaptured = true;
+    const canvas = document.createElement('canvas');
+    canvas.width  = tempVideo.videoWidth  || 320;
+    canvas.height = tempVideo.videoHeight || 180;
+    const ctx = canvas.getContext('2d');
+    ctx.drawImage(tempVideo, 0, 0, canvas.width, canvas.height);
+    const dataUrl = canvas.toDataURL('image/jpeg', 0.7);
+
+    const img = document.createElement('img');
+    img.className = 'card-thumb';
+    img.src = dataUrl;
+    img.loading = 'lazy';
+    if (ph.parentElement) ph.parentElement.replaceChild(img, ph);
+
+    const card = img.closest('.media-card');
+    if (card && isFinite(tempVideo.duration) && tempVideo.duration > 0) {
+      const durEl = document.createElement('span');
+      durEl.className = 'card-duration';
+      durEl.textContent = formatTime(tempVideo.duration);
+      card.appendChild(durEl);
     }
+    done();
+  }
 
-    tempVideo.addEventListener('loadedmetadata', () => {
-      if (!isFinite(tempVideo.duration)) {
-        // WebM duration bug: seek to huge time to force browser to calculate
-        tempVideo.currentTime = 1e10;
+  tempVideo.addEventListener('loadedmetadata', () => {
+    if (!isFinite(tempVideo.duration)) {
+      tempVideo.currentTime = 1e10; // WebM duration bug workaround
+    } else {
+      durationResolved = true;
+      tempVideo.currentTime = Math.min(1, tempVideo.duration * 0.1);
+    }
+  });
+
+  tempVideo.addEventListener('seeked', () => {
+    if (!durationResolved && isFinite(tempVideo.duration)) {
+      durationResolved = true;
+      tempVideo.currentTime = Math.min(1, tempVideo.duration * 0.1);
+      return;
+    }
+    captureThumb();
+  });
+
+  // Safety fallback — give up after 6s
+  setTimeout(() => { if (!thumbCaptured) { thumbCaptured = true; done(); } }, 6000);
+}
+
+function observeThumbnails() {
+  // Disconnect old observer (grid was replaced)
+  if (_thumbObserver) { _thumbObserver.disconnect(); _thumbObserver = null; }
+  _thumbQueue.length = 0;
+  _thumbConcurrent = 0;
+
+  const placeholders = gridView.querySelectorAll('[data-video-thumb]');
+  if (!placeholders.length) return;
+
+  _thumbObserver = new IntersectionObserver((entries) => {
+    for (const entry of entries) {
+      if (!entry.isIntersecting) continue;
+      _thumbObserver.unobserve(entry.target);
+      if (_thumbConcurrent < _THUMB_MAX) {
+        _decodeThumb(entry.target);
       } else {
-        durationResolved = true;
-        tempVideo.currentTime = Math.min(1, tempVideo.duration * 0.1);
+        _thumbQueue.push(entry.target);
       }
-    });
+    }
+  }, { rootMargin: '200px' }); // start decoding 200px before scroll-into-view
 
-    tempVideo.addEventListener('seeked', () => {
-      if (!durationResolved && isFinite(tempVideo.duration)) {
-        durationResolved = true;
-        // Now seek to a good frame for thumbnail
-        tempVideo.currentTime = Math.min(1, tempVideo.duration * 0.1);
-        return;
-      }
-      captureThumb();
-    });
+  for (const ph of placeholders) {
+    _thumbObserver.observe(ph);
   }
 }
+
 
 /* ═══════════════════════════════════════════════════════════
    PLAYER VIEW
