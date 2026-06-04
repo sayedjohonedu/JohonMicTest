@@ -238,8 +238,7 @@ function setupLensIpc() {
     editorDirty = false;
 
     // Open (or focus) the gallery and navigate to the new screenshot
-    const { openGallery, invalidateCache } = require('./gallery-manager');
-    invalidateCache();
+    const { openGallery } = require('./gallery-manager');
     openGallery(filePath);
 
     return filePath;
@@ -266,8 +265,7 @@ function setupLensIpc() {
     editorDirty = false;
 
     // Open (or focus) the gallery and navigate to the new screenshot
-    const { openGallery, invalidateCache } = require('./gallery-manager');
-    invalidateCache();
+    const { openGallery } = require('./gallery-manager');
     openGallery(filePath);
 
     return { ok: true, filePath };

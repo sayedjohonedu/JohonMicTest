@@ -170,15 +170,11 @@ function renderGrid() {
     groups[key].push(file);
   }
 
-  // Collect all cards in order (we'll batch-insert them)
-  const allCards = [];
-  const frag = document.createDocumentFragment();
-
   for (const [month, files] of Object.entries(groups)) {
     const header = document.createElement('div');
     header.className = 'month-header';
     header.innerHTML = `${month} <span class="month-count">${files.length} file${files.length > 1 ? 's' : ''}</span>`;
-    frag.appendChild(header);
+    gridView.appendChild(header);
 
     const grid = document.createElement('div');
     grid.className = 'media-grid';
@@ -186,21 +182,13 @@ function renderGrid() {
     for (const file of files) {
       const card = createCard(file);
       grid.appendChild(card);
-      allCards.push(card);
     }
-    frag.appendChild(grid);
+    gridView.appendChild(grid);
   }
 
-  // Paint first 12 cards instantly (above the fold), rest in rAF chunks
-  const FIRST_BATCH = 12;
-  const CHUNK = 8;
-
-  gridView.appendChild(frag);
-
-  // Kick off lazy thumbnail observation after first paint
-  requestAnimationFrame(() => observeThumbnails());
+  // Generate thumbnails for videos
+  generateThumbnails();
 }
-
 
 function createCard(file) {
   const card = document.createElement('div');
@@ -253,114 +241,67 @@ function createCard(file) {
   return card;
 }
 
-/* ── Video Thumbnail Generation ──
-   Uses IntersectionObserver so only VISIBLE cards decode video.
-   Max 3 concurrent decoders at once (semaphore) to avoid CPU spike.
-── */
-let _thumbObserver = null;
-let _thumbConcurrent = 0;
-const _THUMB_MAX = 3;
-const _thumbQueue = []; // queued placeholder elements waiting for a free slot
-
-function _runNextThumb() {
-  if (_thumbConcurrent >= _THUMB_MAX || _thumbQueue.length === 0) return;
-  const ph = _thumbQueue.shift();
-  _decodeThumb(ph);
-}
-
-function _decodeThumb(ph) {
-  if (!ph.isConnected) { _thumbConcurrent = Math.max(0, _thumbConcurrent - 1); _runNextThumb(); return; }
-  _thumbConcurrent++;
-  const videoPath = ph.dataset.videoThumb;
-  const tempVideo = document.createElement('video');
-  tempVideo.preload = 'metadata';
-  tempVideo.muted = true;
-  tempVideo.src = toFileUrl(videoPath);
-
-  let durationResolved = false;
-  let thumbCaptured = false;
-
-  function done() {
-    tempVideo.src = '';
-    tempVideo.load();
-    _thumbConcurrent = Math.max(0, _thumbConcurrent - 1);
-    _runNextThumb();
-  }
-
-  function captureThumb() {
-    if (thumbCaptured) return;
-    thumbCaptured = true;
-    const canvas = document.createElement('canvas');
-    canvas.width  = tempVideo.videoWidth  || 320;
-    canvas.height = tempVideo.videoHeight || 180;
-    const ctx = canvas.getContext('2d');
-    ctx.drawImage(tempVideo, 0, 0, canvas.width, canvas.height);
-    const dataUrl = canvas.toDataURL('image/jpeg', 0.7);
-
-    const img = document.createElement('img');
-    img.className = 'card-thumb';
-    img.src = dataUrl;
-    img.loading = 'lazy';
-    if (ph.parentElement) ph.parentElement.replaceChild(img, ph);
-
-    const card = img.closest('.media-card');
-    if (card && isFinite(tempVideo.duration) && tempVideo.duration > 0) {
-      const durEl = document.createElement('span');
-      durEl.className = 'card-duration';
-      durEl.textContent = formatTime(tempVideo.duration);
-      card.appendChild(durEl);
-    }
-    done();
-  }
-
-  tempVideo.addEventListener('loadedmetadata', () => {
-    if (!isFinite(tempVideo.duration)) {
-      tempVideo.currentTime = 1e10; // WebM duration bug workaround
-    } else {
-      durationResolved = true;
-      tempVideo.currentTime = Math.min(1, tempVideo.duration * 0.1);
-    }
-  });
-
-  tempVideo.addEventListener('seeked', () => {
-    if (!durationResolved && isFinite(tempVideo.duration)) {
-      durationResolved = true;
-      tempVideo.currentTime = Math.min(1, tempVideo.duration * 0.1);
-      return;
-    }
-    captureThumb();
-  });
-
-  // Safety fallback — give up after 6s
-  setTimeout(() => { if (!thumbCaptured) { thumbCaptured = true; done(); } }, 6000);
-}
-
-function observeThumbnails() {
-  // Disconnect old observer (grid was replaced)
-  if (_thumbObserver) { _thumbObserver.disconnect(); _thumbObserver = null; }
-  _thumbQueue.length = 0;
-  _thumbConcurrent = 0;
-
+/* ── Video Thumbnail Generation ── */
+function generateThumbnails() {
   const placeholders = gridView.querySelectorAll('[data-video-thumb]');
-  if (!placeholders.length) return;
-
-  _thumbObserver = new IntersectionObserver((entries) => {
-    for (const entry of entries) {
-      if (!entry.isIntersecting) continue;
-      _thumbObserver.unobserve(entry.target);
-      if (_thumbConcurrent < _THUMB_MAX) {
-        _decodeThumb(entry.target);
-      } else {
-        _thumbQueue.push(entry.target);
-      }
-    }
-  }, { rootMargin: '200px' }); // start decoding 200px before scroll-into-view
-
   for (const ph of placeholders) {
-    _thumbObserver.observe(ph);
+    const videoPath = ph.dataset.videoThumb;
+    const tempVideo = document.createElement('video');
+    tempVideo.preload = 'metadata';
+    tempVideo.muted = true;
+    tempVideo.src = toFileUrl(videoPath);
+
+    let durationResolved = false;
+    let thumbCaptured = false;
+
+    function captureThumb() {
+      if (thumbCaptured) return;
+      thumbCaptured = true;
+      const canvas = document.createElement('canvas');
+      canvas.width = tempVideo.videoWidth || 320;
+      canvas.height = tempVideo.videoHeight || 180;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(tempVideo, 0, 0, canvas.width, canvas.height);
+      const dataUrl = canvas.toDataURL('image/jpeg', 0.7);
+
+      const img = document.createElement('img');
+      img.className = 'card-thumb';
+      img.src = dataUrl;
+      img.loading = 'lazy';
+      if (ph.parentElement) ph.parentElement.replaceChild(img, ph);
+
+      const card = img.closest('.media-card');
+      if (card && isFinite(tempVideo.duration) && tempVideo.duration > 0) {
+        const durEl = document.createElement('span');
+        durEl.className = 'card-duration';
+        durEl.textContent = formatTime(tempVideo.duration);
+        card.appendChild(durEl);
+      }
+      tempVideo.src = '';
+      tempVideo.load();
+    }
+
+    tempVideo.addEventListener('loadedmetadata', () => {
+      if (!isFinite(tempVideo.duration)) {
+        // WebM duration bug: seek to huge time to force browser to calculate
+        tempVideo.currentTime = 1e10;
+      } else {
+        durationResolved = true;
+        tempVideo.currentTime = Math.min(1, tempVideo.duration * 0.1);
+      }
+    });
+
+    tempVideo.addEventListener('seeked', () => {
+      if (!durationResolved && isFinite(tempVideo.duration)) {
+        durationResolved = true;
+        // Now seek to a good frame for thumbnail
+        tempVideo.currentTime = Math.min(1, tempVideo.duration * 0.1);
+        return;
+      }
+      captureThumb();
+    });
   }
 }
-
 
 /* ═══════════════════════════════════════════════════════════
    PLAYER VIEW

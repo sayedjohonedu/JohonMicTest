@@ -27,23 +27,7 @@ function getSaveDir() {
 /* ── Window reference ───────────────────────────────────── */
 let galleryWindow = null;
 
-/* ── File scan cache ────────────────────────────────────── */
-// Keep last scan result in memory so gallery opens instantly.
-// Cache is primed whenever a file is saved and on each scan.
-let cachedFiles   = null;   // null = never scanned yet
-let cacheIsDirty = false;   // true = a file was added/removed since last scan
-
-async function scanAndCache() {
-  const files = await scanMediaFiles();
-  cachedFiles   = files;
-  cacheIsDirty  = false;
-  return files;
-}
-
-/** Mark cache as stale (called when a new file is saved). */
-function invalidateCache() {
-  cacheIsDirty = true;
-}
+/* ── File scanning ──────────────────────────────────────── */
 
 /**
  * Scan the save directory for all MicTab media files.
@@ -159,36 +143,20 @@ function openGallery(autoPlayFile = null) {
 
   galleryWindow.webContents.on('did-finish-load', () => {
     if (!galleryWindow || galleryWindow.isDestroyed()) return;
-
-    // ── Fast path: send cached list immediately (< 5ms, no I/O) ──
-    if (cachedFiles !== null) {
-      console.log('[Gallery] did-finish-load — sending cached', cachedFiles.length, 'files instantly');
-      galleryWindow.webContents.send('gallery-file-list', cachedFiles);
+    // scanMediaFiles is async — use .then() to keep this callback synchronous
+    scanMediaFiles().then(files => {
+      if (!galleryWindow || galleryWindow.isDestroyed()) return;
+      console.log('[Gallery] did-finish-load — sending', files.length, 'files, autoPlayFile:', autoPlayFile);
+      galleryWindow.webContents.send('gallery-file-list', files);
+      // If there's a file to auto-navigate to, send it after a longer delay
+      // to ensure the renderer has processed the file list and rendered cards
       if (autoPlayFile) {
         setTimeout(() => {
-          if (galleryWindow && !galleryWindow.isDestroyed())
+          if (galleryWindow && !galleryWindow.isDestroyed()) {
+            console.log('[Gallery] Sending navigate-to-file →', autoPlayFile);
             galleryWindow.webContents.send('gallery-navigate-to-file', autoPlayFile);
-        }, 80);
-      }
-    }
-
-    // ── Background rescan: refresh cache + push update if files changed ──
-    scanAndCache().then(files => {
-      if (!galleryWindow || galleryWindow.isDestroyed()) return;
-      // If we sent the cached list above, only push a new list if something changed
-      const needsUpdate = cachedFiles === null || cacheIsDirty ||
-        files.length !== (cachedFiles || []).length ||
-        files.some((f, i) => !cachedFiles[i] || f.path !== cachedFiles[i].path || f.modifiedAt !== cachedFiles[i].modifiedAt);
-
-      if (cachedFiles === null || needsUpdate) {
-        console.log('[Gallery] did-finish-load — sending', files.length, 'files, autoPlayFile:', autoPlayFile);
-        galleryWindow.webContents.send('gallery-file-list', files);
-        if (autoPlayFile) {
-          setTimeout(() => {
-            if (galleryWindow && !galleryWindow.isDestroyed())
-              galleryWindow.webContents.send('gallery-navigate-to-file', autoPlayFile);
-          }, 80);
-        }
+          }
+        }, 600);
       }
     });
   });
@@ -399,7 +367,7 @@ function setupGalleryIpc() {
       if (isAlreadyInGallery) {
         // ── Standard gallery edit: just refresh the gallery window ──
         if (galleryWindow && !galleryWindow.isDestroyed()) {
-          const files = await scanAndCache();
+          const files = await scanMediaFiles();
           galleryWindow.webContents.send('gallery-file-list', files);
           setTimeout(() => {
             if (galleryWindow && !galleryWindow.isDestroyed()) {
@@ -472,5 +440,4 @@ module.exports = {
   getGalleryWindow,
   setupGalleryIpc,
   getSaveDir,
-  invalidateCache,
 };
