@@ -62,7 +62,11 @@ function start(onNewEntry) {
 
   // Snapshot current clipboard so we don't fire on the very first poll
   _lastText    = clipboard.readText() || '';
-  const img    = clipboard.readImage();
+
+  // Optimization: Only read image if available format indicates one, otherwise save an expensive call
+  const formats = clipboard.availableFormats();
+  const hasImage = formats.some(f => f.startsWith('image/'));
+  const img    = hasImage ? clipboard.readImage() : null;
   _lastImgSize = img && !img.isEmpty() ? `${img.getSize().width}x${img.getSize().height}` : '';
 
   _timer = setInterval(_poll, POLL_INTERVAL_MS);
