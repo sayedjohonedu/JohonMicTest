@@ -124,7 +124,11 @@ async function closeChromeBridge() {
   isClosing = true;
   if (browser) {
     try {
-      await browser.close();
+      // Race browser.close() against a 1.5s timeout — puppeteer can hang otherwise
+      await Promise.race([
+        browser.close(),
+        new Promise(resolve => setTimeout(resolve, 1500))
+      ]);
     } catch (err) {
       console.error('Error closing browser:', err);
     }

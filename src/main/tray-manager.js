@@ -14,6 +14,8 @@ let _recordAction      = null;
 let _stopRecordAction  = null;
 let _screenshotAction  = null;
 let _isRecording       = false;
+let _aiModeToggleAction = null;
+let _whisperAiModeToggleAction = null;
 
 /* ─── Icon helpers ────────────────────────────────────────────────── */
 const ICON_DIR = path.join(__dirname, '../../assets/tray-icons');
@@ -63,6 +65,8 @@ function setGalleryAction(fn)    { _galleryAction    = fn; }
 function setRecordAction(fn)     { _recordAction     = fn; }
 function setStopRecordAction(fn) { _stopRecordAction = fn; }
 function setScreenshotAction(fn) { _screenshotAction = fn; }
+function setAiModeToggleAction(fn) { _aiModeToggleAction = fn; }
+function setWhisperAiModeToggleAction(fn) { _whisperAiModeToggleAction = fn; }
 
 /** Call this when recording state changes, then call updateTrayMenu to rebuild. */
 function setRecordingState(isRec) { _isRecording = !!isRec; }
@@ -253,6 +257,27 @@ function updateTrayMenu(toggleListening, showSettings, app, switchTrayLanguage, 
     },
     { type: 'separator' },
 
+    // ── AI Mode ───────────────────────────────────────────────────────
+    {
+      label: 'AI Mode',
+      icon: getTrayIcon('ai'),
+      submenu: [
+        {
+          label: 'Regular',
+          type: 'checkbox',
+          checked: store.get('aiModeEnabled') === true,
+          click: () => { if (_aiModeToggleAction) _aiModeToggleAction(); }
+        },
+        {
+          label: 'Whisper',
+          type: 'checkbox',
+          checked: store.get('whisperApiAiEnabled') === true,
+          click: () => { if (_whisperAiModeToggleAction) _whisperAiModeToggleAction(); }
+        }
+      ]
+    },
+    { type: 'separator' },
+
     // ── Preferences ───────────────────────────────────────────────────
     { 
       label: 'STT Language', 
@@ -278,5 +303,5 @@ module.exports = {
   setCaptureAction, setTranslatorAction,
   setAppStoreAction, setBrowserAction, setClipboardAction, setGalleryAction,
   setRecordAction, setStopRecordAction, setScreenshotAction,
-  setRecordingState,
+  setRecordingState, setAiModeToggleAction, setWhisperAiModeToggleAction
 };

@@ -24,7 +24,8 @@ const { setupUpdater } = require('./src/main/updater');
 const { setupIpcHandlers, aiDictationManager } = require('./src/main/ipc-handlers');
 const { createTray, updateTrayMenu, setCaptureAction, setTranslatorAction,
         setAppStoreAction, setBrowserAction, setClipboardAction, setGalleryAction,
-        setRecordAction, setStopRecordAction, setScreenshotAction, setRecordingState } = require('./src/main/tray-manager');
+        setRecordAction, setStopRecordAction, setScreenshotAction, setRecordingState,
+        setAiModeToggleAction, setWhisperAiModeToggleAction } = require('./src/main/tray-manager');
 const translatorManager = require('./src/main/translator-manager');
 const { showCaptureOverlay, setupLensIpc, isCaptureOverlayOpen, closeCaptureOverlay, captureFullscreen } = require('./src/main/lens-manager');
 const { setupScreenRecorderIpc, startFullscreenRecording, stopRecordingFromTray, getIsRecording } = require('./src/main/screen-recorder-manager');
@@ -216,7 +217,8 @@ function toggleAiMode() {
     }
   });
 
-  console.log(`[AI Mode] Toggled ${newState ? 'ON' : 'OFF'} via hotkey`);
+  console.log(`[AI Mode] Toggled ${newState ? 'ON' : 'OFF'} via hotkey/tray`);
+  updateTrayMenu(toggleListening, showSettings, app, switchTrayLanguage, isListening);
 }
 
 /**
@@ -238,7 +240,8 @@ function toggleWhisperAiMode() {
     }
   });
 
-  console.log(`[Whisper AI] Toggled ${newState ? 'ON' : 'OFF'} via hotkey (Right Alt+Right Shift+/)`);
+  console.log(`[Whisper AI] Toggled ${newState ? 'ON' : 'OFF'} via hotkey/tray (Right Alt+Right Shift+/)`);
+  updateTrayMenu(toggleListening, showSettings, app, switchTrayLanguage, isListening);
 }
 
 // Windows fix: Re-enable GPU for smoother dragging, but add stability flags
@@ -283,11 +286,18 @@ app.on('will-quit', async (event) => {
   // 4. Now terminate the WebSocket and close the Chrome bridge
   if (wsClient) try { wsClient.terminate(); } catch (e) {}
   
-  // Set a timeout for closing the bridge to ensure the app exits
+  // Set a hard timeout: if closeChromeBridge takes > 1.5s, force exit anyway
+  const exitTimer = setTimeout(() => {
+    console.warn('[MicTab] will-quit: Force exit after timeout');
+    process.exit(0);
+  }, 2000);
+  exitTimer.unref(); // Don't block node event loop
+
   const closePromise = closeChromeBridge();
   const timeoutPromise = new Promise(resolve => setTimeout(resolve, 1500));
   
   await Promise.race([closePromise, timeoutPromise]);
+  clearTimeout(exitTimer);
   app.exit(0);
 });
 
@@ -1069,6 +1079,14 @@ app.whenReady().then(() => {
     path: app.getPath('exe')
   });
 
+
+  setAiModeToggleAction(() => {
+    toggleAiMode();
+  });
+  setWhisperAiModeToggleAction(() => {
+    toggleWhisperAiMode();
+  });
+
   createTray(toggleListening, showSettings, app, switchTrayLanguage, isListening);
   createOverlay();
   // Wire AI instant-process trigger (Right Alt) into hotkey-manager
@@ -1253,5 +1271,12 @@ app.whenReady().then(() => {
     });
   }
 
-  setTimeout(() => showSettings(), 1000);
+  setTimeout(() => {
+    if (process.platform === 'darwin') app.setActivationPolicy('regular');
+    const win = showSettings();
+    if (win && !win.isDestroyed()) {
+      win.show();
+      win.focus();
+    }
+  }, 1000);
 });
