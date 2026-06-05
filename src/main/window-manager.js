@@ -150,6 +150,8 @@ function showSettings() {
     maximizable: false,
     ...platformOptions,
     webPreferences: {
+      nodeIntegration: false,
+      contextIsolation: true,
       preload: path.join(__dirname, '../../ui', 'settings-preload.js'),
       acceptFirstMouse: true,
     }
@@ -594,6 +596,8 @@ function showVoiceAgents() {
     maximizable: true,
     ...platformOptions,
     webPreferences: {
+      nodeIntegration: false,
+      contextIsolation: true,
       preload: path.join(__dirname, '../../ui', 'voice-agents-preload.js'),
       acceptFirstMouse: true,
     },

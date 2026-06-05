@@ -1,0 +1,4 @@
+## 2024-06-05 - [Electron BrowserWindow Security Defaults]
+**Vulnerability:** Found `settingsWindow` and `voiceAgentsWindow` in `src/main/window-manager.js` missing explicitly defined `nodeIntegration: false` and `contextIsolation: true` configurations in their `webPreferences`.
+**Learning:** Relying on default Electron behavior for webPreferences without explicitly defining them can expose new or refactored windows to accidental context escape risks if defaults change or configurations are overridden elsewhere in the environment setup.
+**Prevention:** As defined by Electron Security Standards for this codebase, always explicitly set `nodeIntegration: false` and `contextIsolation: true` for any `BrowserWindow` creation, no matter if it seems redundant or the window only loads trusted local files.
