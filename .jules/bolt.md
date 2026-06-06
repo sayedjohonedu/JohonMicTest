@@ -1,0 +1,3 @@
+## 2024-06-06 - [Electron clipboard performance]
+**Learning:** `clipboard.readImage()` is computationally expensive in Electron as it decodes the full image. Calling it unconditionally, such as during initialization to snapshot the clipboard state, can block the main thread and impact startup performance, especially when there's no image in the clipboard.
+**Action:** Always check `clipboard.availableFormats()` first. This method is very cheap and allows checking if an image format is present (e.g., `formats.some(f => f.startsWith('image/'))`) before performing the expensive `clipboard.readImage()` operation.
