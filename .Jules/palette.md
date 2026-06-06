@@ -1,0 +1,3 @@
+## 2024-05-18 - Icon-Only Buttons Missing ARIA Labels
+**Learning:** Found multiple instances where icon-only buttons (`<button>` tags with SVG or empty content) used a `title` attribute for tooltips but lacked `aria-label` attributes (e.g., in `ui/screen-recorder.html`, `ui/settings.html`, and `ui/bridge-error.html`). This is a recurring pattern in the MicTab UI that degrades screen reader experience.
+**Action:** Always ensure that icon-only interactive elements contain an `aria-label` attribute matching the tooltip's `title` (or functionally describing the action) to maintain keyboard and screen reader accessibility across the application's HTML views.
