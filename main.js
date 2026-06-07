@@ -972,10 +972,29 @@ app.whenReady().then(() => {
       
       console.log(`[${title}] ${message} (line ${line})`);
     });
+
+    contents.setWindowOpenHandler(({ url }) => {
+      try {
+        const parsedUrl = new URL(url);
+        if (['http:', 'https:', 'mailto:'].includes(parsedUrl.protocol)) {
+          require('electron').shell.openExternal(url);
+        }
+      } catch (err) {
+        // Invalid URL
+      }
+      return { action: 'deny' };
+    });
   });
 
   ipcMain.on('bridge-error-open-url', (event, url) => {
-    require('electron').shell.openExternal(url);
+    try {
+      const parsedUrl = new URL(url);
+      if (['http:', 'https:', 'mailto:'].includes(parsedUrl.protocol)) {
+        require('electron').shell.openExternal(url);
+      }
+    } catch (err) {
+      // Invalid URL
+    }
   });
 
   ipcMain.on('bridge-error-close', () => {

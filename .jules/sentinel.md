@@ -1,0 +1,4 @@
+## 2024-06-07 - [Prevent Arbitrary Code Execution via shell.openExternal]
+**Vulnerability:** Unvalidated URLs passed to `shell.openExternal` could allow arbitrary code execution (e.g., via `file://`, `smb://`, or `javascript:` protocols). Also, unexpected window creations were not properly managed, potentially allowing target="_blank" vulnerabilities.
+**Learning:** We need to explicitly validate the protocol of any URL before passing it to `shell.openExternal`. In electron apps, the `setWindowOpenHandler` must be used to block unwanted popups and securely route valid ones.
+**Prevention:** Always parse the URL and check against an allowlist of safe protocols (`http:`, `https:`, `mailto:`). Add a `setWindowOpenHandler` that defaults to `{ action: "deny" }` on `app.on("web-contents-created")`.
