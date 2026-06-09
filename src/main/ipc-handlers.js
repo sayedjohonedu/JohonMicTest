@@ -179,7 +179,18 @@ function setupIpcHandlers(toggleListening, registerHotkeys, getWsClient, resetSi
   ipcMain.on('close-license-celebration', () => {
     if (typeof closeLicenseCelebration === 'function') closeLicenseCelebration();
   });
-  ipcMain.on('open-url', (event, url) => shell.openExternal(url));
+  ipcMain.on('open-url', (event, url) => {
+    try {
+      const parsed = new URL(url);
+      if (['http:', 'https:', 'mailto:'].includes(parsed.protocol)) {
+        shell.openExternal(url);
+      } else {
+        console.warn(`[Security] Blocked attempt to open potentially unsafe URL: ${url}`);
+      }
+    } catch (err) {
+      console.warn(`[Security] Blocked attempt to open invalid URL: ${url}`);
+    }
+  });
 
   ipcMain.on('inject-punct', (event, char) => {
     resetSilenceTimer();
