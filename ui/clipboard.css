@@ -516,7 +516,19 @@ html, body {
   opacity: 0;
   transition: opacity 0.15s;
 }
-.entry-card:hover .entry-actions { opacity: 1; }
+.entry-card:hover .entry-actions,
+.entry-card:focus-within .entry-actions,
+.entry-card:focus-visible .entry-actions { opacity: 1; }
+
+.entry-card:focus-visible {
+  outline: 2px solid rgba(124, 111, 255, 0.6);
+  outline-offset: -1px;
+}
+
+.entry-btn:focus-visible {
+  outline: 2px solid rgba(124, 111, 255, 0.6);
+  outline-offset: -1px;
+}
 
 .entry-btn {
   width: 26px;

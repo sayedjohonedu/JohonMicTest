@@ -290,6 +290,7 @@ function buildEntryCard(entry) {
     entry.isPinned   ? 'pinned'    : '',
   ].filter(Boolean).join(' ');
   card.dataset.id = entry.id;
+  card.tabIndex = 0; // Make card focusable for keyboard navigation
 
   // Checkbox (shown in selecting mode)
   const cb = document.createElement('input');
@@ -434,6 +435,13 @@ function buildEntryCard(entry) {
   delBtn.onclick = (e) => { e.stopPropagation(); doDeleteEntry(entry.id); };
   actions.appendChild(delBtn);
 
+  // Set aria-labels for accessibility on all icon-only buttons
+  actions.querySelectorAll('.entry-btn').forEach(btn => {
+    if (btn.title && !btn.getAttribute('aria-label')) {
+      btn.setAttribute('aria-label', btn.title);
+    }
+  });
+
   card.appendChild(actions);
 
   // Click card to paste (text) or copy-to-clipboard (image)
@@ -450,6 +458,26 @@ function buildEntryCard(entry) {
       doCopyToClipboard(entry.id);
     } else {
       doPasteEntry(entry);
+    }
+  };
+
+  // Keyboard support for enter/space to paste/copy
+  card.onkeydown = (e) => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      // Ignore if currently interacting with a button inside the card
+      if (document.activeElement && document.activeElement !== card) return;
+
+      e.preventDefault();
+      if (_state.selecting) {
+        toggleSelectEntry(entry.id, !_state.selectedIds.has(entry.id));
+        cb.checked = _state.selectedIds.has(entry.id);
+        return;
+      }
+      if (entry.type === 'image') {
+        doCopyToClipboard(entry.id);
+      } else {
+        doPasteEntry(entry);
+      }
     }
   };
 
