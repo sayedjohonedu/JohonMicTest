@@ -595,7 +595,7 @@ function renderAiProfiles() {
     div.innerHTML = `
       <div class="ai-profile-name">${escAiHtml(p.name)}</div>
       <div class="ai-profile-badge">${escAiHtml(p.provider)} · ${escAiHtml(p.model || '')}</div>
-      <button class="ai-profile-del" title="Delete">✕</button>
+      <button class="ai-profile-del" title="Delete" aria-label="Delete">✕</button>
     `;
     div.addEventListener('click', (e) => {
       if (e.target.classList.contains('ai-profile-del')) {
@@ -1194,7 +1194,7 @@ function renderWhisperProfiles() {
       <div class="ai-profile-meta">
         <div class="ai-profile-badge">${provLabel} · ${escWHtml(p.model || '')}</div>
         <div class="ai-profile-actions">
-          <button class="ai-profile-del" title="Delete">✕</button>
+          <button class="ai-profile-del" title="Delete" aria-label="Delete">✕</button>
         </div>
       </div>
     `;
@@ -1797,9 +1797,9 @@ function renderVaultLlmProfiles() {
         <div class="ai-profile-badge">${escVaultHtml(provLabel)}</div>
         ${modelSelectHtml}
         <div class="ai-profile-actions">
-          <button class="ai-profile-test" title="Test connection">⚡</button>
-          <button class="ai-profile-dup" title="Duplicate profile">⧉</button>
-          <button class="ai-profile-del" title="Delete">✕</button>
+          <button class="ai-profile-test" title="Test connection" aria-label="Test connection">⚡</button>
+          <button class="ai-profile-dup" title="Duplicate profile" aria-label="Duplicate profile">⧉</button>
+          <button class="ai-profile-del" title="Delete" aria-label="Delete">✕</button>
         </div>
       </div>
     `;

@@ -1,0 +1,3 @@
+## 2024-06-10 - Adding missing ARIA Labels to icon-only buttons
+**Learning:** Found a widespread pattern where icon-only buttons (often injected dynamically via JS templates or existing in deeply nested modal overlays) included `title` attributes for tooltips but completely omitted `aria-label` attributes, making them inaccessible to screen readers that ignore title attributes or rely strictly on aria labels.
+**Action:** When adding or reviewing new icon-only buttons across the application (especially those dynamically rendered via template literals in JS files like appstore.js, translator.js, or voice-agents.js), explicitly pair a descriptive `aria-label` with the tooltip `title` attribute to ensure keyboard and screen-reader accessibility.

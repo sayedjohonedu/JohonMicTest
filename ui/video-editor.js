@@ -827,7 +827,7 @@ function getGlobalSettingsHTML() {
             else { iH = 18; iW = Math.round(18*(p.w/p.h)); }
           }
           iW = Math.max(iW,4); iH = Math.max(iH,4);
-          return `<button class="ar-preset${currentAR===p.key?' active':''}" data-ar="${p.key}" title="${p.label}"><span class="ar-icon" style="width:${iW}px;height:${iH}px"></span><span class="ar-label">${p.label}</span></button>`;
+          return `<button class="ar-preset${currentAR===p.key?' active':''}" data-ar="${p.key}" title="${p.label}" aria-label="${p.label}"><span class="ar-icon" style="width:${iW}px;height:${iH}px"></span><span class="ar-label">${p.label}</span></button>`;
         }).join('')}
       </div>
     </div>
@@ -853,7 +853,7 @@ function getGlobalSettingsHTML() {
       </div>
       <div class="panel-section">
         <div style="display:flex;gap:6px;align-items:center">
-          <button id="btn-random-grad" style="padding:4px 8px;border-radius:6px;border:1px solid rgba(124,111,255,0.3);background:rgba(124,111,255,0.1);color:#b4a8ff;cursor:pointer;display:flex;align-items:center;justify-content:center" title="Generate Random Gradient">
+          <button id="btn-random-grad" style="padding:4px 8px;border-radius:6px;border:1px solid rgba(124,111,255,0.3);background:rgba(124,111,255,0.1);color:#b4a8ff;cursor:pointer;display:flex;align-items:center;justify-content:center" title="Generate Random Gradient" aria-label="Generate Random Gradient">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 3h5v5"/><path d="M4 20L21 3"/><path d="M21 16v5h-5"/><path d="M15 15l6 6"/><path d="M4 4l5 5"/></svg>
           </button>
           <div id="grad-preview" style="flex:1;height:22px;border-radius:4px;border:1px solid rgba(255,255,255,0.08);${S.viewport.bgMode==='image' && S.viewport.bgImageSrc && S.viewport.isCustomGradient ? `background-image:url('${S.viewport.bgImageSrc}');background-size:cover` : `background:${(S.viewport.bgMode==='color' && S.viewport.bg && S.viewport.bg.includes('gradient')) ? S.viewport.bg : 'linear-gradient(135deg,#667eea,#764ba2)'}`}"></div>
@@ -863,7 +863,7 @@ function getGlobalSettingsHTML() {
     <div id="bg-panel-image" style="${m!=='image'?'display:none':''}">
       <div class="panel-section">
         <div style="display:flex;gap:6px;margin-bottom:8px">
-          <button id="btn-shuffle-images" style="flex:1;padding:4px 8px;border-radius:6px;border:1px solid rgba(255,255,255,0.1);background:rgba(255,255,255,0.05);color:var(--text);cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px" title="Shuffle Wallpapers">
+          <button id="btn-shuffle-images" style="flex:1;padding:4px 8px;border-radius:6px;border:1px solid rgba(255,255,255,0.1);background:rgba(255,255,255,0.05);color:var(--text);cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px" title="Shuffle Wallpapers" aria-label="Shuffle Wallpapers">
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 3h5v5"/><path d="M4 20L21 3"/><path d="M21 16v5h-5"/><path d="M15 15l6 6"/><path d="M4 4l5 5"/></svg>
             Shuffle
           </button>

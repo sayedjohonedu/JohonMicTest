@@ -792,18 +792,18 @@ function addPgSlot() {
       <select class="pg-slot-lang" title="Target language">
         ${tgtLang.innerHTML}
       </select>
-      <button class="pg-slot-del" title="Remove">✕</button>
+      <button class="pg-slot-del" title="Remove" aria-label="Remove">✕</button>
     </div>
     <textarea class="pg-slot-output" placeholder="Translation will appear here…" spellcheck="false"></textarea>
     <div class="pg-slot-actions">
-      <button class="modern-btn glass pg-copy" style="flex:1; padding: 6px; font-size: 12px; height: 30px;" title="Copy this translation">
+      <button class="modern-btn glass pg-copy" style="flex:1; padding: 6px; font-size: 12px; height: 30px;" title="Copy this translation" aria-label="Copy this translation">
         <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" width="12" height="12">
           <rect x="5" y="5" width="8" height="9" rx="1.5"/>
           <path d="M11 5V4a1 1 0 00-1-1H4a1 1 0 00-1 1v8a1 1 0 001 1h1"/>
         </svg>
         Copy
       </button>
-      <button class="modern-btn glass pg-paste" style="flex:1; padding: 6px; font-size: 12px; height: 30px;" title="Paste this translation">
+      <button class="modern-btn glass pg-paste" style="flex:1; padding: 6px; font-size: 12px; height: 30px;" title="Paste this translation" aria-label="Paste this translation">
         <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" width="12" height="12">
           <path d="M4 6h8M4 10h5M10 13l3-3-3-3"/>
         </svg>
@@ -954,10 +954,10 @@ function renderHistory() {
           <div class="hist-block-label">Original</div>
           <div class="hist-block-text">${escapeHtml(entry.original)}</div>
           <div class="hist-block-actions">
-            <button class="icon-btn" data-copy="original" title="Copy Original">
+            <button class="icon-btn" data-copy="original" title="Copy Original" aria-label="Copy Original">
               <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="5" y="5" width="8" height="9" rx="1.5"/><path d="M11 5V4a1 1 0 00-1-1H4a1 1 0 00-1 1v8a1 1 0 001 1h1"/></svg>
             </button>
-            <button class="icon-btn" data-use="original" title="Input to Draft Area">
+            <button class="icon-btn" data-use="original" title="Input to Draft Area" aria-label="Input to Draft Area">
               <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M8 12V4M5 7l3-3 3 3"/></svg>
             </button>
           </div>
@@ -968,10 +968,10 @@ function renderHistory() {
           <div class="hist-block-label">Translated</div>
           <div class="hist-block-text translated">${escapeHtml(entry.translated)}</div>
           <div class="hist-block-actions">
-            <button class="icon-btn" data-copy="translated" title="Copy Translation">
+            <button class="icon-btn" data-copy="translated" title="Copy Translation" aria-label="Copy Translation">
               <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="5" y="5" width="8" height="9" rx="1.5"/><path d="M11 5V4a1 1 0 00-1-1H4a1 1 0 00-1 1v8a1 1 0 001 1h1"/></svg>
             </button>
-            <button class="icon-btn" data-use="translated" title="Input to Output Area">
+            <button class="icon-btn" data-use="translated" title="Input to Output Area" aria-label="Input to Output Area">
               <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M8 12V4M5 7l3-3 3 3"/></svg>
             </button>
           </div>
@@ -1289,7 +1289,7 @@ function renderPresets() {
     row.innerHTML = `
       <span class="preset-combo">${p.src} → ${p.target}</span>
       <span class="preset-shortcut">${p.shortcut || '—'}</span>
-      <button class="preset-del" title="Remove">✕</button>
+      <button class="preset-del" title="Remove" aria-label="Remove">✕</button>
     `;
     row.querySelector('.preset-del').addEventListener('click', () => {
       const updated = (cfg.translatorLangPresets || []).filter(x => x.id !== p.id);
