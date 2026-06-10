@@ -62,8 +62,16 @@ function start(onNewEntry) {
 
   // Snapshot current clipboard so we don't fire on the very first poll
   _lastText    = clipboard.readText() || '';
-  const img    = clipboard.readImage();
-  _lastImgSize = img && !img.isEmpty() ? `${img.getSize().width}x${img.getSize().height}` : '';
+
+  // Optimization: Only read image if image formats exist
+  const formats = clipboard.availableFormats();
+  const hasImage = formats.some(f => f.startsWith('image/'));
+  if (hasImage) {
+    const img = clipboard.readImage();
+    _lastImgSize = img && !img.isEmpty() ? `${img.getSize().width}x${img.getSize().height}` : '';
+  } else {
+    _lastImgSize = '';
+  }
 
   _timer = setInterval(_poll, POLL_INTERVAL_MS);
   console.log('[ClipboardMonitor] Started');
