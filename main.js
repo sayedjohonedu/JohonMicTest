@@ -954,6 +954,8 @@ app.whenReady().then(() => {
   ipcMain.handle('get-config', () => store.store);
 
   app.on('web-contents-created', (event, contents) => {
+    contents.setWindowOpenHandler(() => ({ action: 'deny' }));
+
     contents.on('console-message', (event, messageParams, ...args) => {
       let message, line;
       if (typeof messageParams === 'object' && messageParams !== null) {
@@ -975,7 +977,16 @@ app.whenReady().then(() => {
   });
 
   ipcMain.on('bridge-error-open-url', (event, url) => {
-    require('electron').shell.openExternal(url);
+    try {
+      const parsedUrl = new URL(url);
+      if (['http:', 'https:', 'mailto:'].includes(parsedUrl.protocol)) {
+        require('electron').shell.openExternal(url);
+      } else {
+        console.warn(`[Security] Blocked attempt to open potentially unsafe URL protocol in bridge-error-open-url: ${parsedUrl.protocol}`);
+      }
+    } catch (err) {
+      console.error('[Security] Failed to parse URL for bridge-error-open-url:', err);
+    }
   });
 
   ipcMain.on('bridge-error-close', () => {
