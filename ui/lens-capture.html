@@ -8,8 +8,8 @@
     --lc-panel: rgba(28, 28, 32, 0.65);
     --lc-border: rgba(255, 255, 255, 0.1);
     --lc-text: #f0f0f5;
-    --lc-accent: #818cf8;
-    --lc-accent-bg: rgba(129, 140, 248, 0.15);
+    --lc-accent: #ff8a00;
+    --lc-accent-bg: rgba(255, 138, 0, 0.15);
     --lc-muted: rgba(255, 255, 255, 0.5);
     --lc-gallery-bg: rgba(255, 255, 255, 0.05);
     --lc-gallery-border: rgba(255, 255, 255, 0.06);
@@ -18,21 +18,21 @@
     --lc-panel: rgba(245, 245, 250, 0.75);
     --lc-border: rgba(0, 0, 0, 0.08);
     --lc-text: #1a1a2e;
-    --lc-accent: #4f46e5;
-    --lc-accent-bg: rgba(79, 70, 229, 0.08);
+    --lc-accent: #e65c00;
+    --lc-accent-bg: rgba(230, 92, 0, 0.08);
     --lc-muted: rgba(0, 0, 0, 0.5);
     --lc-gallery-bg: rgba(0, 0, 0, 0.03);
     --lc-gallery-border: rgba(0, 0, 0, 0.05);
   }
   [data-theme="arctic"] {
     --lc-panel: rgba(240, 245, 255, 0.75);
-    --lc-border: rgba(99, 102, 241, 0.12);
+    --lc-border: rgba(0, 122, 255, 0.12);
     --lc-text: #0f172a;
-    --lc-accent: #6366f1;
-    --lc-accent-bg: rgba(99, 102, 241, 0.1);
+    --lc-accent: #007aff;
+    --lc-accent-bg: rgba(0, 122, 255, 0.10);
     --lc-muted: rgba(15, 23, 42, 0.5);
     --lc-gallery-bg: rgba(0, 0, 0, 0.03);
-    --lc-gallery-border: rgba(99, 102, 241, 0.08);
+    --lc-gallery-border: rgba(0, 122, 255, 0.08);
   }
   [data-theme="bumble"] {
     --lc-panel: rgba(20, 16, 4, 0.72);
@@ -660,17 +660,17 @@ function drawSelection() {
   ctx.rect(x, y, w, h);
   ctx.fill('evenodd');
 
-  ctx.strokeStyle = '#a5b4fc'; ctx.lineWidth = 2;
+  ctx.strokeStyle = '#ff8a00'; ctx.lineWidth = 2;
   ctx.setLineDash([6, 3]); ctx.strokeRect(x, y, w, h); ctx.setLineDash([]);
 
-  ctx.shadowColor = 'rgba(165,180,252,0.4)'; ctx.shadowBlur = 8;
-  ctx.strokeStyle = 'rgba(165,180,252,0.3)'; ctx.lineWidth = 1;
+  ctx.shadowColor = 'rgba(255,138,0,0.4)'; ctx.shadowBlur = 8;
+  ctx.strokeStyle = 'rgba(255,138,0,0.3)'; ctx.lineWidth = 1;
   ctx.strokeRect(x + 1, y + 1, w - 2, h - 2);
   ctx.shadowBlur = 0;
 
   const hs = 8;
-  ctx.fillStyle = '#a5b4fc';
-  ctx.shadowColor = 'rgba(165,180,252,0.6)'; ctx.shadowBlur = 6;
+  ctx.fillStyle = '#ff8a00';
+  ctx.shadowColor = 'rgba(255,138,0,0.6)'; ctx.shadowBlur = 6;
   [[x, y], [x + w, y], [x, y + h], [x + w, y + h]].forEach(([cx, cy]) => {
     ctx.beginPath(); ctx.arc(cx, cy, hs / 2, 0, Math.PI * 2); ctx.fill();
   });

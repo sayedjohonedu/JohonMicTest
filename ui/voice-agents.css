@@ -2,9 +2,9 @@
    Voice Agents Panel — Styles
    ═══════════════════════════════════════════════════════════════ */
 :root {
-  --accent:    #6C63FF;
-  --accent-rgb: 108, 99, 255;
-  --accent2:   #A78BFA;
+  --accent:    #ff8a00;
+  --accent-rgb: 255, 138, 0;
+  --accent2:   #ffc800;
   --bg:        #111114;
   --sidebar:   #18181c;
   --card:      #1e1e24;
@@ -71,7 +71,7 @@
 }
 
 [data-theme="arctic"] {
-  --accent:    #6366F1; --accent-rgb: 99, 102, 241; --accent2:   #a5b4fc;
+  --accent:    #007aff; --accent-rgb: 0, 122, 255; --accent2:   #64b5f6;
   --bg:        #f0f2f8; --sidebar:   #e8eaf4; --card:      #ffffff; --card2:     #f4f5fb;
   --border:    rgba(0, 0, 0, 0.08); --border2:   rgba(0, 0, 0, 0.12);
   --text:      #0f172a; --muted:     rgba(15, 23, 42, 0.50); --muted2:    rgba(15, 23, 42, 0.70);
@@ -342,8 +342,8 @@ body {
   position: relative;
   border: 1px solid transparent;
 }
-.agent-card:hover { background: rgba(108,99,255,0.05); }
-.agent-card.active { background: rgba(108,99,255,0.1); border-color: var(--border); }
+.agent-card:hover { background: rgba(var(--accent-rgb),0.05); }
+.agent-card.active { background: rgba(var(--accent-rgb),0.1); border-color: var(--border); }
 .agent-card .agent-icon {
   width: 24px; height: 24px;
   border-radius: 6px;
@@ -494,7 +494,7 @@ body {
   font-size: 10px;
   padding: 3px 8px;
   border-radius: 10px;
-  background: rgba(108,99,255,0.12);
+  background: rgba(var(--accent-rgb),0.12);
   color: var(--accent);
   white-space: nowrap;
 }
@@ -779,7 +779,7 @@ body {
 .palette-item:hover .p-icon { color: var(--accent); }
 
 /* Remove old emoji coloring classes */
-.block-type-user-prompt .block-icon { background: rgba(124,92,252,0.15); color: #a78bfa; }
+.block-type-user-prompt .block-icon { background: rgba(var(--accent-rgb),0.15); color: var(--accent); }
 .block-type-context .block-icon { background: rgba(96,165,250,0.15); color: var(--blue); }
 .block-type-clipboard .block-icon { background: rgba(74,222,128,0.15); color: var(--green); }
 .block-type-selected-text .block-icon { background: rgba(20,184,166,0.15); color: #2dd4bf; }

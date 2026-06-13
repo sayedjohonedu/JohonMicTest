@@ -208,7 +208,7 @@ function loadStats() {
       const langName = SETTINGS_LANGUAGES.find(l => l.code === code)?.name || code;
       return `<div style="display:flex; align-items:center; gap:12px; margin-bottom:4px;">
         <div style="font-size:12px; font-weight:500; color:var(--text); width:130px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${langName}</div>
-        <div style="flex:1; height:8px; border-radius:4px; background:rgba(108,99,255,0.08); overflow:hidden; position:relative;">
+        <div style="flex:1; height:8px; border-radius:4px; background:rgba(var(--accent-rgb),0.08); overflow:hidden; position:relative;">
           <div style="position:absolute; left:0; top:0; width:${bar}%; height:100%; border-radius:4px; background:linear-gradient(90deg, var(--accent), #b485ff); transition:width 1s cubic-bezier(0.16, 1, 0.3, 1);"></div>
         </div>
         <div style="font-size:11.5px; font-weight:600; color:var(--muted); width:40px; text-align:right;">${pct}%</div>
@@ -849,7 +849,7 @@ window.addReplacementRow = function(say, rep) {
 window.addLangHotkeyRow = function(combo = '', lang = 'bn-BD') {
   const sel = document.createElement('select'); sel.className = 'lang-select val-lang'; SETTINGS_LANGUAGES.forEach(l => { const o = document.createElement('option'); o.value = l.code; o.textContent = IS_WIN ? l.name : (l.flag + '\u00A0' + l.name); sel.appendChild(o); });
   const row = document.createElement('div'); row.className = 'settings-row lang-hotkey-row'; row.style.borderTop = '1px solid var(--border)'; row.style.marginTop = '4px'; row.style.paddingTop = '12px';
-  row.innerHTML = `<div class="row-icon" style="background:rgba(108,99,255,0.08);"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15.5 7.5 2.3 2.3a1 1 0 0 0 1.4 0l2.1-2.1a1 1 0 0 0 0-1.4L19 4"/><path d="m21 2-9.6 9.6"/><circle cx="7.5" cy="15.5" r="5.5"/></svg></div><div class="row-info" style="flex-direction:row; align-items:center; gap:8px;"><div class="key-badge val-combo" style="cursor:pointer;">${combo ? formatCombo(combo) : 'Not set'}</div><span style="font-size:12px; color:var(--muted)">triggers</span><div class="select-wrapper"></div></div><div class="key-controls"><button class="btn-action btn-del-row" style="color:#ff6b6b; border-color:rgba(255,107,107,0.3)">✕</button></div>`;
+  row.innerHTML = `<div class="row-icon" style="background:rgba(var(--accent-rgb),0.08);"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15.5 7.5 2.3 2.3a1 1 0 0 0 1.4 0l2.1-2.1a1 1 0 0 0 0-1.4L19 4"/><path d="m21 2-9.6 9.6"/><circle cx="7.5" cy="15.5" r="5.5"/></svg></div><div class="row-info" style="flex-direction:row; align-items:center; gap:8px;"><div class="key-badge val-combo" style="cursor:pointer;">${combo ? formatCombo(combo) : 'Not set'}</div><span style="font-size:12px; color:var(--muted)">triggers</span><div class="select-wrapper"></div></div><div class="key-controls"><button class="btn-action btn-del-row" style="color:#ff6b6b; border-color:rgba(255,107,107,0.3)">✕</button></div>`;
   row.querySelector('.select-wrapper').appendChild(sel); sel.value = lang; const badge = row.querySelector('.val-combo'); badge.dataset.rawCombo = combo;
   badge.addEventListener('click', () => !recordingMode && startRecording('lang-combo', badge)); row.querySelector('.btn-del-row').addEventListener('click', () => { row.remove(); markDirty(); }); document.getElementById('lang-hotkeys-list').appendChild(row);
 };
@@ -918,7 +918,7 @@ function updateLicenseUI(status, firstLaunch, purchase, extra) {
 
   } else {
     // trial
-    c.style.background = 'rgba(124,111,255,0.1)'; c.style.borderColor = 'var(--accent)'; h.style.color = 'var(--text)';
+    c.style.background = 'rgba(var(--accent-rgb),0.1)'; c.style.borderColor = 'var(--accent)'; h.style.color = 'var(--text)';
     b.disabled = false; b.textContent = 'Activate Pro';
     s.style.whiteSpace = 'normal';
     s.textContent = 'You are currently enjoying the fully-featured 15-day free trial.';
@@ -1030,7 +1030,7 @@ window.browserReset = async function() {
     await window.electronAPI.hardResetBrowser();
     if (btn) { btn.innerHTML = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg> Done`; btn.style.color = '#4ade80'; btn.style.borderColor = 'rgba(74,222,128,0.3)'; }
     setTimeout(() => {
-      if (btn) { btn.innerHTML = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg> Reset Browser Data`; btn.style.color = 'var(--accent)'; btn.style.borderColor = 'rgba(124,111,255,0.2)'; btn.disabled = false; }
+      if (btn) { btn.innerHTML = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg> Reset Browser Data`; btn.style.color = 'var(--accent)'; btn.style.borderColor = 'rgba(var(--accent-rgb),0.2)'; btn.disabled = false; }
     }, 2500);
   } catch(e) {
     if (btn) { btn.textContent = 'Reset Failed'; btn.disabled = false; }

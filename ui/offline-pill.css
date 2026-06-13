@@ -5,8 +5,8 @@
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
 :root {
-  --accent:  #7C6FFF;
-  --accent-rgb: 124, 111, 255;
+  --accent:  #ff8a00;
+  --accent-rgb: 255, 138, 0;
   --bg:      rgba(20, 20, 26, 0.92);
   --surface: rgba(255,255,255,0.07);
   --border:  rgba(255,255,255,0.11);
@@ -74,11 +74,11 @@
 }
 
 [data-theme="arctic"] {
-  --accent:  #6366F1;
-  --accent-rgb: 99, 102, 241;
+  --accent:  #007aff;
+  --accent-rgb: 0, 122, 255;
   --bg:      rgba(240, 242, 248, 0.94);
   --surface: rgba(0, 0, 0, 0.04);
-  --border:  rgba(99, 102, 241, 0.15);
+  --border:  rgba(0, 122, 255, 0.15);
   --text:    #0F172A;
   --muted:   rgba(15, 23, 42, 0.50);
 }
@@ -172,14 +172,14 @@ body:not(.recording) #pulse-dot { display: none; }
 
 /* ── State-based colors ── */
 body.recording #status-text  { color: var(--accent); }
-body.processing #status-text { color: #a78bfa; }
+body.processing #status-text { color: #fbbf24; }
 body.transcribing #status-text { color: #60a5fa; }
-body.polishing #status-text  { color: #c084fc; }
+body.polishing #status-text  { color: #2dd4bf; }
 body.done #status-text       { color: #4ade80; }
 body.error #status-text      { color: #fb923c; }
 
 body.recording #pill    { border-color: rgba(var(--accent-rgb), 0.25); }
-body.processing #pill   { border-color: rgba(167, 139, 250, 0.25); }
+body.processing #pill   { border-color: rgba(251, 191, 36, 0.25); }
 body.done #pill         { border-color: rgba(74, 222, 128, 0.25); }
 body.error #pill        { border-color: rgba(251, 146, 60, 0.25); }
 
@@ -209,9 +209,9 @@ body.polishing #status-icon {
 }
 
 /* State-specific icon colors (SVGs use stroke="currentColor") */
-body.processing   #status-icon { display: flex; color: #a78bfa; }
-body.transcribing #status-icon { display: flex; color: #818cf8; }
-body.polishing    #status-icon { display: flex; color: #c084fc; }
+body.processing   #status-icon { display: flex; color: #fbbf24; }
+body.transcribing #status-icon { display: flex; color: #60a5fa; }
+body.polishing    #status-icon { display: flex; color: #2dd4bf; }
 body.done         #status-icon { display: flex; color: #4ade80; }
 body.error        #status-icon { display: flex; color: #fb923c; }
 
@@ -224,8 +224,8 @@ body.error        #status-icon { display: flex; color: #fb923c; }
 #ai-badge {
   display: none;
   font-size: 11px;
-  color: #a855f7;
-  text-shadow: 0 0 8px rgba(168, 85, 247, 0.85);
+  color: #ff8a00;
+  text-shadow: 0 0 8px rgba(255, 138, 0, 0.85);
   flex-shrink: 0;
   margin-right: -2px;
   line-height: 1;
@@ -244,17 +244,79 @@ body.ai-mode.recording #ai-badge {
   animation: ai-spin 3s linear infinite;
 }
 
-/* Tint the pill border purple when AI mode is on and recording */
+/* Tint the pill border orange when AI mode is on and recording */
 body.ai-mode.recording #pill {
-  border-color: rgba(168, 85, 247, 0.3);
+  border-color: rgba(255, 138, 0, 0.3);
 }
 
-/* Status text gets purple tint in AI mode during recording */
+/* Status text gets orange tint in AI mode during recording */
 body.ai-mode.recording #status-text {
-  color: #a855f7;
+  color: #ff8a00;
 }
 
 /* Learned state styling */
-body.learned #status-text { color: #a855f7; font-weight: bold; }
-body.learned #pill { border-color: rgba(168, 85, 247, 0.4); }
-body.learned #status-icon { display: flex; color: #a855f7; }
+body.learned #status-text { color: #ff8a00; font-weight: bold; }
+body.learned #pill { border-color: rgba(255, 138, 0, 0.4); }
+body.learned #status-icon { display: flex; color: #ff8a00; }
+
+/* ─────────────────────────────────────────────────────────────────
+   LIGHT-MODE OVERRIDES (light + arctic themes)
+   Darker, high-contrast shades so colors pop on a pale background
+   ───────────────────────────────────────────────────────────────── */
+[data-theme="light"] body.processing #status-text,
+[data-theme="arctic"] body.processing #status-text { color: #d97706; }
+
+[data-theme="light"] body.transcribing #status-text,
+[data-theme="arctic"] body.transcribing #status-text { color: #1d4ed8; }
+
+[data-theme="light"] body.polishing #status-text,
+[data-theme="arctic"] body.polishing #status-text { color: #0d9488; }
+
+[data-theme="light"] body.done #status-text,
+[data-theme="arctic"] body.done #status-text { color: #15803d; }
+
+[data-theme="light"] body.error #status-text,
+[data-theme="arctic"] body.error #status-text { color: #c2410c; }
+
+[data-theme="light"] body.learned #status-text,
+[data-theme="arctic"] body.learned #status-text { color: #c2410c; }
+
+/* Icon colors for light mode */
+[data-theme="light"] body.processing   #status-icon,
+[data-theme="arctic"] body.processing  #status-icon { color: #d97706; }
+
+[data-theme="light"] body.transcribing #status-icon,
+[data-theme="arctic"] body.transcribing #status-icon { color: #1d4ed8; }
+
+[data-theme="light"] body.polishing    #status-icon,
+[data-theme="arctic"] body.polishing   #status-icon { color: #0d9488; }
+
+[data-theme="light"] body.done         #status-icon,
+[data-theme="arctic"] body.done        #status-icon { color: #15803d; }
+
+[data-theme="light"] body.error        #status-icon,
+[data-theme="arctic"] body.error       #status-icon { color: #c2410c; }
+
+[data-theme="light"] body.learned      #status-icon,
+[data-theme="arctic"] body.learned     #status-icon { color: #c2410c; }
+
+/* Pill border tints for light mode */
+[data-theme="light"] body.done #pill,
+[data-theme="arctic"] body.done #pill { border-color: rgba(21, 128, 61, 0.35); }
+
+[data-theme="light"] body.error #pill,
+[data-theme="arctic"] body.error #pill { border-color: rgba(194, 65, 12, 0.35); }
+
+[data-theme="light"] body.processing #pill,
+[data-theme="arctic"] body.processing #pill { border-color: rgba(217, 119, 6, 0.25); }
+
+/* AI mode in light */
+[data-theme="light"] body.ai-mode.recording #status-text,
+[data-theme="arctic"] body.ai-mode.recording #status-text { color: #c2410c; }
+
+[data-theme="light"] body.ai-mode.recording #pill,
+[data-theme="arctic"] body.ai-mode.recording #pill { border-color: rgba(194, 65, 12, 0.3); }
+
+[data-theme="light"] #ai-badge,
+[data-theme="arctic"] #ai-badge { color: #c2410c; text-shadow: 0 0 6px rgba(194,65,12,0.4); }
+

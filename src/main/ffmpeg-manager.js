@@ -131,17 +131,17 @@ function showProgressToast(title, subtitle, progress) {
     @keyframes slideIn{from{opacity:0;transform:translateY(-10px)}to{opacity:1;transform:translateY(0)}}
     .top{display:flex;align-items:center;gap:10px}
     .icon{width:28px;height:28px;border-radius:8px;display:flex;align-items:center;justify-content:center;
-      background:rgba(124,111,255,0.12);flex-shrink:0}
+      background:rgba(255,138,0,0.12);flex-shrink:0}
     .info{flex:1;min-width:0}
     .title{font:600 12px/1 sans-serif;color:#f0f0f5;margin-bottom:3px}
     .sub{font:400 10px/1.2 sans-serif;color:#94a3b8;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
     .bar-bg{height:4px;border-radius:2px;background:rgba(255,255,255,0.06);overflow:hidden}
-    .bar-fill{height:100%;border-radius:2px;background:linear-gradient(90deg,#7c6fff,#a5b4fc);
+    .bar-fill{height:100%;border-radius:2px;background:linear-gradient(90deg,#ff8a00,#ffc800);
       transition:width 0.3s ease}
   </style></head><body>
     <div class="toast">
       <div class="top">
-        <div class="icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#a5b4fc" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg></div>
+        <div class="icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#ffc800" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg></div>
         <div class="info"><div class="title" id="p-title">${safeTitle}</div><div class="sub" id="p-sub">${safeSub}</div></div>
       </div>
       <div class="bar-bg"><div class="bar-fill" id="p-fill" style="width:${pct}%"></div></div>

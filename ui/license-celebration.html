@@ -98,9 +98,9 @@
 
   .activating-badge {
     display: inline-flex; align-items: center; gap: 6px;
-    background: rgba(124,111,255,0.12); border: 1px solid rgba(124,111,255,0.3);
+    background: rgba(255,138,0,0.12); border: 1px solid rgba(255,138,0,0.3);
     border-radius: 20px; padding: 5px 16px;
-    font-size: 12px; font-weight: 600; color: #7c6fff;
+    font-size: 12px; font-weight: 600; color: #ff8a00;
     z-index: 1; letter-spacing: 0.5px;
   }
 
@@ -126,7 +126,7 @@
   /* Shimmer bars */
   .shimmer-bar {
     position: absolute; z-index: 0; height: 1px; opacity: 0;
-    background: linear-gradient(90deg, transparent, rgba(124,111,255,0.4), transparent);
+    background: linear-gradient(90deg, transparent, rgba(255,138,0,0.4), transparent);
     animation: shimmer 2s ease-in-out infinite;
   }
   .shimmer-bar:nth-child(1) { top: 20%; left: 10%; width: 80%; animation-delay: 0s; }
@@ -142,7 +142,7 @@
     position: absolute; border-radius: 50%; z-index: 0;
     pointer-events: none; opacity: 0;
   }
-  .particle:nth-child(1) { width: 4px; height: 4px; background: #7c6fff; top: 15%; left: 20%; animation: float 3s ease-in-out infinite; }
+  .particle:nth-child(1) { width: 4px; height: 4px; background: #ff8a00; top: 15%; left: 20%; animation: float 3s ease-in-out infinite; }
   .particle:nth-child(2) { width: 3px; height: 3px; background: #48c774; top: 70%; left: 75%; animation: float 4s ease-in-out 0.5s infinite; }
   .particle:nth-child(3) { width: 5px; height: 5px; background: #ffd93d; top: 30%; left: 80%; animation: float 3.5s ease-in-out 1s infinite; }
   .particle:nth-child(4) { width: 3px; height: 3px; background: #ff6b6b; top: 80%; left: 15%; animation: float 2.8s ease-in-out 0.3s infinite; }
@@ -170,7 +170,7 @@
       <svg width="80" height="80" viewBox="0 0 80 80">
         <defs>
           <linearGradient id="ringGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%" stop-color="#7c6fff"/>
+            <stop offset="0%" stop-color="#ff8a00"/>
             <stop offset="100%" stop-color="#48c774"/>
           </linearGradient>
         </defs>
@@ -272,7 +272,7 @@
 
   // ── Confetti ────────────────────────────
   const confettiPieces = [];
-  const COLORS = ['#7c6fff', '#48c774', '#ffd93d', '#ff6b6b', '#00d2ff', '#ff71ce', '#fff'];
+  const COLORS = ['#ff8a00', '#48c774', '#ffd93d', '#ff6b6b', '#00d2ff', '#ff71ce', '#fff'];
 
   function createConfettiPiece() {
     return {

@@ -82,7 +82,7 @@
         Gallery
       </button>
       <div class="toolbar-spacer"></div>
-      <button class="tool-btn" id="btn-player-edit" title="Open in Editor" style="color:#b4a8ff; border-color:rgba(124,111,255,0.25); background:rgba(124,111,255,0.08);" aria-label="Open in Editor">
+      <button class="tool-btn" id="btn-player-edit" title="Open in Editor" style="color:var(--g-accent); border-color:rgba(var(--g-accent-rgb),0.25); background:rgba(var(--g-accent-rgb),0.08);" aria-label="Open in Editor">
         <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
         Edit
       </button>
@@ -125,7 +125,7 @@
 
     <!-- ═══ EXPORT PANEL ═══ -->
     <div id="export-panel" style="display:none; align-items:center; gap:6px; padding:8px 16px; background:rgba(15,15,22,0.95); border-top:1px solid rgba(255,255,255,0.04); flex-shrink:0;">
-      <span style="font:600 10px/1 'Inter',sans-serif; color:rgba(124,111,255,0.7); text-transform:uppercase; letter-spacing:1px; margin-right:6px;">Export As</span>
+      <span style="font:600 10px/1 'Inter',sans-serif; color:rgba(var(--g-accent-rgb),0.7); text-transform:uppercase; letter-spacing:1px; margin-right:6px;">Export As</span>
       <button class="tool-btn export-btn" data-format="mp4" title="MP4 (H.264 + AAC)" aria-label="MP4 (H.264 + AAC)">
         <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
         MP4

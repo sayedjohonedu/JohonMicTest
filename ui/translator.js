@@ -721,7 +721,8 @@ function drawMiniWave(data) {
     const v = data[i * step] / 255;
     const h = Math.max(2, v * 18);
     const y = (18 - h) / 2;
-    miniCtx2d.fillStyle = `rgba(124,111,255,${0.4 + v * 0.5})`;
+    const accentRgb = getComputedStyle(document.documentElement).getPropertyValue('--accent-rgb').trim() || '255, 138, 0';
+    miniCtx2d.fillStyle = `rgba(${accentRgb},${0.4 + v * 0.5})`;
     miniCtx2d.beginPath();
     miniCtx2d.roundRect(i * (barW + gap), y, barW, h, 1);
     miniCtx2d.fill();

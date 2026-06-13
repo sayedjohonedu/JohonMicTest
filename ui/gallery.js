@@ -719,7 +719,7 @@ function showRenameDialog(file) {
       <div class="rename-error" id="rename-error"></div>
       <div class="confirm-actions">
         <button class="confirm-btn" id="rename-cancel">Cancel</button>
-        <button class="confirm-btn" id="rename-confirm" style="background:rgba(124,111,255,0.15);border-color:rgba(124,111,255,0.3);color:#b4a8ff;">Rename</button>
+        <button class="confirm-btn" id="rename-confirm" style="background:rgba(var(--g-accent-rgb),0.15);border-color:rgba(var(--g-accent-rgb),0.3);color:var(--g-accent);">Rename</button>
       </div>
     </div>`;
   document.body.appendChild(overlay);
@@ -1037,15 +1037,15 @@ function showFFmpegInstallPrompt() {
       <div class="confirm-title">FFmpeg Required</div>
       <div class="confirm-sub">Video conversion requires FFmpeg (~70 MB download). It will be cached for future use.</div>
       <div id="ffmpeg-progress" style="display:none;margin-bottom:12px;">
-        <div id="ffmpeg-status" style="font:500 11px/1 'Inter',sans-serif;color:#b4a8ff;margin-bottom:6px;">Downloading FFmpeg…</div>
+        <div id="ffmpeg-status" style="font:500 11px/1 'Inter',sans-serif;color:var(--g-accent2);margin-bottom:6px;">Downloading FFmpeg…</div>
         <div style="height:4px;border-radius:2px;background:rgba(255,255,255,0.06);">
-          <div id="ffmpeg-fill" style="height:100%;border-radius:2px;background:linear-gradient(90deg,#7c6fff,#a5b4fc);width:0%;transition:width 0.3s;"></div>
+          <div id="ffmpeg-fill" style="height:100%;border-radius:2px;background:linear-gradient(90deg,var(--g-accent),var(--g-accent2));width:0%;transition:width 0.3s;"></div>
         </div>
         <div id="ffmpeg-detail" style="font:400 9px/1 'SF Mono',monospace;color:#4b5563;margin-top:4px;"></div>
       </div>
       <div class="confirm-actions">
         <button class="confirm-btn" id="ffmpeg-cancel">Cancel</button>
-        <button class="confirm-btn" id="ffmpeg-download" style="background:rgba(124,111,255,0.15);border-color:rgba(124,111,255,0.3);color:#b4a8ff;">Download FFmpeg</button>
+        <button class="confirm-btn" id="ffmpeg-download" style="background:rgba(var(--g-accent-rgb),0.15);border-color:rgba(var(--g-accent-rgb),0.3);color:var(--g-accent2);">Download FFmpeg</button>
       </div>
     </div>`;
   document.body.appendChild(overlay);

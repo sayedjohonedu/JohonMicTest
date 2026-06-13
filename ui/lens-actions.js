@@ -1803,8 +1803,8 @@ function showLensSaveDialog(dataUrl) {
         transition: border-color 0.15s;
       }
       #lens-save-input-wrap:focus-within {
-        border-color: rgba(124,111,255,0.5);
-        background: rgba(124,111,255,0.05);
+        border-color: var(--lc-accent);
+        background: var(--lc-accent-bg);
       }
       #lens-save-input {
         flex: 1;
@@ -1817,7 +1817,7 @@ function showLensSaveDialog(dataUrl) {
         user-select: text;
         -webkit-user-select: text;
       }
-      #lens-save-input::selection { background: rgba(124,111,255,0.35); }
+      #lens-save-input::selection { background: var(--lc-accent-bg); }
       #lens-save-ext {
         font: 500 13px/1 'Inter', sans-serif;
         color: #4b5563;
@@ -1853,11 +1853,11 @@ function showLensSaveDialog(dataUrl) {
       }
       .lsBtn:hover { background: rgba(255,255,255,0.1); }
       .lsBtnAccent {
-        background: rgba(124,111,255,0.15) !important;
-        border-color: rgba(124,111,255,0.35) !important;
-        color: #b4a8ff !important;
+        background: var(--lc-accent-bg) !important;
+        border-color: var(--lc-accent-bg) !important;
+        color: var(--lc-accent) !important;
       }
-      .lsBtnAccent:hover { background: rgba(124,111,255,0.28) !important; }
+      .lsBtnAccent:hover { background: var(--lc-accent) !important; }
     </style>
     <div id="lens-save-box">
       <div id="lens-save-title">Save Screenshot</div>

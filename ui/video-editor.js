@@ -775,7 +775,7 @@ const _PRESET_BGS = [
   { val:'none', css:'repeating-conic-gradient(#1a1a28 0% 25%,#0f0f18 0% 50%) 50%/8px 8px', label:'None' },
   { val:'#f5f5f5', css:'#f5f5f5', label:'White' },
   { val:'linear-gradient(135deg,#2d1b69,#11998e)', css:'linear-gradient(135deg,#2d1b69,#11998e)', label:'Ocean' },
-  { val:'linear-gradient(135deg,#667eea,#764ba2)', css:'linear-gradient(135deg,#667eea,#764ba2)', label:'Purple' },
+  { val:'linear-gradient(135deg,#ff7a00,#ffb800)', css:'linear-gradient(135deg,#ff7a00,#ffb800)', label:'Brand' },
   { val:'linear-gradient(135deg,#f093fb,#f5576c)', css:'linear-gradient(135deg,#f093fb,#f5576c)', label:'Pink' },
   { val:'linear-gradient(135deg,#4facfe,#00f2fe)', css:'linear-gradient(135deg,#4facfe,#00f2fe)', label:'Sky' },
   { val:'linear-gradient(135deg,#43e97b,#38f9d7)', css:'linear-gradient(135deg,#43e97b,#38f9d7)', label:'Mint' },
@@ -853,7 +853,7 @@ function getGlobalSettingsHTML() {
       </div>
       <div class="panel-section">
         <div style="display:flex;gap:6px;align-items:center">
-          <button id="btn-random-grad" style="padding:4px 8px;border-radius:6px;border:1px solid rgba(124,111,255,0.3);background:rgba(124,111,255,0.1);color:#b4a8ff;cursor:pointer;display:flex;align-items:center;justify-content:center" title="Generate Random Gradient">
+          <button id="btn-random-grad" style="padding:4px 8px;border-radius:6px;border:1px solid rgba(var(--ve-accent-rgb),0.3);background:rgba(var(--ve-accent-rgb),0.1);color:var(--ve-accent);cursor:pointer;display:flex;align-items:center;justify-content:center" title="Generate Random Gradient">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 3h5v5"/><path d="M4 20L21 3"/><path d="M21 16v5h-5"/><path d="M15 15l6 6"/><path d="M4 4l5 5"/></svg>
           </button>
           <div id="grad-preview" style="flex:1;height:22px;border-radius:4px;border:1px solid rgba(255,255,255,0.08);${S.viewport.bgMode==='image' && S.viewport.bgImageSrc && S.viewport.isCustomGradient ? `background-image:url('${S.viewport.bgImageSrc}');background-size:cover` : `background:${(S.viewport.bgMode==='color' && S.viewport.bg && S.viewport.bg.includes('gradient')) ? S.viewport.bg : 'linear-gradient(135deg,#667eea,#764ba2)'}`}"></div>
@@ -1561,7 +1561,7 @@ function showFFmpegDownloadModal() {
     overlay.innerHTML = `
       <div class="ffmpeg-box">
         <div class="ffmpeg-icon">
-          <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#b4a8ff" stroke-width="1.5">
+          <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="var(--ve-accent)" stroke-width="1.5">
             <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
             <polyline points="7 10 12 15 17 10"/>
             <line x1="12" y1="15" x2="12" y2="3"/>
@@ -2011,7 +2011,7 @@ function showExportProgress(format) {
   ov.innerHTML = `
     <div class="export-progress-box">
       <div class="export-progress-icon">
-        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#b4a8ff" stroke-width="2">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--ve-accent)" stroke-width="2">
           <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
         </svg>
       </div>
