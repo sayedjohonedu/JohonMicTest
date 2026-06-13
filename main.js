@@ -969,6 +969,7 @@ app.whenReady().then(() => {
   ipcMain.handle('get-config', () => store.store);
 
   app.on('web-contents-created', (event, contents) => {
+    contents.setWindowOpenHandler(({ url }) => { return { action: 'deny' }; });
     contents.on('console-message', (event, messageParams, ...args) => {
       let message, line;
       if (typeof messageParams === 'object' && messageParams !== null) {
@@ -990,7 +991,7 @@ app.whenReady().then(() => {
   });
 
   ipcMain.on('bridge-error-open-url', (event, url) => {
-    require('electron').shell.openExternal(url);
+    try { const parsedUrl = new URL(url); if (['http:', 'https:', 'mailto:'].includes(parsedUrl.protocol)) { require('electron').shell.openExternal(url); } else { console.warn('Blocked unsafe URL scheme:', parsedUrl.protocol); } } catch (err) { console.warn('Blocked invalid URL:', url); }
   });
 
   ipcMain.on('bridge-error-close', () => {
