@@ -10,6 +10,20 @@ let isClosing = false;
 /** @type {import('./browser-finder').BrowserInfo|null} */
 let activeBrowserInfo = null;
 
+function killLeftoverBridgeProcesses() {
+  const { execSync } = require('child_process');
+  try {
+    if (process.platform === 'darwin') {
+      execSync('pkill -9 -f "chrome-bridge-data"', { stdio: 'ignore' });
+    } else if (process.platform === 'win32') {
+      const cmd = 'powershell -NoProfile -ExecutionPolicy Bypass -Command "Get-CimInstance Win32_Process -Filter \\"CommandLine like \'%chrome-bridge-data%\'\\" | ForEach-Object { $_.Terminate() }"';
+      execSync(cmd, { stdio: 'ignore' });
+    }
+  } catch (e) {
+    // Ignore errors (e.g. if no processes were found)
+  }
+}
+
 // Safe logging to avoid EIO errors on broken pipes
 function safeLog(...args) {
   try {
@@ -21,6 +35,9 @@ function safeLog(...args) {
 
 async function launchChromeBridge(url, forceVisible = false) {
   isClosing = false;
+  
+  // Clean up any zombie/leftover bridge processes from prior crashes/runs
+  killLeftoverBridgeProcesses();
   
   // Close existing browser if any
   if (browser) {

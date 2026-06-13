@@ -26,6 +26,8 @@ async function checkAuthStatus() {
   const key = store.get('licenseKey');
   if (key) {
     try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 5000);
       const response = await fetch('https://api.gumroad.com/v2/licenses/verify', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -33,16 +35,27 @@ async function checkAuthStatus() {
           product_id: 'LpMFpNqkVgE8E0V8o-Q92w==',
           license_key: key,
           increment_uses_count: 'false'
-        })
+        }),
+        signal: controller.signal
       });
-      const data = await response.json();
-      if (!data.success) {
+      clearTimeout(timeoutId);
+
+      if (response.status === 404) {
+        // Explicitly invalid or revoked key
         store.set('licenseStatus', 'expired');
         store.set('licensePurchase', {});
-      } else {
-        store.set('licenseStatus', 'active');
-        if (data.purchase) store.set('licensePurchase', data.purchase);
+      } else if (response.ok) {
+        const data = await response.json();
+        if (!data.success) {
+          store.set('licenseStatus', 'expired');
+          store.set('licensePurchase', {});
+        } else {
+          store.set('licenseStatus', 'active');
+          if (data.purchase) store.set('licensePurchase', data.purchase);
+        }
       }
+      // Non-OK status codes other than 404 (like 429, 500, 503) are treated as temporary issues.
+      // We fall back to offline/keep-current-status behavior (no-op).
     } catch (e) {
       // Offline fallback — keep current status
     }
@@ -64,6 +77,8 @@ async function checkAuthStatus() {
 
 async function verifyLicense(key) {
   try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 8000);
     const response = await fetch('https://api.gumroad.com/v2/licenses/verify', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -71,8 +86,20 @@ async function verifyLicense(key) {
         product_id: 'LpMFpNqkVgE8E0V8o-Q92w==',
         license_key: key,
         increment_uses_count: 'true'
-      })
+      }),
+      signal: controller.signal
     });
+    clearTimeout(timeoutId);
+    
+    if (response.status === 404) {
+      store.set('licenseStatus', 'expired');
+      return { success: false, message: 'Invalid or expired key.' };
+    }
+
+    if (!response.ok) {
+      return { success: false, message: `Server error (${response.status}). Please check your internet connection or try again later.` };
+    }
+
     const data = await response.json();
     
     if (data.success) {
@@ -89,7 +116,7 @@ async function verifyLicense(key) {
       return { success: false, message: data.message || 'Invalid or expired key.' };
     }
   } catch (err) {
-    return { success: false, message: 'Server error. Please check your internet connection.' };
+    return { success: false, message: 'Server error or timeout. Please check your internet connection.' };
   }
 }
 
