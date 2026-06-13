@@ -185,3 +185,8 @@ body.ai-mode.recording #pill {
 body.ai-mode.recording #status-text {
   color: #a855f7;
 }
+
+/* Learned state styling */
+body.learned #status-text { color: #a855f7; font-weight: bold; }
+body.learned #pill { border-color: rgba(168, 85, 247, 0.4); }
+body.learned #status-icon { display: flex; color: #a855f7; }

@@ -13,7 +13,9 @@
  *   5. Paste result to active text field
  */
 
-const { BrowserWindow } = require('electron');
+const { BrowserWindow, app } = require('electron');
+const fs = require('fs');
+const path = require('path');
 const store = require('../../store/config');
 const offlineRecorder = require('./offline-recorder');
 const whisperApiEngine = require('./whisper-api-engine');
@@ -87,6 +89,11 @@ class WhisperApiManager {
   onKeyDown() {
     if (!this.isEnabled || this._isProcessing) return;
     if (offlineRecorder.isRecording) return;
+
+    // Check for edits in previous dictation before starting a new one
+    try {
+      require('./correction-detector').checkPendingCorrection(true);
+    } catch (e) {}
     if (this._getIsListening && this._getIsListening()) {
       console.log('[WhisperAPI] Blocked activation because Chrome STT is currently listening');
       return;
@@ -173,6 +180,18 @@ class WhisperApiManager {
       const durationSec = audioData.samples.length / audioData.sampleRate;
       console.log(`[WhisperAPI] Got ${audioData.samples.length} samples at ${audioData.sampleRate}Hz (${durationSec.toFixed(1)}s)`);
 
+      // Save last recording to WAV file for testing
+      try {
+        const wavBuffer = whisperApiEngine.pcmToWav(audioData.samples, audioData.sampleRate);
+        const wavPath = path.join(app.getPath('userData'), 'last_recording.wav');
+        const workspaceWavPath = path.join(app.getAppPath(), 'last_recording.wav');
+        fs.writeFileSync(wavPath, wavBuffer);
+        fs.writeFileSync(workspaceWavPath, wavBuffer);
+        console.log(`[WhisperAPI] Saved last recording WAV to: ${workspaceWavPath} and ${wavPath}`);
+      } catch (e) {
+        console.error('[WhisperAPI] Failed to save last recording:', e);
+      }
+
       // 2. Transcribe via Whisper API — with profile fallback
       this._updatePill('transcribing', 'Sending to Whisper API…');
       let transcript;
@@ -243,6 +262,14 @@ class WhisperApiManager {
           const deselect = !!this._lastPipelineUsedSelectedText;
           this._lastPipelineUsedSelectedText = false;
           this._clipboardManager.injectText(finalText, { deselect });
+          
+          // Record dictation for auto-learning spelling corrections
+          try {
+            const cd = require('./correction-detector');
+            cd.recordDictation(finalText);
+          } catch (e) {
+            console.error('[WhisperApiManager] failed to record dictation:', e);
+          }
         }
       }
 

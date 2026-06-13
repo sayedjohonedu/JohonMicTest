@@ -29,7 +29,10 @@ const store = require('../../store/config');
  * @returns {string} — replaced text, or original if no rule matched
  */
 function applyTextReplacements(text) {
-  if (!store.get('textReplaceEnabled')) return text;
+  const replaceEnabled = store.get('textReplaceEnabled') === true;
+  const learnEnabled = store.get('autoLearnCorrections') !== false;
+  if (!replaceEnabled && !learnEnabled) return text;
+
   const rules = store.get('textReplacements') || [];
   if (!rules.length) return text;
 

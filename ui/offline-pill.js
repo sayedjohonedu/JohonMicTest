@@ -16,6 +16,7 @@ const STATUS_MAP = {
   polishing:    { icon: SPARKLE_SVG, text: 'AI Polishing…' },
   done:         { icon: CHECK_SVG,   text: 'Done!' },
   error:        { icon: WARN_SVG,    text: 'Error' },
+  learned:      { icon: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5Z"/></svg>`, text: 'Spelling Saved!' },
 };
 
 const iconEl = document.getElementById('status-icon');
@@ -404,7 +405,7 @@ window.offlineAPI.onStopRecording(() => {
 window.offlineAPI.onPillState(({ state, detail, aiMode }) => {
   const info = STATUS_MAP[state] || { icon: '🎙', text: state };
   // Use classList instead of className to preserve ai-mode across state changes
-  const allStates = ['recording', 'processing', 'transcribing', 'polishing', 'done', 'error'];
+  const allStates = ['recording', 'processing', 'transcribing', 'polishing', 'done', 'error', 'learned'];
   document.body.classList.remove(...allStates);
   document.body.classList.add(state);
   // Apply ai-mode class from the payload — arrives with every state message

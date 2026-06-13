@@ -15,6 +15,16 @@ const clipboardHistoryStore = require('./src/main/clipboard-history-store');
 const { showClipboardManager, toggleClipboardManager, getClipboardWindow, notifyClipboardWindow } = require('./src/main/clipboard-window-manager');
 const { setupClipboardIpc } = require('./src/main/clipboard-ipc');
 
+function injectDictationText(text, options = {}) {
+  clipboardManager.injectText(text, options);
+  try {
+    const cd = require('./src/main/correction-detector');
+    cd.recordDictation(text);
+  } catch (e) {
+    console.error('CorrectionDetector error:', e);
+  }
+}
+
 // Import modules
 const { createOverlay, showSettings, showLicensePopup, showWordLimitPopup, showTranslatorLockedPopup, showAiTrialExpiredPopup, applyOverlaySize, getOverlayWindow, getSettingsWindow, showUpdateReminderPopup, getUpdateReminderPopupWindow, createOfflinePill } = require('./src/main/window-manager');
 const { onOverlayShow, onOverlayHide, toggleFloatingBrowser } = require('./src/main/floating-browser-manager');
@@ -148,12 +158,12 @@ function processAiBufferAndContinue() {
       overlayWindow.webContents.send('ai-processing-end', result);
     }
     if (result.text && !result.error && !result.allFailed) {
-      clipboardManager.injectText(result.text, { deselect: !!result.usedSelectedText });
+      injectDictationText(result.text, { deselect: !!result.usedSelectedText });
     } else if (result.allFailed && result.rawText && result.rawText.trim()) {
-      clipboardManager.injectText(result.rawText);
+      injectDictationText(result.rawText);
     } else if (result.error) {
       const raw = aiDictationManager.getBufferedText();
-      if (raw.trim()) clipboardManager.injectText(raw);
+      if (raw.trim()) injectDictationText(raw);
     }
     // Clear buffer and reset overlay for next dictation segment
     aiDictationManager.clearBuffer();
@@ -333,6 +343,11 @@ function normaliseLangCode(code) {
 let _bridgeErrorWin = null;
 
 function toggleListening(forceLang = null, fromTranslator = false, forceStart = false, skipAiProcessing = false) {
+  // Check for edits in previous dictation before starting a new one
+  try {
+    require('./src/main/correction-detector').checkPendingCorrection(true);
+  } catch (e) {}
+
   // --- MUTEX: Block Chrome STT if Whisper is active ---
   try {
     const whisperApiManager = require('./src/main/whisper-api-manager');
@@ -530,7 +545,7 @@ function toggleListening(forceLang = null, fromTranslator = false, forceStart = 
         if (isPttSessionActive && isPttSessionActive()) {
           pttBuffer += (pttBuffer ? ' ' : '') + textToInject.trimStart();
         } else {
-          clipboardManager.injectText(textToInject);
+          injectDictationText(textToInject);
         }
       }
       flushedInterimText = latestInterimText;
@@ -538,7 +553,7 @@ function toggleListening(forceLang = null, fromTranslator = false, forceStart = 
     }
 
     if (pttBuffer) {
-      clipboardManager.injectText(pttBuffer);
+      injectDictationText(pttBuffer);
       pttBuffer = '';
     }
 
@@ -561,7 +576,7 @@ function toggleListening(forceLang = null, fromTranslator = false, forceStart = 
         if (result.allFailed) {
           // ALL profiles failed — inject raw text so user doesn't lose words
           if (result.rawText && result.rawText.trim()) {
-            clipboardManager.injectText(result.rawText);
+            injectDictationText(result.rawText);
           }
           const failedNames = (result.errors || []).map(e => `• ${e.profile}: ${e.error}`).join('\n');
           dialog.showMessageBox({
@@ -577,11 +592,11 @@ function toggleListening(forceLang = null, fromTranslator = false, forceStart = 
             else if (response === 1) store.set('aiModeEnabled', false);
           });
         } else if (result.text && !result.error) {
-          clipboardManager.injectText(result.text, { deselect: !!result.usedSelectedText });
+          injectDictationText(result.text, { deselect: !!result.usedSelectedText });
         } else if (result.error) {
           console.error('AI processing error:', result.error);
           const rawText = aiDictationManager.getBufferedText();
-          if (rawText.trim()) clipboardManager.injectText(rawText);
+          if (rawText.trim()) injectDictationText(rawText);
         }
       }).catch(err => {
         console.error('AI processing failed:', err);
@@ -846,7 +861,7 @@ function setupWebSocketServer(server) {
               clearPttGrace();
             }
           } else {
-            clipboardManager.injectText(textToInject);
+            injectDictationText(textToInject);
           }
         }
       } else if (data.type === 'interim-text') {

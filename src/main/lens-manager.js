@@ -138,9 +138,9 @@ function showEditor(croppedDataUrl, region) {
   const edH  = Math.min(region.height + 140, maxH);
 
   editorWindow = new BrowserWindow({
-    width: Math.max(edW, 900),
+    width: Math.max(edW, 1160),
     height: Math.max(edH, 560),
-    minWidth: 900,
+    minWidth: 1160,
     minHeight: 560,
     center: true,
     frame: false,
@@ -365,9 +365,9 @@ function showEditorFromGallery(dataUrl, originFilePath, size) {
   const edH  = Math.min((size.height || 600) + 140, maxH);
 
   editorWindow = new BrowserWindow({
-    width:  Math.max(edW, 900),
+    width:  Math.max(edW, 1160),
     height: Math.max(edH, 560),
-    minWidth: 900,
+    minWidth: 1160,
     minHeight: 560,
     center: true,
     frame: false,

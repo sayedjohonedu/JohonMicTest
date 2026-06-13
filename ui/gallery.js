@@ -432,6 +432,17 @@ document.getElementById('btn-player-reveal').addEventListener('click', () => {
   if (currentFile) window.gallery.revealInFinder(currentFile.path);
 });
 
+document.getElementById('btn-player-copy').addEventListener('click', async () => {
+  if (!currentFile) return;
+  if (currentFile.type === 'image') {
+    const r = await window.gallery.copyToClipboard(currentFile.path, 'image');
+    showToast(r.ok ? 'Image copied to clipboard' : 'Copy failed');
+  } else {
+    const r = await window.gallery.copyToClipboard(currentFile.path, 'file');
+    showToast(r.ok ? 'File path copied to clipboard' : 'Copy failed');
+  }
+});
+
 document.getElementById('btn-player-delete').addEventListener('click', () => {
   if (currentFile) showDeleteConfirm(currentFile.path, currentFile.name);
 });

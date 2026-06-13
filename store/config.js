@@ -422,6 +422,10 @@ const schema = {
   appStoreWindowPosition: {
     type: 'object',
     default: {}
+  },
+  autoLearnCorrections: {
+    type: 'boolean',
+    default: true
   }
 };
 
