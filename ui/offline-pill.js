@@ -35,9 +35,32 @@ let miniPhase = 0;
 let currentMiniAmp = 2.0;
 const accentRgb = '124, 111, 255';
 
-// Load saved visualizer type from config
+// ── Theme ──
+function applyPillTheme(themeVal) {
+  let t = themeVal || 'system';
+  if (t === 'system') {
+    t = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+  }
+  document.documentElement.setAttribute('data-theme', t);
+}
+
+// Load config on start: apply theme + visualizer type
 window.offlineAPI.getConfig().then(cfg => {
+  applyPillTheme(cfg.theme);
   if (cfg.visualizerType) visualizerType = cfg.visualizerType;
+});
+
+// Re-apply when user changes settings while pill is open
+window.offlineAPI.onConfigUpdate && window.offlineAPI.onConfigUpdate((cfg) => {
+  if (cfg.theme) applyPillTheme(cfg.theme);
+  if (cfg.visualizerType) visualizerType = cfg.visualizerType;
+});
+
+// Re-apply when macOS switches light/dark automatically (system theme)
+window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
+  window.offlineAPI.getConfig().then(cfg => {
+    if ((cfg.theme || 'system') === 'system') applyPillTheme('system');
+  });
 });
 
 // ── Audio Recording ──
