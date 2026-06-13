@@ -372,6 +372,7 @@ function buildEntryCard(entry) {
   favBtn.className = `entry-btn fav${entry.isFavorite ? ' active' : ''}`;
   favBtn.innerHTML = '⭐';
   favBtn.title = entry.isFavorite ? 'Unfavorite' : 'Favorite';
+  favBtn.ariaLabel = favBtn.title;
   favBtn.onclick = (e) => { e.stopPropagation(); doToggleFavorite(entry, favBtn); };
   actions.appendChild(favBtn);
 
@@ -380,6 +381,7 @@ function buildEntryCard(entry) {
   pinBtn.className = `entry-btn pin${entry.isPinned ? ' active' : ''}`;
   pinBtn.innerHTML = '📌';
   pinBtn.title = entry.isPinned ? 'Unpin' : 'Pin';
+  pinBtn.ariaLabel = pinBtn.title;
   pinBtn.onclick = (e) => { e.stopPropagation(); doTogglePin(entry, pinBtn); };
   actions.appendChild(pinBtn);
 
@@ -389,6 +391,7 @@ function buildEntryCard(entry) {
     editBtn.className = 'entry-btn';
     editBtn.innerHTML = '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4z"/></svg>';
     editBtn.title = 'Edit';
+    editBtn.ariaLabel = editBtn.title;
     editBtn.onclick = (e) => { e.stopPropagation(); openEditModal(entry); };
     actions.appendChild(editBtn);
   }
@@ -398,6 +401,7 @@ function buildEntryCard(entry) {
   copyBtn.className = 'entry-btn';
   copyBtn.innerHTML = '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>';
   copyBtn.title = 'Copy to clipboard';
+  copyBtn.ariaLabel = copyBtn.title;
   copyBtn.onclick = (e) => { e.stopPropagation(); doCopyToClipboard(entry.id); };
   actions.appendChild(copyBtn);
 
@@ -407,6 +411,7 @@ function buildEntryCard(entry) {
     folderBtn.className = 'entry-btn';
     folderBtn.innerHTML = '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/></svg>';
     folderBtn.title = 'Show in folder';
+    folderBtn.ariaLabel = folderBtn.title;
     folderBtn.onclick = (e) => { e.stopPropagation(); doShowInFolder(entry.id); };
     actions.appendChild(folderBtn);
 
@@ -414,6 +419,7 @@ function buildEntryCard(entry) {
     editImgBtn.className = 'entry-btn';
     editImgBtn.innerHTML = '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4z"/></svg>';
     editImgBtn.title = 'Edit Image';
+    editImgBtn.ariaLabel = editImgBtn.title;
     editImgBtn.onclick = (e) => { e.stopPropagation(); doEditImage(entry.imagePath); };
     actions.appendChild(editImgBtn);
   }
@@ -423,6 +429,7 @@ function buildEntryCard(entry) {
   catBtn.className = 'entry-btn cat-assign-btn';
   catBtn.innerHTML = '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M20.59 13.41l-7.17 7.17a2 2 0 01-2.83 0L2 12V2h10l8.59 8.59a2 2 0 010 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>';
   catBtn.title = 'Add to category';
+  catBtn.ariaLabel = catBtn.title;
   catBtn.onclick = (e) => { e.stopPropagation(); showCatDropdown(entry, catBtn); };
   actions.appendChild(catBtn);
 
@@ -431,6 +438,7 @@ function buildEntryCard(entry) {
   delBtn.className = 'entry-btn danger';
   delBtn.innerHTML = '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/></svg>';
   delBtn.title = 'Delete';
+  delBtn.ariaLabel = delBtn.title;
   delBtn.onclick = (e) => { e.stopPropagation(); doDeleteEntry(entry.id); };
   actions.appendChild(delBtn);
 
