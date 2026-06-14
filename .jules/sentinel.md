@@ -1,0 +1,4 @@
+## 2024-05-24 - URL Validation & Window Creation Controls
+**Vulnerability:** Arbitrary command execution via `shell.openExternal` and unauthorized window creation.
+**Learning:** `shell.openExternal` without protocol validation can execute arbitrary local commands (e.g. `file://`, `javascript:`). Missing `setWindowOpenHandler` allows renderer processes to arbitrarily create unmanaged new windows.
+**Prevention:** Always validate `url.protocol` against an allowed list (`http:`, `https:`, `mailto:`) before calling `shell.openExternal(url)`. Always set `contents.setWindowOpenHandler(() => { return { action: 'deny' }; });` in `app.on('web-contents-created')`.
