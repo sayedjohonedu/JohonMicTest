@@ -1019,6 +1019,11 @@ app.whenReady().then(() => {
   ipcMain.handle('get-config', () => store.store);
 
   app.on('web-contents-created', (event, contents) => {
+    contents.setWindowOpenHandler(({ url }) => {
+      console.warn(`[Security] Blocked attempt to create arbitrary window with url: ${url}`);
+      return { action: 'deny' };
+    });
+
     contents.on('console-message', (event, messageParams, ...args) => {
       let message, line;
       if (typeof messageParams === 'object' && messageParams !== null) {
@@ -1040,7 +1045,17 @@ app.whenReady().then(() => {
   });
 
   ipcMain.on('bridge-error-open-url', (event, url) => {
-    require('electron').shell.openExternal(url);
+    try {
+      const parsedUrl = new URL(url);
+      const safeProtocols = ['http:', 'https:', 'mailto:'];
+      if (safeProtocols.includes(parsedUrl.protocol)) {
+        require('electron').shell.openExternal(url);
+      } else {
+        console.warn(`[Security] Blocked attempt to open URL with unsafe protocol: ${url}`);
+      }
+    } catch (e) {
+      console.error(`[Security] Failed to parse URL: ${url}`, e);
+    }
   });
 
   ipcMain.on('bridge-error-close', () => {
