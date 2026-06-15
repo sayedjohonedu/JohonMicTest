@@ -17,6 +17,9 @@ const { setupClipboardIpc } = require('./src/main/clipboard-ipc');
 
 function injectDictationText(text, options = {}) {
   clipboardManager.injectText(text, options);
+  if (sttMode === 'overlay' && !isAiModeActive()) {
+    injectedTextThisSession += text;
+  }
   try {
     const cd = require('./src/main/correction-detector');
     cd.recordDictation(text);
@@ -118,9 +121,16 @@ let suspendLang = null;              // Language that was active before sleep
 // Controls where STT transcripts are routed. The two panels are mutually exclusive.
 let sttMode = 'overlay';
 
+// ── Dynamic AI Mode state (triggered by calling agent triggers mid-session) ──
+let dynamicAiModeActive = false;
+let sessionTextAccumulator = '';
+let injectedTextThisSession = '';
+
+const agentEngine = require('./src/main/agent-pipeline-engine');
+
 // ── Helper: is AI dictation currently active for the overlay path?
 function isAiModeActive() {
-  return sttMode === 'overlay' && store.get('aiModeEnabled') === true;
+  return sttMode === 'overlay' && (store.get('aiModeEnabled') === true || dynamicAiModeActive === true);
 }
 
 // ── AI Dictation: separate silence timer for auto-processing (does NOT close overlay)
@@ -488,6 +498,9 @@ function toggleListening(forceLang = null, fromTranslator = false, forceStart = 
 
   // ── OVERLAY MODE: normal behavior
   if (isListening) {
+    dynamicAiModeActive = false;
+    sessionTextAccumulator = '';
+    injectedTextThisSession = '';
     sessionWordCount = 0;
     if (!store.get('statsFirstDate')) store.set('statsFirstDate', Date.now());
     store.set('statsSessions', (store.get('statsSessions') || 0) + 1);
@@ -565,6 +578,7 @@ function toggleListening(forceLang = null, fromTranslator = false, forceStart = 
       }
 
       aiDictationManager.processBuffer().then(result => {
+        dynamicAiModeActive = false;
         if (overlayWindow && !overlayWindow.isDestroyed()) {
           overlayWindow.webContents.send('ai-processing-end', result);
           setTimeout(() => {
@@ -599,6 +613,7 @@ function toggleListening(forceLang = null, fromTranslator = false, forceStart = 
           if (rawText.trim()) injectDictationText(rawText);
         }
       }).catch(err => {
+        dynamicAiModeActive = false;
         console.error('AI processing failed:', err);
         if (overlayWindow && !overlayWindow.isDestroyed()) {
           overlayWindow.webContents.send('ai-processing-end', { error: err.message });
@@ -613,6 +628,7 @@ function toggleListening(forceLang = null, fromTranslator = false, forceStart = 
       if (isAiModeActive() && skipAiProcessing) {
         aiDictationManager.clearBuffer();
       }
+      dynamicAiModeActive = false;
       onOverlayHide();
       if (overlayWindow) overlayWindow.hide();
     }
@@ -821,6 +837,40 @@ function setupWebSocketServer(server) {
         const replacedText = applyTextReplacements(rawText);
 
         const overlayWindow = getOverlayWindow();
+
+        if (sttMode === 'overlay' && !isAiModeActive()) {
+          sessionTextAccumulator += (sessionTextAccumulator ? ' ' : '') + replacedText;
+
+          const matchedAgent = agentEngine.findMatchingAgent(sessionTextAccumulator);
+          if (matchedAgent) {
+            console.log(`[Main] Dynamically activating AI Mode for session because agent "${matchedAgent.name}" was matched.`);
+            dynamicAiModeActive = true;
+            pttBuffer = '';
+
+            const charsToDelete = injectedTextThisSession.length;
+            if (charsToDelete > 0) {
+              console.log(`[Main] Backspacing ${charsToDelete} characters injected before agent trigger.`);
+              for (let i = 0; i < charsToDelete; i++) {
+                robot.keyTap('backspace');
+              }
+              injectedTextThisSession = '';
+            }
+
+            aiDictationManager.clearBuffer();
+            aiDictationManager.bufferTranscript(sessionTextAccumulator);
+
+            resetAiSilenceTimer();
+
+            if (overlayWindow) {
+              overlayWindow.webContents.send('session-word-count', sessionWordCount);
+              overlayWindow.webContents.send('transcript', { text: replacedText });
+              overlayWindow.webContents.send('ai-buffer-update', {
+                bufferLength: aiDictationManager.getBufferedText().length,
+              });
+            }
+            return;
+          }
+        }
 
         if (sttMode === 'translator') {
           // ── TRANSLATOR MODE: send transcript to translator panel, do NOT type globally

@@ -240,7 +240,9 @@ class WhisperApiManager {
        let finalText = applyTextReplacements(transcript.trim());
        
        // 4. (Optional) AI Post-Processing / Polish
-       if (store.get('whisperApiAiEnabled') === true) {
+       const matchedAgent = agentEngine.findMatchingAgent(finalText);
+       const whisperAiEnabled = store.get('whisperApiAiEnabled') === true;
+       if (whisperAiEnabled || matchedAgent) {
          try {
            this._updatePill('transcribing', 'AI Polishing…');
            const polished = await this._aiPolish(finalText);
@@ -249,8 +251,10 @@ class WhisperApiManager {
              finalText = polished.trim();
            }
          } catch (e) {
-           console.warn('[WhisperAPI] AI polish failed, using replaced transcript:', e.message);
-           // Fall through — use replaced transcript
+           console.warn('[WhisperAPI] AI polish failed:', e.message);
+           // Show error on the pill for 2 seconds, then paste original text
+           this._updatePill('error', 'AI Error: ' + e.message);
+           await new Promise(r => setTimeout(r, 2000));
          }
        }
 
@@ -317,8 +321,7 @@ class WhisperApiManager {
     const chain = apiVault.getFallbackChain('whisper-polish');
 
     if (!chain.length) {
-      console.warn('[WhisperAPI] AI polish enabled but no profiles configured — skipping');
-      return text;
+      throw new Error('No API profiles configured in settings');
     }
 
     // ── Voice Agent routing: check for a matching agent FIRST ──

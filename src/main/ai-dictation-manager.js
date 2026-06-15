@@ -237,6 +237,10 @@ class AiDictationManager {
       const chain = this._buildProfileChain();
       const errors = [];
 
+      if (chain.length === 0) {
+        errors.push({ profile: 'No Profiles', error: 'No LLM API profiles configured. Please add an API profile in settings.' });
+      }
+
       for (const p of chain) {
         const profile = {
           provider: p.provider,
