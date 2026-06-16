@@ -1,0 +1,4 @@
+## 2025-03-01 - Fix URL validation and arbitrary window creation
+**Vulnerability:** `shell.openExternal` was vulnerable to executing arbitrary, potentially malicious protocols (like `file://` or `smb://`) when handling URLs passed from IPC events. In addition, the application lacked a `setWindowOpenHandler` on web contents, allowing arbitrary, unhandled new windows to be opened.
+**Learning:** In Electron, relying purely on frontend validation is insufficient. IPC endpoints must independently validate any URLs passed to system commands like `shell.openExternal`.
+**Prevention:** Always wrap `shell.openExternal` with a strict protocol whitelist (e.g., `['http:', 'https:', 'mailto:']`) and explicitly handle arbitrary window creation using `setWindowOpenHandler` returning `{ action: 'deny' }`.
