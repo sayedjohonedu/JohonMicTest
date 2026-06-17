@@ -1019,6 +1019,11 @@ app.whenReady().then(() => {
   ipcMain.handle('get-config', () => store.store);
 
   app.on('web-contents-created', (event, contents) => {
+    // 🛡️ Sentinel: Prevent arbitrary window creation (Electron security best practice)
+    contents.setWindowOpenHandler(() => {
+      return { action: 'deny' };
+    });
+
     contents.on('console-message', (event, messageParams, ...args) => {
       let message, line;
       if (typeof messageParams === 'object' && messageParams !== null) {
@@ -1040,7 +1045,18 @@ app.whenReady().then(() => {
   });
 
   ipcMain.on('bridge-error-open-url', (event, url) => {
-    require('electron').shell.openExternal(url);
+    // 🛡️ Sentinel: Validate URLs before opening to prevent protocol exploits
+    try {
+      const parsedUrl = new URL(url);
+      const safeProtocols = ['http:', 'https:', 'mailto:'];
+      if (safeProtocols.includes(parsedUrl.protocol)) {
+        require('electron').shell.openExternal(url);
+      } else {
+        console.warn(`[Security] Blocked attempt to open unsafe URL: ${url}`);
+      }
+    } catch (e) {
+      console.warn(`[Security] Blocked attempt to open invalid URL: ${url}`);
+    }
   });
 
   ipcMain.on('bridge-error-close', () => {

@@ -179,7 +179,20 @@ function setupIpcHandlers(toggleListening, registerHotkeys, getWsClient, resetSi
   ipcMain.on('close-license-celebration', () => {
     if (typeof closeLicenseCelebration === 'function') closeLicenseCelebration();
   });
-  ipcMain.on('open-url', (event, url) => shell.openExternal(url));
+  ipcMain.on('open-url', (event, url) => {
+    // 🛡️ Sentinel: Validate URLs before opening to prevent protocol exploits
+    try {
+      const parsedUrl = new URL(url);
+      const safeProtocols = ['http:', 'https:', 'mailto:'];
+      if (safeProtocols.includes(parsedUrl.protocol)) {
+        shell.openExternal(url);
+      } else {
+        console.warn(`[Security] Blocked attempt to open unsafe URL: ${url}`);
+      }
+    } catch (e) {
+      console.warn(`[Security] Blocked attempt to open invalid URL: ${url}`);
+    }
+  });
 
   ipcMain.on('inject-punct', (event, char) => {
     resetSilenceTimer();
