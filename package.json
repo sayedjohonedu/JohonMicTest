@@ -1,6 +1,6 @@
 {
   "name": "mictab",
-  "version": "1.3.36",
+  "version": "1.3.37",
   "description": "MicTab - Voice Dictation App",
   "main": "main.js",
   "scripts": {
@@ -51,6 +51,38 @@
       "extendInfo": {
         "NSMicrophoneUsageDescription": "MicTab needs microphone access for speech-to-text."
       }
+    },
+    "dmg": {
+      "title": "MicTab Installer",
+      "window": {
+        "width": 540,
+        "height": 400
+      },
+      "contents": [
+        {
+          "x": 130,
+          "y": 150,
+          "type": "file"
+        },
+        {
+          "x": 410,
+          "y": 150,
+          "type": "link",
+          "path": "/Applications"
+        },
+        {
+          "x": 130,
+          "y": 280,
+          "type": "file",
+          "path": "build/Fix-MicTab.command"
+        },
+        {
+          "x": 410,
+          "y": 280,
+          "type": "file",
+          "path": "build/Fix macOS damaged error.txt"
+        }
+      ]
     },
     "win": {
       "target": [

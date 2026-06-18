@@ -23,3 +23,19 @@ The application prioritizes speed, accessibility, and universal compatibility. I
 - **Created By:** Sayed Johon
 
 *If you experience any issues or have feedback, please reach out via our website or via the issues tab on GitHub!*
+
+---
+
+## 🍏 macOS Installation Note ("App is damaged")
+Since the app is built without code signing, macOS might show a warning stating: **"MicTab is damaged and can't be opened."** or **"unidentified developer."**
+
+To fix this easily:
+1. Drag **MicTab.app** to your **Applications** folder.
+2. Open **Terminal** (Press `Cmd + Space`, type `Terminal`, and hit Enter).
+3. Copy and paste the following command, then press Enter:
+   ```bash
+   sudo xattr -cr /Applications/MicTab.app
+   ```
+4. Enter your Mac account password (it will remain invisible as you type for security) and press Enter.
+5. Launch MicTab from your Applications folder!
+

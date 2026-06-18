@@ -1,0 +1,43 @@
+==========================================================
+How to Fix macOS "MicTab app is damaged and can't be opened"
+==========================================================
+
+If macOS prevents you from opening MicTab, it is because the app is not signed/notarized with Apple. You can easily fix this by running a single command in Terminal:
+
+----------------------------------------------------------
+OPTION 1: Run the Fixer Script (Easiest)
+----------------------------------------------------------
+1. Drag "MicTab.app" to the "Applications" folder first.
+2. Double-click the "Fix-MicTab.command" file in this window.
+3. If Terminal asks for your password, type your Mac password and press Enter.
+4. Once completed, open MicTab!
+
+----------------------------------------------------------
+OPTION 2: Manual Terminal Command
+----------------------------------------------------------
+1. Copy the following command:
+
+sudo xattr -cr "/Applications/MicTab.app"
+
+2. Open the Terminal application (Press Command+Space, type "Terminal", and press Enter).
+3. Paste the command into Terminal and press Enter.
+4. Terminal will prompt you for your password. Type your Mac password (no characters will appear on screen for security) and press Enter.
+5. You can now launch MicTab from your Applications folder!
+
+==========================================================
+বাংলা নির্দেশাবলী (Bengali Instructions)
+==========================================================
+
+macOS যদি MicTab খুলতে বাধা দেয় এবং বলে "App is damaged", তবে নিচের সহজ নিয়মে এটি ঠিক করতে পারেন:
+
+১. প্রথমে "MicTab.app" ফাইলটি ড্র্যাগ করে "Applications" ফোল্ডারে নিয়ে রাখুন।
+২. এই ফোল্ডারে থাকা "Fix-MicTab.command" ফাইলটিতে ডাবল-ক্লিক করুন।
+৩. আপনার ম্যাকের পাসওয়ার্ড চাইলে পাসওয়ার্ড দিয়ে Enter চাপুন।
+৪. সম্পন্ন হলে MicTab অ্যাপটি খুলুন!
+
+অথবা, নিজে টার্মিনাল দিয়ে করতে চাইলে:
+১. এই কোডটি কপি করুন: sudo xattr -cr "/Applications/MicTab.app"
+২. আপনার ম্যাকের Terminal অ্যাপটি খুলুন।
+৩. কোডটি পেস্ট করে Enter চাপুন।
+৪. আপনার ম্যাকের পাসওয়ার্ড টাইপ করে Enter চাপুন (পাসওয়ার্ড টাইপ করার সময় স্ক্রিনে কিছু দেখা যাবে না)।
+৫. এখন Applications থেকে MicTab খুলতে পারবেন!

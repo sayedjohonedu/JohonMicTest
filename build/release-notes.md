@@ -1,3 +1,10 @@
+# MicTab v1.3.37 🎙️✨
+
+### 🔧 macOS Gatekeeper Patch
+*   **macOS Fix Included:** Added automated `Fix-MicTab.command` script and bilingual copy-paste instructions directly into the DMG disk image to fix the macOS "App is damaged and can't be opened" Gatekeeper error.
+
+---
+
 # Juno Voice v1.2.2 🎙️✨
 
 ### 🔧 What's New in v1.2.2
@@ -37,3 +44,18 @@ We are incredibly excited to introduce the biggest update to Juno Voice yet. Thi
 *   **Created By:** Sayed Johon
 
 *Enjoy seamless, lightning-fast voice dictation! If you have any feedback, please reach out via our website.*
+
+---
+
+### 🍏 macOS Installation Note ("App is damaged")
+If you are on macOS and see a warning saying **"MicTab app is damaged and can't be opened"** or **"unidentified developer"**:
+
+1. Drag **MicTab.app** to your **Applications** folder.
+2. Open **Terminal** (Press `Cmd + Space`, type `Terminal`, and hit Enter).
+3. Paste the following command and press Enter:
+   ```bash
+   sudo xattr -cr /Applications/MicTab.app
+   ```
+4. Type your Mac password (it will not display characters as you type) and press Enter.
+5. Open MicTab!
+
