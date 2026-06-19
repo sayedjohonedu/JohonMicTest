@@ -179,7 +179,12 @@ function setupIpcHandlers(toggleListening, registerHotkeys, getWsClient, resetSi
   ipcMain.on('close-license-celebration', () => {
     if (typeof closeLicenseCelebration === 'function') closeLicenseCelebration();
   });
-  ipcMain.on('open-url', (event, url) => shell.openExternal(url));
+  ipcMain.on('open-url', (event, url) => {
+    // SECURITY: Validate URL before passing to shell.openExternal
+    if (url && (url.startsWith('http://') || url.startsWith('https://') || url.startsWith('mailto:'))) {
+      shell.openExternal(url);
+    }
+  });
 
   ipcMain.on('inject-punct', (event, char) => {
     resetSilenceTimer();

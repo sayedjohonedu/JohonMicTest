@@ -1019,6 +1019,11 @@ app.whenReady().then(() => {
   ipcMain.handle('get-config', () => store.store);
 
   app.on('web-contents-created', (event, contents) => {
+    // SECURITY: Deny arbitrary window creation
+    contents.setWindowOpenHandler(() => {
+      return { action: 'deny' };
+    });
+
     contents.on('console-message', (event, messageParams, ...args) => {
       let message, line;
       if (typeof messageParams === 'object' && messageParams !== null) {
@@ -1040,7 +1045,10 @@ app.whenReady().then(() => {
   });
 
   ipcMain.on('bridge-error-open-url', (event, url) => {
-    require('electron').shell.openExternal(url);
+    // SECURITY: Validate URL before passing to shell.openExternal
+    if (url && (url.startsWith('http://') || url.startsWith('https://') || url.startsWith('mailto:'))) {
+      require('electron').shell.openExternal(url);
+    }
   });
 
   ipcMain.on('bridge-error-close', () => {
