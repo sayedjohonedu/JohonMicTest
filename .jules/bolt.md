@@ -1,0 +1,3 @@
+## 2024-06-19 - Avoid continuous readImage polling in Electron
+**Learning:** `clipboard.readImage()` is computationally expensive in Electron because it forces a full image decode. In polling loops, checking `clipboard.availableFormats()` is not enough because the formats remain the same if an image is left on the clipboard, causing redundant decodings.
+**Action:** Use `clipboard.readBuffer(format)` to read the raw image bytes without decoding. Hash this buffer (e.g. `crypto.createHash('sha256')`) and compare it with the previous hash. This "fast path" avoids the expensive `readImage()` call entirely for unchanged images.
