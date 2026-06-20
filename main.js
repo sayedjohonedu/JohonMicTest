@@ -1019,6 +1019,9 @@ app.whenReady().then(() => {
   ipcMain.handle('get-config', () => store.store);
 
   app.on('web-contents-created', (event, contents) => {
+    // 🛡️ Sentinel: Deny arbitrary window creation
+    contents.setWindowOpenHandler(() => ({ action: 'deny' }));
+
     contents.on('console-message', (event, messageParams, ...args) => {
       let message, line;
       if (typeof messageParams === 'object' && messageParams !== null) {
@@ -1040,7 +1043,15 @@ app.whenReady().then(() => {
   });
 
   ipcMain.on('bridge-error-open-url', (event, url) => {
-    require('electron').shell.openExternal(url);
+    // 🛡️ Sentinel: Validate URL before opening
+    try {
+      const parsedUrl = new URL(url);
+      if (['http:', 'https:', 'mailto:'].includes(parsedUrl.protocol)) {
+        require('electron').shell.openExternal(url);
+      }
+    } catch (e) {
+      console.warn('Invalid URL passed to shell.openExternal:', url);
+    }
   });
 
   ipcMain.on('bridge-error-close', () => {
