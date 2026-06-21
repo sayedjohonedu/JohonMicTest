@@ -1,0 +1,4 @@
+## 2025-02-18 - Ensure secure external URL handling and window creation in Electron
+**Vulnerability:** Arbitrary protocol execution via unsanitized `shell.openExternal(url)` and unrestricted window creation from rendered contexts.
+**Learning:** By default, Electron's `shell.openExternal` uses the OS to execute URLs, which can be manipulated to trigger arbitrary files or unexpected handlers (e.g. `file://` or custom schemas). Also, without a `setWindowOpenHandler` restricting window creation, malicious renderers or cross-site contexts can pop up windows without restriction.
+**Prevention:** Always validate that URLs passed to `shell.openExternal` have safe protocols (like `http:`, `https:`, `mailto:`), and strictly use `contents.setWindowOpenHandler(({ url }) => { return { action: 'deny' }; });` in `app.on('web-contents-created')` to deny window creation across all web contents by default.

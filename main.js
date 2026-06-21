@@ -1019,6 +1019,10 @@ app.whenReady().then(() => {
   ipcMain.handle('get-config', () => store.store);
 
   app.on('web-contents-created', (event, contents) => {
+    contents.setWindowOpenHandler(() => {
+      return { action: 'deny' };
+    });
+
     contents.on('console-message', (event, messageParams, ...args) => {
       let message, line;
       if (typeof messageParams === 'object' && messageParams !== null) {
@@ -1040,7 +1044,14 @@ app.whenReady().then(() => {
   });
 
   ipcMain.on('bridge-error-open-url', (event, url) => {
-    require('electron').shell.openExternal(url);
+    try {
+      const parsedUrl = new URL(url);
+      if (['http:', 'https:', 'mailto:'].includes(parsedUrl.protocol)) {
+        require('electron').shell.openExternal(url);
+      }
+    } catch (e) {
+      console.error('Invalid URL:', url);
+    }
   });
 
   ipcMain.on('bridge-error-close', () => {
@@ -1067,6 +1078,7 @@ app.whenReady().then(() => {
         buttons: ['Open System Settings', 'Later']
       }).then((result) => {
         if (result.response === 0) {
+          // This specific system protocol is required and trusted by the application
           require('electron').shell.openExternal('x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility');
         }
       });
