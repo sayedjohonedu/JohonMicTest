@@ -42,6 +42,22 @@ function applyPillTheme(themeVal) {
     t = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
   }
   document.documentElement.setAttribute('data-theme', t);
+
+  // Glass theme: toggle style-glass class on #pill
+  const pill = document.getElementById('pill');
+  if (pill) {
+    if (t === 'glass') {
+      pill.classList.add('style-glass');
+    } else {
+      pill.classList.remove('style-glass');
+    }
+  }
+
+  // Stamp platform class on body for Windows/macOS CSS fallbacks
+  if (!document.body.classList.contains('platform-win') && !document.body.classList.contains('platform-mac')) {
+    const platform = navigator.userAgent.includes('Windows') ? 'platform-win' : 'platform-mac';
+    document.body.classList.add(platform);
+  }
 }
 
 // Load config on start: apply theme + visualizer type

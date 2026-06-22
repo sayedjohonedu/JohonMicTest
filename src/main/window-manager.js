@@ -70,6 +70,7 @@ function applyOverlaySize() {
 }
 
 function createOverlay() {
+  const isMac = process.platform === 'darwin';
   overlayWindow = new BrowserWindow({
     width: OV.FULL_W,
     height: OV.BASE_H + 16,
@@ -83,7 +84,10 @@ function createOverlay() {
     hasShadow: true,
     focusable: false,
     // On macOS, 'panel' + certain behaviors makes it stay floating and non-activating
-    type: process.platform === 'darwin' ? 'panel' : undefined,
+    type: isMac ? 'panel' : undefined,
+    // macOS native blur behind the window — enables real glass look
+    vibrancy: isMac ? 'under-window' : undefined,
+    visualEffectState: isMac ? 'active' : undefined,
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
@@ -518,6 +522,7 @@ let offlinePillWindow = null;
 function createOfflinePill() {
   if (offlinePillWindow && !offlinePillWindow.isDestroyed()) return offlinePillWindow;
 
+  const isMac = process.platform === 'darwin';
   offlinePillWindow = new BrowserWindow({
     width: 240,
     height: 38,
@@ -530,7 +535,9 @@ function createOfflinePill() {
     show: false,
     hasShadow: false,
     focusable: false,
-    type: process.platform === 'darwin' ? 'panel' : undefined,
+    type: isMac ? 'panel' : undefined,
+    vibrancy: isMac ? 'under-window' : undefined,
+    visualEffectState: isMac ? 'active' : undefined,
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,

@@ -583,6 +583,22 @@ function applyOverlayTheme(themeVal) {
   if (t === 'system') t = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
   document.documentElement.setAttribute('data-theme', t);
   window.junoRgb = getComputedStyle(document.documentElement).getPropertyValue('--accent-rgb').trim() || '124, 111, 255';
+
+  // Glass theme: toggle style-glass class on #card
+  const card = document.getElementById('card');
+  if (card) {
+    if (t === 'glass') {
+      card.classList.add('style-glass');
+    } else {
+      card.classList.remove('style-glass');
+    }
+  }
+
+  // Stamp platform class on body for Windows/macOS CSS fallbacks
+  if (!document.body.classList.contains('platform-win') && !document.body.classList.contains('platform-mac')) {
+    const platform = navigator.userAgent.includes('Windows') ? 'platform-win' : 'platform-mac';
+    document.body.classList.add(platform);
+  }
 }
 window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => { window.junoAPI.getConfig().then(cfg => { if ((cfg.theme || 'system') === 'system') applyOverlayTheme('system'); }); });
 window.junoAPI.onConfigUpdate && window.junoAPI.onConfigUpdate((cfg) => { if (cfg.theme && typeof applyOverlayTheme === 'function') applyOverlayTheme(cfg.theme); if (cfg.visualizerType) visualizerType = cfg.visualizerType; if (cfg.soundVolume !== undefined && typeof applySoundVolume === 'function') applySoundVolume(cfg.soundVolume); });

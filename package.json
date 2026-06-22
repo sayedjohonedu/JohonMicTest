@@ -1,6 +1,6 @@
 {
   "name": "mictab",
-  "version": "1.3.38",
+  "version": "1.3.39",
   "description": "MicTab - Voice Dictation App",
   "main": "main.js",
   "scripts": {
