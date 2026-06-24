@@ -13,6 +13,7 @@
  */
 
 const { clipboard, nativeImage } = require('electron');
+const crypto = require('crypto');
 const store = require('../../store/config');
 const historyStore = require('./clipboard-history-store');
 
@@ -21,7 +22,7 @@ const MAX_IMAGE_BYTES  = 15 * 1024 * 1024;
 
 let _timer        = null;
 let _lastText     = '';
-let _lastImgSize  = '';   // "WxH" of last image — lightweight change indicator
+let _lastImgHash  = '';   // SHA-256 hash of last image buffer — change indicator
 let _onNewEntry   = null; // callback(entry)
 
 // ── Suppression ────────────────────────────────────────────────────────────
@@ -64,14 +65,14 @@ function start(onNewEntry) {
   _lastText    = clipboard.readText() || '';
 
   // Optimization: clipboard.readImage() is computationally expensive.
-  // Gate it by first checking available formats to avoid blocking main thread on startup.
+  // Instead, use readBuffer with the specific image format and hash it.
   const formats = clipboard.availableFormats();
-  const hasImage = formats.some(f => f.startsWith('image/'));
-  if (hasImage) {
-    const img = clipboard.readImage();
-    _lastImgSize = img && !img.isEmpty() ? `${img.getSize().width}x${img.getSize().height}` : '';
+  const imgFormat = formats.find(f => f.startsWith('image/'));
+  if (imgFormat) {
+    const buffer = clipboard.readBuffer(imgFormat);
+    _lastImgHash = buffer && buffer.length > 0 ? crypto.createHash('sha256').update(buffer).digest('hex') : '';
   } else {
-    _lastImgSize = '';
+    _lastImgHash = '';
   }
 
   _timer = setInterval(_poll, POLL_INTERVAL_MS);
@@ -127,21 +128,24 @@ function _checkText() {
 function _checkImage() {
   // Optimization: check available formats first before doing an expensive readImage() call.
   // clipboard.availableFormats() is very cheap; readImage() decodes the full image.
+  // We use readBuffer to hash the raw bytes first to avoid redundant decodings.
   const formats = clipboard.availableFormats();
-  const hasImage = formats.some(f => f.startsWith('image/'));
-  if (!hasImage) {
-    if (_lastImgSize) _lastImgSize = '';
+  const imgFormat = formats.find(f => f.startsWith('image/'));
+  if (!imgFormat) {
+    if (_lastImgHash) _lastImgHash = '';
     return;
   }
 
+  const buffer = clipboard.readBuffer(imgFormat);
+  if (!buffer || buffer.length === 0) return;
+
+  const hash = crypto.createHash('sha256').update(buffer).digest('hex');
+  if (hash === _lastImgHash) return;
+
+  _lastImgHash = hash;
+
   const img = clipboard.readImage();
   if (!img || img.isEmpty()) return;
-
-  const sz = img.getSize();
-  const sizeKey = `${sz.width}x${sz.height}`;
-  if (sizeKey === _lastImgSize) return;
-
-  _lastImgSize = sizeKey;
 
   // Check image size before saving
   const pngBuffer = img.toPNG();
