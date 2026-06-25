@@ -1,0 +1,3 @@
+## 2026-06-25 - Electron Clipboard Polling Optimization
+**Learning:** In Electron, calling `clipboard.readImage()` is computationally expensive because it fully decodes the image. In a polling loop (e.g. running every 500ms), checking `clipboard.availableFormats()` to see if an image exists is better but still insufficient because it triggers `readImage()` repeatedly if an image simply stays on the clipboard over time.
+**Action:** Instead of `readImage()`, use `clipboard.readBuffer(format)` to read raw image bytes and hash them (via `crypto.createHash('sha256')`). Only call `readImage()` when a genuinely new image hash is detected.
