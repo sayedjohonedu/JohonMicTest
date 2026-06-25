@@ -542,10 +542,27 @@
 
   </div>
 
+  <!-- Visual toast notification for clipboard copy confirmation -->
+  <div id="toast" style="position: fixed; top: 20px; left: 50%; transform: translateX(-50%) translateY(-20px); background: rgba(76, 216, 112, 0.95); color: #fff; padding: 10px 20px; border-radius: 20px; font-size: 13px; font-weight: 500; opacity: 0; pointer-events: none; transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1); z-index: 9999; box-shadow: 0 4px 16px rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.15);">URL Copied to Clipboard!</div>
+
   <script>
+    let toastTimeout = null;
     function openUrl(url) {
       try {
         window.bridgeErrorAPI.openExternal(url);
+        
+        // Show visual toast feedback
+        const toast = document.getElementById('toast');
+        if (toast) {
+          toast.style.opacity = '1';
+          toast.style.transform = 'translateX(-50%) translateY(0)';
+          
+          if (toastTimeout) clearTimeout(toastTimeout);
+          toastTimeout = setTimeout(() => {
+            toast.style.opacity = '0';
+            toast.style.transform = 'translateX(-50%) translateY(-20px)';
+          }, 2500);
+        }
       } catch (e) { }
     }
   </script>

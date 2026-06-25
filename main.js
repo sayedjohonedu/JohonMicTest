@@ -1045,16 +1045,16 @@ app.whenReady().then(() => {
   });
 
   ipcMain.on('bridge-error-open-url', (event, url) => {
-    // SECURITY: Validate URL protocol to prevent arbitrary command execution via shell.openExternal
+    // SECURITY: Copy URL to clipboard instead of opening directly to prevent arbitrary command execution & browser conflicts
     try {
       const parsedUrl = new URL(url);
       if (['http:', 'https:', 'mailto:'].includes(parsedUrl.protocol)) {
-        require('electron').shell.openExternal(url);
+        require('electron').clipboard.writeText(url);
       } else {
-        console.warn('[Security] Blocked attempt to open URL with unsafe protocol:', url);
+        console.warn('[Security] Blocked attempt to copy URL with unsafe protocol:', url);
       }
     } catch (e) {
-      console.warn('[Security] Blocked attempt to open invalid URL:', url);
+      console.warn('[Security] Blocked attempt to copy invalid URL:', url);
     }
   });
 
