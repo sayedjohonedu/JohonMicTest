@@ -1,0 +1,3 @@
+## 2026-06-29 - Prevent redundant readImage() decodings in clipboard polling
+**Learning:** In a continuous clipboard polling loop, checking `clipboard.availableFormats()` to gate `clipboard.readImage()` is insufficient for performance. When an image remains on the clipboard unchanged, the format check stays true, causing `readImage()` to unnecessarily decode the image on every poll interval, which is computationally expensive and wastes CPU cycles.
+**Action:** Always use `clipboard.readBuffer(format)` to read raw image bytes and compare their hashes (e.g., via native `crypto` SHA-256) to efficiently detect changes before calling `clipboard.readImage()` to decode the image.
