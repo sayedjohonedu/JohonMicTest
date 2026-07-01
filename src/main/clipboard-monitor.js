@@ -13,6 +13,7 @@
  */
 
 const { clipboard, nativeImage } = require('electron');
+const crypto = require('crypto');
 const store = require('../../store/config');
 const historyStore = require('./clipboard-history-store');
 
@@ -21,7 +22,7 @@ const MAX_IMAGE_BYTES  = 15 * 1024 * 1024;
 
 let _timer        = null;
 let _lastText     = '';
-let _lastImgSize  = '';   // "WxH" of last image — lightweight change indicator
+let _lastImgHash  = '';   // SHA-256 hash of raw image buffer - lightweight change indicator
 let _onNewEntry   = null; // callback(entry)
 
 // ── Suppression ────────────────────────────────────────────────────────────
@@ -64,14 +65,15 @@ function start(onNewEntry) {
   _lastText    = clipboard.readText() || '';
 
   // Optimization: clipboard.readImage() is computationally expensive.
-  // Gate it by first checking available formats to avoid blocking main thread on startup.
+  // We avoid decoding the full image by checking formats first, and reading the raw
+  // buffer to compute a hash instead. This keeps polling loops lightweight.
   const formats = clipboard.availableFormats();
-  const hasImage = formats.some(f => f.startsWith('image/'));
-  if (hasImage) {
-    const img = clipboard.readImage();
-    _lastImgSize = img && !img.isEmpty() ? `${img.getSize().width}x${img.getSize().height}` : '';
+  const imageFormat = formats.find(f => f.startsWith('image/'));
+  if (imageFormat) {
+    const buffer = clipboard.readBuffer(imageFormat);
+    _lastImgHash = buffer.length ? crypto.createHash('sha256').update(buffer).digest('hex') : '';
   } else {
-    _lastImgSize = '';
+    _lastImgHash = '';
   }
 
   _timer = setInterval(_poll, POLL_INTERVAL_MS);
@@ -126,22 +128,27 @@ function _checkText() {
 
 function _checkImage() {
   // Optimization: check available formats first before doing an expensive readImage() call.
-  // clipboard.availableFormats() is very cheap; readImage() decodes the full image.
+  // clipboard.availableFormats() is very cheap. In a polling loop, checking formats
+  // is insufficient because it causes redundant decodings if an image remains on the clipboard.
+  // Instead, use readBuffer to read raw bytes and hash them to detect changes.
   const formats = clipboard.availableFormats();
-  const hasImage = formats.some(f => f.startsWith('image/'));
-  if (!hasImage) {
-    if (_lastImgSize) _lastImgSize = '';
+  const imageFormat = formats.find(f => f.startsWith('image/'));
+  if (!imageFormat) {
+    if (_lastImgHash) _lastImgHash = '';
     return;
   }
 
+  const buffer = clipboard.readBuffer(imageFormat);
+  if (!buffer || buffer.length === 0) return;
+
+  const hash = crypto.createHash('sha256').update(buffer).digest('hex');
+  if (hash === _lastImgHash) return;
+
+  _lastImgHash = hash;
+
+  // Now that we confirmed it's a new image, decode it to get dimensions and PNG buffer
   const img = clipboard.readImage();
   if (!img || img.isEmpty()) return;
-
-  const sz = img.getSize();
-  const sizeKey = `${sz.width}x${sz.height}`;
-  if (sizeKey === _lastImgSize) return;
-
-  _lastImgSize = sizeKey;
 
   // Check image size before saving
   const pngBuffer = img.toPNG();
