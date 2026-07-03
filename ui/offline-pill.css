@@ -476,6 +476,13 @@ body.error #pill.style-glass {
   [data-theme="glass"] body.done #status-icon { color: #15803d; }
   [data-theme="glass"] body.error #status-icon { color: #c2410c; }
   [data-theme="glass"] body.learned #status-icon { color: #c2410c; }
+  
+  /* Windows light mode fallback background overrides */
+  .platform-win #pill.style-glass {
+    background: rgba(240, 240, 245, 0.88) !important;
+    border: 1px solid rgba(0, 0, 0, 0.15) !important;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15) !important;
+  }
 }
 
 

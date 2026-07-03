@@ -987,6 +987,13 @@ html, body {
   [data-theme="glass"] .kbd-btn .kbd-label {
     color: rgba(0, 100, 90, 0.7);
   }
+  
+  /* Windows light mode fallback background overrides */
+  .platform-win #card.style-glass {
+    background: rgba(240, 240, 245, 0.88) !important;
+    border: 1px solid rgba(0, 0, 0, 0.15) !important;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15) !important;
+  }
 }
 
 /* Force mini-lang-chevron color to follow theme variables, overriding inline styling */
