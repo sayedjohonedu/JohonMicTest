@@ -329,13 +329,29 @@ body.learned #status-icon { display: flex; color: #ff8a00; }
   --accent:     #ff8a00;
   --accent-rgb: 255, 138, 0;
   --bg:         transparent;
-  --surface:    rgba(255,255,255,0.06);
-  --border:     rgba(255,255,255,0.10);
-  --text:       #F0F0F5;
-  --muted:      rgba(255,255,255,0.40);
-  --glass-reflex-light: 1;
-  --glass-reflex-dark:  1;
-  --glass-border: color-mix(in srgb, white calc(var(--glass-reflex-light,1) * 10%), transparent);
+  
+  /* Defaults for Light Mode */
+  --surface:    rgba(0,0,0,0.06);
+  --border:     rgba(0,0,0,0.12);
+  --text:       #111114;
+  --muted:      rgba(0,0,0,0.50);
+  --glass-reflex-light: 0.15;
+  --glass-reflex-dark:  1.4;
+  --glass-border: color-mix(in srgb, black calc(var(--glass-reflex-dark,1) * 10%), transparent);
+  --glass-bg:   rgba(0,0,0,0.02);
+}
+
+@media (prefers-color-scheme: dark) {
+  [data-theme="glass"] {
+    --surface:    rgba(255,255,255,0.06);
+    --border:     rgba(255,255,255,0.10);
+    --text:       #F0F0F5;
+    --muted:      rgba(255,255,255,0.40);
+    --glass-reflex-light: 1;
+    --glass-reflex-dark:  1;
+    --glass-border: color-mix(in srgb, white calc(var(--glass-reflex-light,1) * 10%), transparent);
+    --glass-bg:   color-mix(in srgb, white 4%, transparent);
+  }
 }
 
 /* The glass lens layer: hidden until style-glass is active */
@@ -367,7 +383,7 @@ body.learned #status-icon { display: flex; color: #ff8a00; }
   z-index: 1;
   border-radius: inherit;
   pointer-events: none;
-  background-color: color-mix(in srgb, white 4%, transparent);
+  background-color: var(--glass-bg);
   backdrop-filter: blur(18px) url(#liquid-glass-filter) saturate(170%);
   -webkit-backdrop-filter: blur(18px) saturate(170%);
   /* 10-layer specular box-shadow stack — the glass look */
@@ -437,6 +453,29 @@ body.error #pill.style-glass {
 }
 .platform-win body.error #pill.style-glass {
   border-color: rgba(251, 146, 60, 0.35) !important;
+}
+
+/* Light mode overrides for high legibility under Glass theme */
+@media (prefers-color-scheme: light) {
+  #pill.style-glass {
+    --accent: #e06000;
+    --accent-rgb: 224, 96, 0;
+  }
+  
+  [data-theme="glass"] body.processing #status-text { color: #d97706; }
+  [data-theme="glass"] body.transcribing #status-text { color: #1d4ed8; }
+  [data-theme="glass"] body.polishing #status-text { color: #0d9488; }
+  [data-theme="glass"] body.done #status-text { color: #15803d; }
+  [data-theme="glass"] body.error #status-text { color: #c2410c; }
+  [data-theme="glass"] body.learned #status-text { color: #c2410c; }
+
+  /* Icons */
+  [data-theme="glass"] body.processing #status-icon { color: #d97706; }
+  [data-theme="glass"] body.transcribing #status-icon { color: #1d4ed8; }
+  [data-theme="glass"] body.polishing #status-icon { color: #0d9488; }
+  [data-theme="glass"] body.done #status-icon { color: #15803d; }
+  [data-theme="glass"] body.error #status-icon { color: #c2410c; }
+  [data-theme="glass"] body.learned #status-icon { color: #c2410c; }
 }
 
 

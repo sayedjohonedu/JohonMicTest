@@ -847,12 +847,27 @@ html, body {
   --accent:     #ff8a00;
   --accent-rgb: 255, 138, 0;
   --bg:         transparent;
-  --surface:    rgba(255,255,255,0.06);
-  --border:     rgba(255,255,255,0.10);
-  --text:       #F0F0F5;
-  --muted:      rgba(255,255,255,0.40);
-  --glass-reflex-light: 1;
-  --glass-reflex-dark:  1;
+  
+  /* Defaults for Light Mode */
+  --surface:    rgba(0,0,0,0.06);
+  --border:     rgba(0,0,0,0.12);
+  --text:       #111114;
+  --muted:      rgba(0,0,0,0.50);
+  --glass-reflex-light: 0.15;
+  --glass-reflex-dark:  1.4;
+  --glass-bg:   rgba(0,0,0,0.02);
+}
+
+@media (prefers-color-scheme: dark) {
+  [data-theme="glass"] {
+    --surface:    rgba(255,255,255,0.06);
+    --border:     rgba(255,255,255,0.10);
+    --text:       #F0F0F5;
+    --muted:      rgba(255,255,255,0.40);
+    --glass-reflex-light: 1;
+    --glass-reflex-dark:  1;
+    --glass-bg:   color-mix(in srgb, white 4%, transparent);
+  }
 }
 
 /* The glass lens layer: hidden until style-glass is active */
@@ -886,7 +901,7 @@ html, body {
   z-index: 1;
   border-radius: inherit;
   pointer-events: none;
-  background-color: color-mix(in srgb, white 4%, transparent);
+  background-color: var(--glass-bg);
   backdrop-filter: blur(18px) url(#liquid-glass-filter) saturate(170%);
   -webkit-backdrop-filter: blur(18px) saturate(170%);
   /* 10-layer specular box-shadow stack — the glass look */
@@ -929,4 +944,47 @@ html, body {
 }
 .platform-win #card.style-glass .liquid-lens {
   display: none !important; /* vibrancy handled by card bg on Windows */
+}
+
+/* Light mode overrides for high legibility under Glass theme */
+@media (prefers-color-scheme: light) {
+  #card.style-glass {
+    --accent: #e06000;
+    --accent-rgb: 224, 96, 0;
+  }
+  
+  #card.style-glass .punct-btn.back-btn {
+    color: #e03b30;
+    border-color: rgba(224, 59, 48, 0.35);
+  }
+  
+  [data-theme="glass"] .shortcut-sep {
+    color: rgba(0, 0, 0, 0.35);
+  }
+  [data-theme="glass"] .shortcut-sep::before,
+  [data-theme="glass"] .shortcut-sep::after {
+    background: rgba(0, 0, 0, 0.12);
+  }
+  
+  [data-theme="glass"] #footer {
+    background: rgba(0, 0, 0, 0.03);
+  }
+  
+  [data-theme="glass"] #lang-btn:hover,
+  [data-theme="glass"] #mini-lang-flag:hover,
+  [data-theme="glass"] #mini-browser-btn:hover,
+  [data-theme="glass"] #mini-clipboard-btn:hover,
+  [data-theme="glass"] #mini-screen-rec-btn:hover,
+  [data-theme="glass"] #mini-appstore-btn:hover {
+    background: rgba(0, 0, 0, 0.08);
+  }
+  
+  [data-theme="glass"] .kbd-btn {
+    background: rgba(0, 180, 170, 0.12);
+    border-color: rgba(0, 150, 140, 0.45);
+    color: #008b84;
+  }
+  [data-theme="glass"] .kbd-btn .kbd-label {
+    color: rgba(0, 100, 90, 0.7);
+  }
 }
