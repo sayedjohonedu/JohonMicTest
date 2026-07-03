@@ -33,7 +33,7 @@ let smoothedBins = new Array(15).fill(0);
 let smoothedVol = 0;
 let miniPhase = 0;
 let currentMiniAmp = 2.0;
-const accentRgb = '124, 111, 255';
+let accentRgb = '124, 111, 255';
 
 // ── Theme ──
 function applyPillTheme(themeVal) {
@@ -393,6 +393,7 @@ function drawTypeMatrix(c, w, h) {
 }
 
 function drawVisualizer() {
+  accentRgb = getComputedStyle(document.documentElement).getPropertyValue('--accent-rgb').trim() || '124, 111, 255';
   updateSmoothings();
   const W = canvas.offsetWidth, H = canvas.offsetHeight;
   ctx.clearRect(0, 0, W, H);

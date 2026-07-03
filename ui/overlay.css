@@ -988,3 +988,8 @@ html, body {
     color: rgba(0, 100, 90, 0.7);
   }
 }
+
+/* Force mini-lang-chevron color to follow theme variables, overriding inline styling */
+#mini-lang-chevron {
+  color: var(--muted) !important;
+}
