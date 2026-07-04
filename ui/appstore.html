@@ -175,7 +175,7 @@
               All Chats
             </button>
 
-            <button id="ai-modal-close" class="modal-close-btn" style="flex-shrink: 0;">&times;</button>
+            <button id="ai-modal-close" class="modal-close-btn" style="flex-shrink: 0;" aria-label="Close" title="Close">&times;</button>
           </div>
           <p class="modal-desc" style="margin-bottom: 12px; display: none;" id="ai-modal-desc">Describe the app you want to build. AI will generate a fully functional HTML/CSS/JS app.</p>
           <div id="ai-chat-container" class="ai-chat-container" style="flex:1;"></div>
@@ -217,7 +217,7 @@
         <div class="modal-header">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
           <h3>Choose App Icon</h3>
-          <button id="icon-modal-close" class="modal-close-btn">&times;</button>
+          <button id="icon-modal-close" class="modal-close-btn" aria-label="Close" title="Close">&times;</button>
         </div>
         <div style="margin-bottom: 20px;">
           <button id="icon-upload-custom-btn" class="upload-custom-area">
@@ -243,7 +243,7 @@
         <div class="modal-header">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/></svg>
           <h3>Paste HTML Code</h3>
-          <button id="paste-modal-close" class="modal-close-btn">&times;</button>
+          <button id="paste-modal-close" class="modal-close-btn" aria-label="Close" title="Close">&times;</button>
         </div>
         <p class="modal-desc">Paste a complete HTML file with inline CSS &amp; JS. The code will be saved as a standalone mini app.</p>
         <div class="paste-fields">
@@ -283,7 +283,7 @@
         <div class="modal-header">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
           <h3>Import Details</h3>
-          <button id="import-modal-close" class="modal-close-btn">&times;</button>
+          <button id="import-modal-close" class="modal-close-btn" aria-label="Close" title="Close">&times;</button>
         </div>
         <p class="modal-desc" id="import-modal-desc">Please provide a name and optional icon for the app you are importing.</p>
         <div class="paste-fields" style="display:flex; flex-direction:column; gap:12px;">
@@ -322,7 +322,7 @@
         <div class="modal-header">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
           <h3>Crop App Icon</h3>
-          <button id="crop-modal-close" class="modal-close-btn">&times;</button>
+          <button id="crop-modal-close" class="modal-close-btn" aria-label="Close" title="Close">&times;</button>
         </div>
         <div style="width: 100%; height: 300px; background: #000; overflow: hidden; margin-bottom: 20px;">
           <img id="crop-image" src="" style="max-width: 100%;">
@@ -377,7 +377,7 @@
       <div class="modal-card modal-card-wide folder-modal-card" style="max-width: 450px; max-height: 75vh; display: flex; flex-direction: column;">
         <div class="modal-header" style="justify-content: center; position: relative; flex-shrink: 0;">
           <h3 id="folder-modal-title" style="margin: 0; font-size: 1.2rem; font-weight: 500;">Folder</h3>
-          <button id="folder-modal-close" class="modal-close-btn" style="position: absolute; right: 0;">&times;</button>
+          <button id="folder-modal-close" class="modal-close-btn" style="position: absolute; right: 0;" aria-label="Close" title="Close">&times;</button>
         </div>
         <div id="folder-grid" class="app-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(75px, 1fr)); gap: 16px; padding: 20px; min-height: 150px; overflow-y: auto; flex: 1;">
           <!-- Folder apps injected here -->
