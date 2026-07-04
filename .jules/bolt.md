@@ -1,0 +1,3 @@
+## 2026-06-23 - Electron Clipboard Image Polling Anti-Pattern
+**Learning:** Checking `clipboard.availableFormats()` in a polling loop is insufficient to detect image changes because it only indicates an image *type* is present. If an image is left on the clipboard, subsequently calling `clipboard.readImage()` to compare image sizes (e.g., `_lastImgSize`) will decode the entire image on every single tick, heavily blocking the main thread.
+**Action:** Instead, find the specific image format (e.g., `image/png`), use `clipboard.readBuffer(format)` to read raw bytes quickly, and hash them (via native `crypto` SHA-256). Only decode the image via `clipboard.readImage()` when the hash actually changes.
