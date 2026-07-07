@@ -1,0 +1,3 @@
+## 2024-06-25 - Missing ARIA Labels on Icon-only Close Buttons
+**Learning:** Found a recurring accessibility issue in this app's components where generic popups/modals featuring icon-only close buttons (using HTML entities like `&times;` or `✕`, or purely SVGs) lack crucial `aria-label` and `title` attributes. This prevents screen readers from understanding the button's purpose and limits keyboard usability.
+**Action:** Always verify custom modal implementations and applet shells for proper `aria-label="Close"` and `title="Close"` attributes when reviewing UI components. Add these systematically to similar components like `modal-close-btn` and `image-modal-close`.
