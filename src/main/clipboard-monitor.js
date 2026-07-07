@@ -13,16 +13,17 @@
  */
 
 const { clipboard, nativeImage } = require('electron');
+const crypto = require('crypto');
 const store = require('../../store/config');
 const historyStore = require('./clipboard-history-store');
 
 const POLL_INTERVAL_MS = 500;
 const MAX_IMAGE_BYTES  = 15 * 1024 * 1024;
 
-let _timer        = null;
-let _lastText     = '';
-let _lastImgSize  = '';   // "WxH" of last image — lightweight change indicator
-let _onNewEntry   = null; // callback(entry)
+let _timer          = null;
+let _lastText       = '';
+let _lastImageHash  = '';   // SHA-256 hash of last image buffer — lightweight change indicator
+let _onNewEntry     = null; // callback(entry)
 
 // ── Suppression ────────────────────────────────────────────────────────────
 // Texts written by dictation injection that should NOT be recorded as history.
@@ -64,14 +65,20 @@ function start(onNewEntry) {
   _lastText    = clipboard.readText() || '';
 
   // Optimization: clipboard.readImage() is computationally expensive.
-  // Gate it by first checking available formats to avoid blocking main thread on startup.
+  // Instead of decoding the full image via readImage() which slows down the polling loop,
+  // we read the raw image bytes via readBuffer() and compute a SHA-256 hash.
+  // This avoids continuous redundant decoding of the same image when it stays on the clipboard.
   const formats = clipboard.availableFormats();
-  const hasImage = formats.some(f => f.startsWith('image/'));
-  if (hasImage) {
-    const img = clipboard.readImage();
-    _lastImgSize = img && !img.isEmpty() ? `${img.getSize().width}x${img.getSize().height}` : '';
+  const imageFormat = formats.find(f => f.startsWith('image/'));
+  if (imageFormat) {
+    const buffer = clipboard.readBuffer(imageFormat);
+    if (buffer && buffer.length > 0) {
+      _lastImageHash = crypto.createHash('sha256').update(buffer).digest('hex');
+    } else {
+      _lastImageHash = '';
+    }
   } else {
-    _lastImgSize = '';
+    _lastImageHash = '';
   }
 
   _timer = setInterval(_poll, POLL_INTERVAL_MS);
@@ -126,22 +133,27 @@ function _checkText() {
 
 function _checkImage() {
   // Optimization: check available formats first before doing an expensive readImage() call.
-  // clipboard.availableFormats() is very cheap; readImage() decodes the full image.
+  // clipboard.availableFormats() is very cheap.
+  // Additionally, to prevent continuously decoding the same image on the clipboard,
+  // we read raw bytes via readBuffer() and hash them.
   const formats = clipboard.availableFormats();
-  const hasImage = formats.some(f => f.startsWith('image/'));
-  if (!hasImage) {
-    if (_lastImgSize) _lastImgSize = '';
+  const imageFormat = formats.find(f => f.startsWith('image/'));
+  if (!imageFormat) {
+    if (_lastImageHash) _lastImageHash = '';
     return;
   }
 
+  const buffer = clipboard.readBuffer(imageFormat);
+  if (!buffer || buffer.length === 0) return;
+
+  const currentHash = crypto.createHash('sha256').update(buffer).digest('hex');
+  if (currentHash === _lastImageHash) return;
+
+  _lastImageHash = currentHash;
+
+  // Now that we know it's a new image, we can safely incur the cost of reading and decoding it.
   const img = clipboard.readImage();
   if (!img || img.isEmpty()) return;
-
-  const sz = img.getSize();
-  const sizeKey = `${sz.width}x${sz.height}`;
-  if (sizeKey === _lastImgSize) return;
-
-  _lastImgSize = sizeKey;
 
   // Check image size before saving
   const pngBuffer = img.toPNG();
