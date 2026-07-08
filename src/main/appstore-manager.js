@@ -436,9 +436,10 @@ function installFromPath(srcPath, appName, customIconPath, forcedCategory) {
           const zip = new AdmZip(srcPath);
           zip.extractAllTo(appDir, true);
         } catch {
-          const { execSync } = require("child_process");
+          const { execFileSync } = require("child_process");
           try {
-            execSync(`unzip -o "${srcPath}" -d "${appDir}"`);
+            // SECURITY: Prevent command injection by using execFileSync with an argument array
+            execFileSync("unzip", ["-o", srcPath, "-d", appDir]);
           } catch {
             fs.rmSync(appDir, { recursive: true, force: true });
             return { error: "Failed to extract ZIP file" };
