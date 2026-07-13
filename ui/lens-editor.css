@@ -93,8 +93,18 @@ html, body {
   white-space: nowrap; -webkit-app-region: no-drag;
 }
 .tb-action-btn:hover { background: rgba(255,255,255,0.08); color: var(--text); border-color: rgba(255,255,255,0.12); }
-.tb-action-btn.primary { background: rgba(165,180,252,0.12); border-color: rgba(165,180,252,0.25); color: var(--accent); }
-.tb-action-btn.primary:hover { background: rgba(165,180,252,0.22); }
+.tb-action-btn.primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #0c0c12;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
+}
+.tb-action-btn.primary:hover {
+  background: var(--accent2);
+  border-color: var(--accent2);
+  color: #0c0c12;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.45);
+}
 .tb-action-btn.green { background: rgba(74,222,128,0.08); border-color: rgba(74,222,128,0.2); color: var(--green); }
 .tb-action-btn.green:hover { background: rgba(74,222,128,0.18); }
 .tb-action-btn.screen-rec { background: rgba(239,68,68,0.1); border-color: rgba(239,68,68,0.25); color: #f87171; }
@@ -562,9 +572,17 @@ html, body {
 
 /* Visible boundary indicator when background is active — shows exact output crop area */
 #ar-frame.frame-active {
-  outline: 2px dashed rgba(255, 255, 255, 0.9);
-  outline-offset: 0px;
-  box-shadow: 0 0 12px rgba(0, 0, 0, 0.65), inset 0 0 0 1px rgba(255, 255, 255, 0.1);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.65);
+}
+#ar-frame.frame-active::after {
+  content: '';
+  position: absolute;
+  inset: -2px;
+  border: 2px dotted rgba(255, 255, 255, 0.9);
+  border-radius: 10px;
+  pointer-events: none;
+  z-index: 9999;
+  filter: drop-shadow(0 0 1px rgba(0, 0, 0, 0.75));
 }
 
 /* Background layer (fills the ar-frame) */

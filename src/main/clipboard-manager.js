@@ -26,8 +26,8 @@ class ClipboardManager {
    */
   injectText(text, options = {}) {
     this.isPasting = true;
-    // macOS: release any held modifiers before injecting
-    if (process.platform === 'darwin') this.resetModifiers();
+    // Release any held modifiers before injecting (essential on both macOS and Windows)
+    this.resetModifiers();
 
     // ── Deselect-first mode (used when selected-text block fired) ──────────
     // Press Right Arrow — the universal way to collapse a selection to its end
@@ -37,7 +37,15 @@ class ClipboardManager {
     // text in some apps.
     if (options.deselect) {
       try {
-        robot.keyTap('right'); // collapses selection → cursor at end of selection
+        if (process.platform === 'win32') {
+          // On Windows, keyTap can be too fast or fail to register. Use robust keyToggle.
+          robot.keyToggle('right', 'down');
+          setTimeout(() => {
+            try { robot.keyToggle('right', 'up'); } catch (e) {}
+          }, 15);
+        } else {
+          robot.keyTap('right'); // collapses selection → cursor at end of selection
+        }
       } catch (e) {
         console.warn('[ClipboardManager] deselect key failed:', e.message);
       }
@@ -122,7 +130,7 @@ class ClipboardManager {
     if (chars.length === 1 && layoutSafe.test(chars)) {
       setTimeout(() => {
         try {
-          if (process.platform === 'darwin') this.resetModifiers();
+          this.resetModifiers();
           const keyName = chars === ' ' ? 'space' : chars.toLowerCase();
           robot.keyTap(keyName);
         } catch (e) {
