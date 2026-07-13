@@ -78,23 +78,41 @@ function fmt(args) {
   }).join(' ');
 }
 
-let logCount = 0;
-function writeLog(prefix, args) {
-  try {
-    const space = prefix === 'WARN' ? ' ' : '  ';
-    const data = `[${ts()}] [${prefix}]${space}${fmt(args)}\n`;
-    fs.appendFileSync(LOG_FILE, data);
+// ── Non-blocking Log Queue ─────────────────────────────────────────
+let logQueue = [];
+let isWriting = false;
 
-    // Periodically check size and rotate during runtime
-    logCount++;
-    if (logCount % 200 === 0) {
+function processQueue() {
+  if (isWriting || logQueue.length === 0) return;
+  isWriting = true;
+
+  // Gather all currently queued logs
+  const batch = logQueue.join('');
+  logQueue = [];
+
+  // Write asynchronously to prevent event-loop lag
+  fs.appendFile(LOG_FILE, batch, 'utf8', (err) => {
+    isWriting = false;
+    
+    // Check file size and rotate/clean after successful write
+    try {
       const stats = fs.statSync(LOG_FILE);
       if (stats.size > MAX_LOG_SIZE) {
         rotateLogs();
         cleanOldLogs();
       }
-    }
-  } catch (e) {}
+    } catch (e) {}
+
+    // Process any logs that were added during the write
+    processQueue();
+  });
+}
+
+function writeLog(prefix, args) {
+  const space = prefix === 'WARN' ? ' ' : '  ';
+  const data = `[${ts()}] [${prefix}]${space}${fmt(args)}\n`;
+  logQueue.push(data);
+  processQueue();
 }
 
 // ── Override console methods ───────────────────────────────────────
