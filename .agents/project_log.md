@@ -34,4 +34,5 @@ main.js (Electron Main)
 - **2026-07-03:** Added `prefers-color-scheme` media queries for the Glass theme in `overlay.css` and `offline-pill.css`. Automatically switches to dark charcoal text, dark translucent surfaces/borders, darker specular shadow contours, and high-contrast status/equalizer colors during system Light Mode. Added fallback light frosted background panels for Windows OS to ensure consistent visibility. Bump version to 1.3.43.
 - **2026-07-13:** Fixed translation issues in Voice Agent / Jarvis command mode by removing the language preservation hint from command modes and preserving conversation context across consecutive voice agent calls.
 - **2026-07-13:** Fixed Windows paste issue where active selections were not collapsed before pasting (modifiers reset now fires globally, and right-arrow collapsing utilizes a robust keyToggle delay on Windows).
+- **2026-07-14:** Fixed infinite uncaughtException logging loop on broken stdin/stdout/stderr streams (EPIPE errors) in logger.js. Wrapped all log overrides in try-catch blocks and prevented re-entrant crashes. Bumped version to 2.0.1.
 
