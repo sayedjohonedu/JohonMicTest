@@ -344,14 +344,6 @@ class AgentPipelineEngine {
     let systemPrompt = resolvedSystem.join('\n\n');
     const userMessage = resolvedUser.join('\n\n');
 
-    // ── Language hint for non-English ──
-    const lang = language || store.get('language') || 'en-US';
-    if (lang && !lang.startsWith('en')) {
-      const shortCode = lang.split('-')[0];
-      const langName = LANG_NAMES[shortCode] || lang;
-      systemPrompt += `\nIMPORTANT: Input is in ${langName}. Output MUST be in ${langName}.`;
-    }
-
     // ── Personal dictionary ──
     if (personalDictionary) {
       const words = typeof personalDictionary === 'string'

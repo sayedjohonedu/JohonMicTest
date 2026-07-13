@@ -136,13 +136,13 @@ class AiDictationManager {
    */
   buildDictationPrompt(language, customPrompt, personalDictionary, rawText) {
     let prompt;
+    const hasJarvis = /\bjarvis\b/i.test(rawText || '');
     if (customPrompt) {
       // User has a custom prompt → use it as-is, no routing
       prompt = customPrompt;
       console.log(`[AI Dictation] Using custom system prompt (${customPrompt.length} chars)`);
     } else {
       // Route based on Jarvis detection in the raw transcript
-      const hasJarvis = /\bjarvis\b/i.test(rawText || '');
       if (hasJarvis) {
         prompt = DEFAULT_COMMAND_PROMPT;
         console.log('[AI Dictation] Jarvis detected → using COMMAND prompt');
@@ -152,11 +152,13 @@ class AiDictationManager {
       }
     }
 
-    // Append language preservation for non-English
-    if (language && !language.startsWith('en')) {
-      const shortCode = language.split('-')[0];
-      const langName = LANG_NAMES[shortCode] || language;
-      prompt += `\nIMPORTANT: Input is in ${langName}. Output MUST be in ${langName}.`;
+    // Append language preservation for non-English ONLY in clean mode (when not executing a command/custom prompt)
+    if (!customPrompt && !hasJarvis) {
+      if (language && !language.startsWith('en')) {
+        const shortCode = language.split('-')[0];
+        const langName = LANG_NAMES[shortCode] || language;
+        prompt += `\nIMPORTANT: Input is in ${langName}. Output MUST be in ${langName}.`;
+      }
     }
 
     // Append personal dictionary
@@ -216,9 +218,7 @@ class AiDictationManager {
         userText = pipeline.userMessage;
         temperature = pipeline.temperature ?? store.get('aiTemperature') ?? 0.3;
         this._pipelineUsedSelectedText = pipeline.usedSelectedText || false;
-        // Clear session context so command-mode context doesn't bleed into
-        // subsequent clean-mode requests.
-        this.session.reset();
+        // Do NOT reset session here, so context flows between consecutive command turns!
         console.log(`[AI Dictation] Agent "${matchedAgent.name}" handling this transcript`);
       } else {
         // No agent matched — CLEAN mode: no session context, no command routing
