@@ -59,7 +59,7 @@ function showClipboardManager() {
     height:     650,
     ...posOptions,
     title:      'MicTab — Clipboard Manager',
-    icon:       path.join(__dirname, '../../assets', 'logo', 'dark-logo-solid-black-background.png'),
+    icon:       path.join(__dirname, '../../assets', 'logo', 'mictablogomain.png'),
     resizable:  false,
     maximizable: false,
     alwaysOnTop: true,

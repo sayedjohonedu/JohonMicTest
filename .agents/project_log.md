@@ -35,4 +35,7 @@ main.js (Electron Main)
 - **2026-07-13:** Fixed translation issues in Voice Agent / Jarvis command mode by removing the language preservation hint from command modes and preserving conversation context across consecutive voice agent calls.
 - **2026-07-13:** Fixed Windows paste issue where active selections were not collapsed before pasting (modifiers reset now fires globally, and right-arrow collapsing utilizes a robust keyToggle delay on Windows).
 - **2026-07-14:** Fixed infinite uncaughtException logging loop on broken stdin/stdout/stderr streams (EPIPE errors) in logger.js. Switched to an asynchronous, non-blocking log queue to avoid blocking the Node event loop and ensure thread-safe rotation/cleanup on Windows. Bumped version to 2.0.2.
+- **2026-07-14:** Added "Always on Top" pin functionality to mini-apps. Integrated a titlebar pin icon/button, added state persistence in `config` store, and wired Electron IPC hooks.
+- **2026-07-14:** Replaced references to the old black logo (`dark-logo-solid-black-background.png`) with the new `mictablogomain.png` across all main window managers (Clipboard, Gallery, Settings, and Voice Agents).
+- **2026-07-14:** Bumped version to 2.0.3.
 

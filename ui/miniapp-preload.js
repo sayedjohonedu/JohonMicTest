@@ -13,6 +13,7 @@ contextBridge.exposeInMainWorld('mictabApi', {
 // Reload / Close buttons can reach the main process.
 contextBridge.exposeInMainWorld('miniappShellAPI', {
   close: () => ipcRenderer.send('miniapp-shell-close'),
+  toggleAlwaysOnTop: () => ipcRenderer.invoke('miniapp-shell-toggle-always-on-top'),
 });
 
 // ── Auto-size on load (for apps without a saved size) ─────

@@ -146,7 +146,7 @@ function openGallery(autoPlayFile = null) {
     center: true,
     resizable: true,
     title: 'MicTab Gallery',
-    icon: path.join(__dirname, '..', '..', 'assets', 'logo', 'dark-logo-solid-black-background.png'),
+    icon: path.join(__dirname, '..', '..', 'assets', 'logo', 'mictablogomain.png'),
     ...platformOptions,
     webPreferences: {
       preload: path.join(__dirname, '..', '..', 'ui', 'gallery-preload.js'),

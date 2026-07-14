@@ -245,6 +245,9 @@ function launchMiniApp(appId) {
   const defaultW = appEntry.width  || 900;
   const defaultH = appEntry.height || 750;
 
+  const alwaysOnTopKey = `miniapp.alwaysOnTop.${appId}`;
+  const isAlwaysOnTopSaved = store.get(alwaysOnTopKey, false);
+
   const winOpts = {
     width:  savedBounds ? savedBounds.width  : defaultW,
     height: savedBounds ? savedBounds.height : defaultH,
@@ -255,6 +258,7 @@ function launchMiniApp(appId) {
     titleBarStyle: 'hidden',
     title: appEntry.name || "Mini App",
     backgroundColor: '#111114',
+    alwaysOnTop: isAlwaysOnTopSaved,
     webPreferences: {
       partition: "persist:app_" + appId,
       contextIsolation: true,
@@ -272,12 +276,16 @@ function launchMiniApp(appId) {
   }
 
   const win = new BrowserWindow(winOpts);
+  if (isAlwaysOnTopSaved) {
+    win.setAlwaysOnTop(true, 'floating');
+  }
 
   // ── Load the shell wrapper, passing app info as query params ─
   const shellPath = path.join(__dirname, "../../ui/miniapp-shell.html");
   const fileUrl   = "file://" + shellPath +
     "?url="  + encodeURIComponent("file://" + entryFile) +
-    "&name=" + encodeURIComponent(appEntry.name || "App");
+    "&name=" + encodeURIComponent(appEntry.name || "App") +
+    "&alwaysOnTop=" + (isAlwaysOnTopSaved ? "true" : "false");
 
   win.loadURL(fileUrl);
   sandboxWindows.set(appId, win);
@@ -1025,6 +1033,28 @@ function setupAppStoreIpc() {
     } catch (e) {
       console.error("Failed to resize miniapp:", e);
     }
+  });
+
+  ipcMain.handle("miniapp-shell-toggle-always-on-top", (event) => {
+    try {
+      const win = BrowserWindow.fromWebContents(event.sender);
+      if (win && !win.isDestroyed()) {
+        const nextState = !win.isAlwaysOnTop();
+        win.setAlwaysOnTop(nextState, 'floating');
+
+        // Find appId to persist the state
+        for (const [id, w] of sandboxWindows.entries()) {
+          if (w === win) {
+            store.set(`miniapp.alwaysOnTop.${id}`, nextState);
+            break;
+          }
+        }
+        return nextState;
+      }
+    } catch (e) {
+      console.error("Failed to toggle miniapp always-on-top:", e);
+    }
+    return false;
   });
 
   ipcMain.handle("appstore-get-apps", () => loadRegistry());
