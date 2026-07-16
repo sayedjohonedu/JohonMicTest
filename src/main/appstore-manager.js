@@ -444,9 +444,9 @@ function installFromPath(srcPath, appName, customIconPath, forcedCategory) {
           const zip = new AdmZip(srcPath);
           zip.extractAllTo(appDir, true);
         } catch {
-          const { execSync } = require("child_process");
+          const { execFileSync } = require("child_process");
           try {
-            execSync(`unzip -o "${srcPath}" -d "${appDir}"`);
+            execFileSync("unzip", ["-o", srcPath, "-d", appDir]);
           } catch {
             fs.rmSync(appDir, { recursive: true, force: true });
             return { error: "Failed to extract ZIP file" };
@@ -1752,8 +1752,14 @@ function setupAppStoreIpc() {
 
   ipcMain.handle("appstore-read-file-base64", (_, p) => {
     try {
-      const data = fs.readFileSync(p, "base64");
-      const ext = path.extname(p).toLowerCase();
+      const resolved = path.resolve(p);
+      const allowedExts = [".png", ".jpg", ".jpeg", ".webp", ".gif", ".svg", ".ico"];
+      const ext = path.extname(resolved).toLowerCase();
+
+      // Only allow reading image files (prevents arbitrary file reads)
+      if (!allowedExts.includes(ext)) return null;
+
+      const data = fs.readFileSync(resolved, "base64");
       const mime =
         ext === ".svg"
           ? "image/svg+xml"

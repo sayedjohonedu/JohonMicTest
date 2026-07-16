@@ -777,7 +777,25 @@ function robustKeyTap(key, modifier) {
 const { applyTextReplacements } = require('./src/main/text-replacements');
 
 function setupWebSocketServer(server) {
-  wss = new WebSocket.Server({ server });
+  wss = new WebSocket.Server({
+    server,
+    verifyClient: (info, callback) => {
+      const origin = info.origin || info.req.headers.origin || '';
+      
+      // Only allow local speech bridge connections or empty origins (local tools)
+      const isLocal = origin === `http://localhost:${httpPort}` ||
+                      origin === `http://127.0.0.1:${httpPort}` ||
+                      origin.startsWith('vscode-webview://') ||
+                      origin.startsWith('chrome-extension://') ||
+                      origin.startsWith('file://');
+      
+      if (origin && !isLocal) {
+        console.warn(`[Security] Rejected WebSocket connection from unauthorized origin: ${origin}`);
+        return callback(false, 403, 'Forbidden Origin');
+      }
+      callback(true);
+    }
+  });
   wss.on('connection', (ws) => {
     // BUGFIX: Terminate old wsClient before reassigning. When Chrome bridge
     // crashes and reconnects, the old socket must be killed so its buffered

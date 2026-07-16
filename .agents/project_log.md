@@ -38,4 +38,7 @@ main.js (Electron Main)
 - **2026-07-14:** Added "Always on Top" pin functionality to mini-apps. Integrated a titlebar pin icon/button, added state persistence in `config` store, and wired Electron IPC hooks.
 - **2026-07-14:** Replaced references to the old black logo (`dark-logo-solid-black-background.png`) with the new `mictablogomain.png` across all main window managers (Clipboard, Gallery, Settings, and Voice Agents).
 - **2026-07-14:** Bumped version to 2.0.3.
-
+- **2026-07-15:** Security hardening in `appstore-manager.js`: (1) Replaced `execSync` with `execFileSync` in the unzip fallback to prevent OS command injection via crafted filenames (CWE-78). (2) Added image-extension allowlist to `appstore-read-file-base64` IPC handler to block arbitrary file reads (CWE-22). Both fixes are behavioral no-ops for normal usage.
+- **2026-07-15:** Recovered and transcribed the user's last recording WAV file from the installed app directory.
+- **2026-07-16:** Security hardening in `main.js`: Added Origin verification to local WebSocket server upgrades to prevent Cross-Site WebSocket Hijacking (CSWSH) to keystroke injection. Upgraded outdated packages (form-data, js-yaml, tar, tmp, undici) to resolve medium/high vulnerabilities using npm audit fix.
+- **2026-07-16:** Bumped version to `2.0.4` as a security and vulnerability patch.
