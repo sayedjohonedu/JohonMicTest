@@ -1075,6 +1075,7 @@ if (window.electronAPI.onWhisperAiModeToggled) {
 
 let _whisperProfiles = [];
 let _whisperActiveProfileId = '';
+let _whisperProviderCache = null; // cached provider model data for profile dropdowns
 
 function escWHtml(str = '') {
   return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
@@ -1125,7 +1126,7 @@ async function loadWhisperPanel() {
     _whisperProfiles = cfg.profiles || [];
     _whisperActiveProfileId = cfg.activeProfileId || (_whisperProfiles[0]?.id || '');
   }
-  renderWhisperProfiles();
+  await renderWhisperProfiles();
 
   // Populate model dropdown default (for the "Add New Profile" form)
   await populateWhisperModels('openai', '');
@@ -1175,7 +1176,7 @@ async function loadWhisperPanel() {
   updateWhisperStatus();
 }
 
-function renderWhisperProfiles() {
+async function renderWhisperProfiles() {
   const container = document.getElementById('whisper-profile-list');
   if (!container) return;
   container.innerHTML = '';
@@ -1185,19 +1186,103 @@ function renderWhisperProfiles() {
     return;
   }
 
+  // Use cached provider data to avoid IPC on every re-render
+  if (!_whisperProviderCache) {
+    try { _whisperProviderCache = await window.electronAPI.whisperApiGetProviders() || {}; } catch (_) { _whisperProviderCache = {}; }
+  }
+  const providerData = _whisperProviderCache;
+
   _whisperProfiles.forEach(p => {
     const div = document.createElement('div');
     div.className = 'ai-profile-chip' + (p.id === _whisperActiveProfileId ? ' active' : '');
     const provLabel = p.provider === 'groq' ? '⚡ Groq' : '🟢 OpenAI';
+
+    // Build model dropdown from the provider's model list
+    const provModels = (providerData[p.provider] || providerData.openai || {}).models || [];
+    let modelSelectHtml;
+    if (provModels.length > 0) {
+      const currentInList = provModels.some(m => m.id === p.model);
+      const extraOpt = (!currentInList && p.model)
+        ? `<option value="${escWHtml(p.model)}" selected>${escWHtml(p.model)}</option>`
+        : '';
+      const options = provModels.map(m =>
+        `<option value="${escWHtml(m.id)}"${m.id === p.model ? ' selected' : ''}>${escWHtml(m.name)}</option>`
+      ).join('');
+      modelSelectHtml = `<select class="vault-model-select" data-profile-id="${p.id}" title="Change model">${extraOpt}${options}</select>`;
+    } else {
+      modelSelectHtml = `<span class="ai-profile-badge" style="cursor:default;">${escWHtml(p.model || '')}</span>`;
+    }
+
     div.innerHTML = `
-      <div class="ai-profile-name">${escWHtml(p.name)}</div>
+      <div class="ai-profile-name" title="Double-click to rename">${escWHtml(p.name)}</div>
       <div class="ai-profile-meta">
-        <div class="ai-profile-badge">${provLabel} · ${escWHtml(p.model || '')}</div>
+        <div class="ai-profile-badge">${provLabel}</div>
+        ${modelSelectHtml}
         <div class="ai-profile-actions">
           <button class="ai-profile-del" title="Delete">✕</button>
         </div>
       </div>
     `;
+
+    // Double-click profile name to rename inline
+    const nameEl = div.querySelector('.ai-profile-name');
+    if (nameEl) {
+      nameEl.addEventListener('dblclick', (e) => {
+        e.stopPropagation();
+        if (nameEl.querySelector('input')) return; // already editing
+        const currentName = p.name;
+        const input = document.createElement('input');
+        input.type = 'text';
+        input.value = currentName;
+        input.className = 'whisper-rename-input';
+        input.style.cssText = 'width:100%;background:rgba(255,255,255,0.08);border:1px solid var(--accent);border-radius:4px;padding:2px 6px;font-size:12px;color:inherit;outline:none;font-family:inherit;';
+        nameEl.textContent = '';
+        nameEl.appendChild(input);
+        input.focus();
+        input.select();
+
+        const commitRename = async () => {
+          const newName = input.value.trim();
+          if (newName && newName !== currentName) {
+            try {
+              await window.electronAPI.vaultUpdateWhisperProfile(p.id, { name: newName });
+              p.name = newName;
+              showWhisperStatus('✓ Renamed → ' + newName);
+              updateWhisperStatus();
+            } catch (err) {
+              console.error('[Whisper] Failed to rename:', err);
+            }
+          }
+          nameEl.textContent = p.name;
+        };
+
+        input.addEventListener('blur', commitRename);
+        input.addEventListener('keydown', (ke) => {
+          if (ke.key === 'Enter') { ke.preventDefault(); input.blur(); }
+          if (ke.key === 'Escape') { input.value = currentName; input.blur(); }
+        });
+      });
+    }
+
+    // Model dropdown change handler
+    const sel = div.querySelector('.vault-model-select');
+    if (sel) {
+      sel.addEventListener('click', (e) => e.stopPropagation());
+      sel.addEventListener('change', async (e) => {
+        e.stopPropagation();
+        const newModel = sel.value;
+        try {
+          await window.electronAPI.vaultUpdateWhisperProfile(p.id, { model: newModel });
+          p.model = newModel;
+          showWhisperStatus('✓ Model → ' + newModel);
+          updateWhisperStatus();
+        } catch (err) {
+          console.error('[Whisper] Failed to update model:', err);
+          showWhisperStatus('⚠ Failed to update model', '#f87171');
+        }
+      });
+    }
+
     div.addEventListener('click', async (e) => {
       if (e.target.classList.contains('ai-profile-del')) {
         // Delete from vault
@@ -1209,14 +1294,14 @@ function renderWhisperProfiles() {
             try { await window.electronAPI.vaultSetDefault('whisper-stt', _whisperActiveProfileId); } catch (_) {}
           }
         }
-        renderWhisperProfiles();
+        await renderWhisperProfiles();
         updateWhisperStatus();
         showWhisperStatus('✓ Profile deleted');
-      } else if (!e.target.closest('button')) {
+      } else if (!e.target.closest('button') && !e.target.closest('select') && !e.target.closest('input')) {
         // Set as default in vault
         _whisperActiveProfileId = p.id;
         try { await window.electronAPI.vaultSetDefault('whisper-stt', p.id); } catch (_) {}
-        renderWhisperProfiles();
+        await renderWhisperProfiles();
         showWhisperStatus('✓ Default: ' + p.name);
         updateWhisperStatus();
       }
@@ -1278,8 +1363,8 @@ async function updateWhisperStatus() {
 
   try {
     const cfg = await window.electronAPI.whisperApiGetConfig();
-    const profiles = cfg.profiles || [];
-    const activeProfile = profiles.find(p => p.id === cfg.activeProfileId) || profiles[0];
+    const profiles = _whisperProfiles;
+    const activeProfile = profiles.find(p => p.id === _whisperActiveProfileId) || profiles[0];
 
     if (!cfg.enabled) {
       dot.style.background = '#6b7280';
@@ -1381,7 +1466,7 @@ window.addWhisperProfile = async function() {
     const keyInput = document.getElementById('whisper-api-key');
     if (keyInput) keyInput.value = '';
 
-    renderWhisperProfiles();
+    await renderWhisperProfiles();
     updateWhisperStatus();
     showWhisperStatus('✓ Profile saved!', '#4ade80');
   } catch (e) {
