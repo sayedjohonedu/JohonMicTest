@@ -104,13 +104,28 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (cb) await cb();
   };
 
-  // Alt+V while clipboard window is focused → hide
+  // Toggle-hide when user presses the configured clipboard hotkey
   document.addEventListener('keydown', (e) => {
-    if (e.altKey && e.code === 'KeyV' && !e.ctrlKey && !e.shiftKey && !e.metaKey) {
-      if (!_hotkeyRecording) {
-        e.preventDefault();
-        window.clipboardAPI.hideWindow();
-      }
+    if (_hotkeyRecording) return;
+    // Build combo string from event to compare against configured hotkey
+    const parts = [];
+    if (e.metaKey || e.ctrlKey) parts.push('CommandOrControl');
+    if (e.shiftKey) parts.push('Shift');
+    if (e.altKey) parts.push('Alt');
+    const IGNORE = ['Meta','Control','Shift','Alt','CapsLock','Tab','Escape'];
+    if (!IGNORE.includes(e.key) && !IGNORE.includes(e.code)) {
+      if (e.code && e.code.startsWith('Key')) parts.push(e.code.substring(3));
+      else if (e.code && e.code.startsWith('Digit')) parts.push(e.code.substring(5));
+      else if (/^F([1-9]|1[0-2])$/.test(e.code)) parts.push(e.code);
+      else if (e.code === 'Space' || e.key === ' ') parts.push('Space');
+      else if (e.key.length === 1) parts.push(e.key.toUpperCase());
+      else parts.push(e.key);
+    }
+    const combo = parts.join('+');
+    const configuredHotkey = _cbConfig?.clipboard?.hotkey || 'Alt+V';
+    if (combo && combo === configuredHotkey) {
+      e.preventDefault();
+      window.clipboardAPI.hideWindow();
     }
   });
 

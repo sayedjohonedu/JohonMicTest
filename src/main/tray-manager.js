@@ -236,7 +236,7 @@ function updateTrayMenu(toggleListening, showSettings, app, switchTrayLanguage, 
     {
       label: 'Clipboard',
       icon: getTrayIcon('clipboard'),
-      accelerator: 'Alt+V',
+      accelerator: store.get('clipboardHotkey') || 'Alt+V',
       enabled: store.get('clipboardEnabled') !== false,
       click: () => { if (_clipboardAction) _clipboardAction(); }
     },
