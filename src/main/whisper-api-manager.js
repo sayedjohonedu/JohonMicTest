@@ -48,6 +48,7 @@ class WhisperApiManager {
     this._isProcessing = false;
     this._clipboardManager = null;
     this._maxRecordingTimer = null;
+    this._lastAudioData = null;
   }
 
   /** Initialize from stored config */
@@ -141,6 +142,79 @@ class WhisperApiManager {
   }
 
   /**
+   * Classify raw error messages into concise 2-3 word status labels.
+   */
+  _classifyError(errMsg) {
+    if (!errMsg) return 'API Error';
+    const msg = String(errMsg).toLowerCase();
+    if (
+      msg.includes('network') ||
+      msg.includes('econnrefused') ||
+      msg.includes('enotfound') ||
+      msg.includes('fetch failed') ||
+      msg.includes('socket hang up') ||
+      msg.includes('offline') ||
+      msg.includes('etimedout')
+    ) {
+      return 'Check Network';
+    }
+    if (msg.includes('timeout') || msg.includes('timed out')) {
+      return 'Request Timeout';
+    }
+    if (
+      msg.includes('api key') ||
+      msg.includes('401') ||
+      msg.includes('unauthorized') ||
+      msg.includes('no api key') ||
+      msg.includes('no whisper profiles')
+    ) {
+      return 'Check API Key';
+    }
+    if (
+      msg.includes('429') ||
+      msg.includes('quota') ||
+      msg.includes('rate limit') ||
+      msg.includes('rate_limit') ||
+      msg.includes('insufficient_quota')
+    ) {
+      return 'Rate Limited';
+    }
+    if (
+      msg.includes('500') ||
+      msg.includes('502') ||
+      msg.includes('503') ||
+      msg.includes('504') ||
+      msg.includes('server error')
+    ) {
+      return 'API Server Error';
+    }
+    return 'API Error';
+  }
+
+  /**
+   * Handle errors during Whisper API transcription or AI polish.
+   * If valid audio exists, keeps the pill open in error-retry mode with action buttons.
+   */
+  _handleProcessingError(err) {
+    const rawMsg = err?.message || String(err);
+    const shortLabel = this._classifyError(rawMsg);
+    console.error(`[WhisperAPI] Error (${shortLabel}):`, rawMsg);
+
+    // Check if we have valid audio (> 0.2s / non-zero samples) to offer retry
+    const hasAudio = this._lastAudioData &&
+                     this._lastAudioData.samples &&
+                     this._lastAudioData.samples.length > 3200;
+
+    this._isProcessing = false;
+    if (hasAudio) {
+      this._updatePill('error-retry', shortLabel);
+    } else {
+      this._updatePill('error', shortLabel);
+      setTimeout(() => this._hidePill(), 3000);
+    }
+  }
+
+  /**
    * Called when the activation key is released.
    * Stops recording and processes the audio via Whisper API.
    * Supports profile-based fallback: tries active profile first, then others.
@@ -157,16 +231,6 @@ class WhisperApiManager {
     this._isProcessing = true;
     this._updatePill('processing');
 
-    // Safety timeout: auto-reset after 120s to prevent permanent lock
-    const safetyTimer = setTimeout(() => {
-      if (this._isProcessing) {
-        console.error('[WhisperAPI] Processing timeout (120s) — force-resetting state');
-        this._isProcessing = false;
-        this._updatePill('error', 'Processing took too long. Try a shorter recording.');
-        setTimeout(() => this._hidePill(), 3000);
-      }
-    }, 120_000);
-
     try {
       // 1. Stop recording and get audio data
       const audioData = await offlineRecorder.stopRecording();
@@ -180,7 +244,7 @@ class WhisperApiManager {
       const durationSec = audioData.samples.length / audioData.sampleRate;
       console.log(`[WhisperAPI] Got ${audioData.samples.length} samples at ${audioData.sampleRate}Hz (${durationSec.toFixed(1)}s)`);
 
-      // Save last recording to WAV file for testing
+      // Save last recording to WAV file for disk backup & recovery
       try {
         const wavBuffer = whisperApiEngine.pcmToWav(audioData.samples, audioData.sampleRate);
         const wavPath = path.join(app.getPath('userData'), 'last_recording.wav');
@@ -192,26 +256,53 @@ class WhisperApiManager {
         console.error('[WhisperAPI] Failed to save last recording:', e);
       }
 
-      // 2. Transcribe via Whisper API — with profile fallback
-      this._updatePill('transcribing', 'Sending to Whisper API…');
-      let transcript;
+      // Store in memory for instant retry
+      this._lastAudioData = {
+        samples: audioData.samples,
+        sampleRate: audioData.sampleRate,
+        durationSec: durationSec,
+      };
 
+      await this._processAudio(audioData.samples, audioData.sampleRate, false);
+    } catch (e) {
+      this._handleProcessingError(e);
+    }
+  }
+
+  /**
+   * Process audio samples through Whisper API and optional AI Polish.
+   * @param {Float32Array} samples - Audio PCM samples
+   * @param {number} sampleRate - Sample rate (e.g. 16000)
+   * @param {boolean} isRetry - True if triggered by user clicking Retry
+   */
+  async _processAudio(samples, sampleRate, isRetry = false) {
+    this._isProcessing = true;
+    this._updatePill('transcribing', isRetry ? 'Retrying…' : 'Sending to Whisper API…');
+
+    // Safety timeout: auto-reset after 120s to prevent permanent lock
+    const safetyTimer = setTimeout(() => {
+      if (this._isProcessing) {
+        console.error('[WhisperAPI] Processing timeout (120s) — force-resetting state');
+        this._isProcessing = false;
+        this._handleProcessingError(new Error('Request timeout (120s)'));
+      }
+    }, 120_000);
+
+    try {
       const profilesToTry = this._getOrderedProfiles();
 
       if (!profilesToTry.length) {
-        this._updatePill('error', 'No Whisper profiles configured');
-        setTimeout(() => this._hidePill(), 4000);
-        this._isProcessing = false;
-        return;
+        throw new Error('No API Configured');
       }
 
+      let transcript;
       let lastError = null;
       for (const profile of profilesToTry) {
         try {
           console.log(`[WhisperAPI] Trying profile "${profile.name}" (${profile.provider}/${profile.model})`);
           this._updatePill('transcribing', `Sending to ${profile.name}…`);
           await new Promise(resolve => setImmediate(resolve));
-          transcript = await whisperApiEngine.transcribe(audioData.samples, audioData.sampleRate, profile);
+          transcript = await whisperApiEngine.transcribe(samples, sampleRate, profile);
           lastError = null;
           break; // Success — stop trying
         } catch (e) {
@@ -223,10 +314,7 @@ class WhisperApiManager {
       if (lastError || !transcript) {
         const errMsg = lastError?.message || 'All profiles failed';
         console.error('[WhisperAPI] Transcription failed:', errMsg);
-        this._updatePill('error', 'Whisper API: ' + errMsg);
-        setTimeout(() => this._hidePill(), 4000);
-        this._isProcessing = false;
-        return;
+        throw new Error(errMsg);
       }
 
       if (!transcript || !transcript.trim()) {
@@ -236,32 +324,29 @@ class WhisperApiManager {
         return;
       }
 
-       // 3. Apply text replacements (shared with regular overlay pipeline) - MUST be before AI polishing
-       let finalText = applyTextReplacements(transcript.trim());
-       
-       // 4. (Optional) AI Post-Processing / Polish
-       const matchedAgent = agentEngine.findMatchingAgent(finalText);
-       const whisperAiEnabled = store.get('whisperApiAiEnabled') === true;
-       if (whisperAiEnabled || matchedAgent) {
-         try {
-           this._updatePill('transcribing', 'AI Polishing…');
-           const polished = await this._aiPolish(finalText);
-           if (polished && polished.trim()) {
-             console.log(`[WhisperAPI] AI polished: "${finalText.substring(0, 40)}…" → "${polished.substring(0, 40)}…"`);
-             finalText = polished.trim();
-           }
-         } catch (e) {
-           console.warn('[WhisperAPI] AI polish failed:', e.message);
-           // Show error on the pill for 2 seconds, then paste original text
-           this._updatePill('error', 'AI Error: ' + e.message);
-           await new Promise(r => setTimeout(r, 2000));
-         }
-       }
+      // 3. Apply text replacements (shared with regular overlay pipeline) - MUST be before AI polishing
+      let finalText = applyTextReplacements(transcript.trim());
+      
+      // 4. (Optional) AI Post-Processing / Polish
+      const matchedAgent = agentEngine.findMatchingAgent(finalText);
+      const whisperAiEnabled = store.get('whisperApiAiEnabled') === true;
+      if (whisperAiEnabled || matchedAgent) {
+        try {
+          this._updatePill('transcribing', 'AI Polishing…');
+          const polished = await this._aiPolish(finalText);
+          if (polished && polished.trim()) {
+            console.log(`[WhisperAPI] AI polished: "${finalText.substring(0, 40)}…" → "${polished.substring(0, 40)}…"`);
+            finalText = polished.trim();
+          }
+        } catch (e) {
+          console.warn('[WhisperAPI] AI polish failed:', e.message);
+          this._updatePill('error', 'AI Error: ' + e.message);
+          await new Promise(r => setTimeout(r, 1800));
+        }
+      }
 
-      // 5. Paste result
+      // 5. Result handling: Inject into active field and manage clipboard
       if (finalText) {
-        this._updatePill('done', finalText.substring(0, 60) + (finalText.length > 60 ? '…' : ''));
-        
         if (this._clipboardManager) {
           const deselect = !!this._lastPipelineUsedSelectedText;
           this._lastPipelineUsedSelectedText = false;
@@ -274,20 +359,84 @@ class WhisperApiManager {
           } catch (e) {
             console.error('[WhisperApiManager] failed to record dictation:', e);
           }
+        } else {
+          try {
+            const { clipboard } = require('electron');
+            clipboard.writeText(finalText);
+          } catch (clipErr) {
+            console.error('[WhisperAPI] Failed to copy to clipboard:', clipErr);
+          }
         }
+
+        const doneMsg = isRetry ? 'Copied to Clipboard!' : (finalText.substring(0, 60) + (finalText.length > 60 ? '…' : ''));
+        this._updatePill('done', doneMsg);
       }
 
       // Hide pill after a brief display of success
-      setTimeout(() => this._hidePill(), 1200);
+      setTimeout(() => this._hidePill(), isRetry ? 1800 : 1200);
 
-    } catch (e) {
-      console.error('[WhisperAPI] Processing error:', e);
-      this._updatePill('error', e.message);
-      setTimeout(() => this._hidePill(), 3000);
     } finally {
       clearTimeout(safetyTimer);
       this._isProcessing = false;
     }
+  }
+
+  /**
+   * Retry transcribing the last recorded audio.
+   */
+  async retryLastAudio() {
+    if (this._isProcessing) return;
+
+    // Check if we have audio in memory or need to load from last_recording.wav
+    let samples = this._lastAudioData?.samples;
+    let sampleRate = this._lastAudioData?.sampleRate || 16000;
+
+    if (!samples || samples.length === 0) {
+      try {
+        const wavPath = path.join(app.getPath('userData'), 'last_recording.wav');
+        const altWavPath = path.join(app.getAppPath(), 'last_recording.wav');
+        const targetPath = fs.existsSync(wavPath) ? wavPath : (fs.existsSync(altWavPath) ? altWavPath : null);
+        if (targetPath) {
+          const buffer = fs.readFileSync(targetPath);
+          if (buffer.length > 44) {
+            const dataView = new DataView(buffer.buffer, buffer.byteOffset, buffer.byteLength);
+            sampleRate = dataView.getUint32(24, true) || 16000;
+            const numSamples = (buffer.length - 44) / 2;
+            const floatSamples = new Float32Array(numSamples);
+            for (let i = 0; i < numSamples; i++) {
+              const int16 = dataView.getInt16(44 + i * 2, true);
+              floatSamples[i] = int16 < 0 ? int16 / 0x8000 : int16 / 0x7FFF;
+            }
+            samples = floatSamples;
+            this._lastAudioData = { samples, sampleRate };
+            console.log(`[WhisperAPI] Loaded ${numSamples} samples from disk WAV fallback`);
+          }
+        }
+      } catch (e) {
+        console.error('[WhisperAPI] Disk fallback failed:', e);
+      }
+    }
+
+    if (!samples || samples.length === 0) {
+      console.warn('[WhisperAPI] No audio available to retry');
+      this._updatePill('error', 'No Audio Found');
+      setTimeout(() => this._hidePill(), 2000);
+      return;
+    }
+
+    try {
+      await this._processAudio(samples, sampleRate, true);
+    } catch (e) {
+      this._handleProcessingError(e);
+    }
+  }
+
+  /**
+   * Dismiss the error state and hide the pill immediately.
+   */
+  dismissError() {
+    this._isProcessing = false;
+    this._hidePill();
   }
 
   /**

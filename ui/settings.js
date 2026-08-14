@@ -914,16 +914,17 @@ function updateLicenseUI(status, firstLaunch, purchase, extra) {
     b.disabled = false; b.textContent = 'Activate';
 
   } else if (status === 'free') {
+    const limit = extra?.freeDailyLimit || 2000;
     const used = extra?.freeDailyWords || 0;
-    const remaining = Math.max(0, 500 - used);
-    const pct = Math.min(100, Math.round((used / 500) * 100));
+    const remaining = Math.max(0, limit - used);
+    const pct = Math.min(100, Math.round((used / limit) * 100));
     h.textContent = 'Free Tier';
     h.style.color = '#fb923c';
     c.style.background = 'rgba(251,146,60,0.1)';
     c.style.borderColor = '#fb923c';
     b.disabled = false; b.textContent = 'Get License';
     s.style.whiteSpace = 'normal';
-    s.innerHTML = `Today: <strong style="color:#fb923c">${used} / 500</strong> words used &nbsp;·&nbsp; <strong style="color:#fff">${remaining}</strong> remaining<br>
+    s.innerHTML = `Today: <strong style="color:#fb923c">${used} / ${limit.toLocaleString()}</strong> words used &nbsp;·&nbsp; <strong style="color:#fff">${remaining.toLocaleString()}</strong> remaining<br>
       <div style="margin-top:8px;background:rgba(255,255,255,0.07);border-radius:6px;height:5px;overflow:hidden;">
         <div style="height:100%;width:${pct}%;background:linear-gradient(90deg,#fb923c,#f97316);border-radius:6px;transition:width 0.5s;"></div>
       </div>

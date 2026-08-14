@@ -148,6 +148,13 @@
     pinBtn.addEventListener('click', toggleAlwaysOnTop);
 
     // ── Reload ──────────────────────────────────────────────
+    const isMac = /Mac|iPod|iPhone|iPad/.test(navigator.platform || navigator.userAgent);
+    const reloadBtn = document.getElementById('btn-reload');
+    if (reloadBtn) {
+      reloadBtn.title = `Reload (${isMac ? '⌘R' : 'Ctrl+R'})`;
+      reloadBtn.setAttribute('aria-label', `Reload (${isMac ? '⌘R' : 'Ctrl+R'})`);
+    }
+
     function reloadApp() {
       // Reset iframe src to force a clean reload
       const src = frame.src;
@@ -155,11 +162,11 @@
       requestAnimationFrame(() => { frame.src = src; });
     }
 
-    document.getElementById('btn-reload').addEventListener('click', reloadApp);
+    reloadBtn.addEventListener('click', reloadApp);
 
     // Keyboard shortcut Cmd/Ctrl + R
     document.addEventListener('keydown', (e) => {
-      if ((e.metaKey || e.ctrlKey) && e.key === 'r') {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'r') {
         e.preventDefault();
         reloadApp();
       }

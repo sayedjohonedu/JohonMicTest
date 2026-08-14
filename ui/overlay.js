@@ -625,6 +625,10 @@ function showAiSendButtons(show) {
 
 window.junoAPI.onSessionStart((data) => {
   isPttMode = !!(data && data.isPtt);
+  const card = document.getElementById('card');
+  if (card) card.classList.remove('has-network-error');
+  const pulseDot = document.getElementById('pulse-dot');
+  if (pulseDot) pulseDot.classList.remove('pulse-warning');
   window.junoAPI.getConfig().then(cfg => {
     applyOverlayTheme(cfg.theme);
     // Track AI mode and show/hide Send button
@@ -648,6 +652,23 @@ window.junoAPI.onTranscript((data) => {
   clearTimer && clearTimeout(clearTimer);
   phraseEl.classList.remove('fading'); interimEl.textContent = ''; isSpeaking = false;
 
+  const card = document.getElementById('card');
+  if (card && card.classList.contains('has-network-error')) {
+    card.classList.remove('has-network-error');
+  }
+  const pulseDot = document.getElementById('pulse-dot');
+  if (pulseDot && pulseDot.classList.contains('pulse-warning')) {
+    pulseDot.classList.remove('pulse-warning');
+    const statusLabel = document.getElementById('status-label');
+    if (statusLabel) {
+      if (isAiMode) {
+        statusLabel.innerHTML = '<span style="color:#a855f7">AI ✦</span> Listening…';
+      } else {
+        statusLabel.textContent = 'Listening…';
+      }
+    }
+  }
+
   if (isAiMode || isPttMode) {
     // AI mode or PTT mode: accumulate text, don't auto-fade
     const prev = phraseEl.textContent;
@@ -659,9 +680,53 @@ window.junoAPI.onTranscript((data) => {
   }
 });
 
-window.junoAPI.onInterim((text) => { interimEl.textContent = text || ''; isSpeaking = !!text; });
+window.junoAPI.onInterim((text) => {
+  interimEl.textContent = text || '';
+  isSpeaking = !!text;
+  if (text) {
+    const card = document.getElementById('card');
+    if (card && card.classList.contains('has-network-error')) {
+      card.classList.remove('has-network-error');
+    }
+    const pulseDot = document.getElementById('pulse-dot');
+    if (pulseDot && pulseDot.classList.contains('pulse-warning')) {
+      pulseDot.classList.remove('pulse-warning');
+      const statusLabel = document.getElementById('status-label');
+      if (statusLabel) {
+        if (isAiMode) {
+          statusLabel.innerHTML = '<span style="color:#a855f7">AI ✦</span> Listening…';
+        } else {
+          statusLabel.textContent = 'Listening…';
+        }
+      }
+    }
+  }
+});
 function extendOverlayDelay() { if (phraseEl.textContent && !isSpeaking) { clearTimer && clearTimeout(clearTimer); phraseEl.classList.remove('fading'); clearTimer = setTimeout(() => { phraseEl.classList.add('fading'); setTimeout(() => { phraseEl.textContent = ''; phraseEl.classList.remove('fading'); }, 320); }, 1800); } }
-window.junoAPI.onStatus((s) => { document.getElementById('status-label').textContent = s === 'silence-timeout' ? 'Stopped (silence)' : 'Listening…'; });
+window.junoAPI.onStatus((s) => {
+  const card = document.getElementById('card');
+  const statusLabel = document.getElementById('status-label');
+  const pulseDot = document.getElementById('pulse-dot');
+  if (s === 'network-error') {
+    if (card) card.classList.add('has-network-error');
+    if (statusLabel) statusLabel.innerHTML = '<span class="status-warning-text">Check Network</span>';
+    if (pulseDot) pulseDot.classList.add('pulse-warning');
+  } else if (s === 'network-restored') {
+    if (card) card.classList.remove('has-network-error');
+    if (pulseDot) pulseDot.classList.remove('pulse-warning');
+    if (statusLabel) {
+      if (isAiMode) {
+        statusLabel.innerHTML = '<span style="color:#a855f7">AI ✦</span> Listening…';
+      } else {
+        statusLabel.textContent = 'Listening…';
+      }
+    }
+  } else {
+    if (card) card.classList.remove('has-network-error');
+    if (pulseDot) pulseDot.classList.remove('pulse-warning');
+    if (statusLabel) statusLabel.textContent = s === 'silence-timeout' ? 'Stopped (silence)' : 'Listening…';
+  }
+});
 window.junoAPI.onLanguage((code) => setLanguage(code, false));
 window.junoAPI.onSetLanguage((code) => setLanguage(code, false));
 const wcBadge = document.getElementById('wc-badge'), wcSep = document.getElementById('wc-sep');

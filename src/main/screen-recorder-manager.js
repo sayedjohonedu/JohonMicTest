@@ -239,24 +239,24 @@ function showSavedToast(filePath, filename, errorMsg) {
   // Build inline HTML — Reveal button uses location.href to signal main process
   const html = `<!DOCTYPE html><html><head><style>
     *{margin:0;padding:0;box-sizing:border-box}
-    body{background:transparent;font-family:'Inter',-apple-system,sans-serif;overflow:hidden}
-    .toast{display:flex;align-items:center;gap:10px;padding:12px 16px;
-      background:rgba(10,10,18,0.92);backdrop-filter:blur(24px) saturate(180%);
-      border:1px solid rgba(255,255,255,0.08);border-radius:14px;
-      box-shadow:0 8px 32px rgba(0,0,0,0.45);animation:slideIn .3s ease}
+    body{background:transparent;font-family:-apple-system,BlinkMacSystemFont,"SF Pro Display","SF Pro Text","Segoe UI",system-ui,sans-serif;overflow:hidden;-webkit-font-smoothing:antialiased}
+    .toast{display:flex;align-items:center;gap:11px;padding:12px 16px;
+      background:rgba(18,19,26,0.96);backdrop-filter:blur(24px) saturate(180%);
+      border:1px solid rgba(255,255,255,0.09);border-radius:14px;
+      box-shadow:inset 0 1px 0 rgba(255,255,255,0.12),0 12px 36px rgba(0,0,0,0.55);animation:slideIn .28s cubic-bezier(0.16,1,0.3,1)}
     @keyframes slideIn{from{opacity:0;transform:translateY(-12px)}to{opacity:1;transform:translateY(0)}}
-    .icon{width:28px;height:28px;border-radius:8px;display:flex;align-items:center;justify-content:center;
-      background:rgba(${isError ? '239,68,68' : '74,222,128'},0.12);flex-shrink:0}
+    .icon{width:28px;height:28px;border-radius:9px;display:flex;align-items:center;justify-content:center;
+      background:rgba(${isError ? '244,63,94' : '16,185,129'},0.14);border:1px solid rgba(${isError ? '244,63,94' : '16,185,129'},0.25);flex-shrink:0}
     .info{flex:1;min-width:0}
-    .title{font:600 12px/1 Inter,sans-serif;color:#f0f0f5;margin-bottom:3px}
-    .sub{font:400 10px/1.2 Inter,sans-serif;color:#94a3b8;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-    .reveal{margin-left:auto;padding:5px 10px;border-radius:6px;
-      background:rgba(99,102,241,0.15);border:1px solid rgba(99,102,241,0.3);
-      color:#a5b4fc;font:500 10px/1 sans-serif;cursor:pointer;white-space:nowrap;transition:background .15s}
-    .reveal:hover{background:rgba(99,102,241,0.3)}
+    .title{font-size:12px;font-weight:600;color:#fff;margin-bottom:2px;letter-spacing:-0.01em}
+    .sub{font-size:11px;color:rgba(255,255,255,0.6);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+    .reveal{margin-left:auto;padding:5px 11px;border-radius:7px;
+      background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.14);
+      color:rgba(255,255,255,0.9);font-size:11px;font-weight:600;cursor:pointer;white-space:nowrap;transition:all .15s}
+    .reveal:hover{background:rgba(255,255,255,0.15);color:#fff}
   </style></head><body>
     <div class="toast">
-      <div class="icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="${iconColor}" stroke-width="2.5">${iconPath}</svg></div>
+      <div class="icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="${iconColor}" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">${iconPath}</svg></div>
       <div class="info"><div class="title">${title}</div><div class="sub">${subtitle}</div></div>
       ${filePath && !isError ? '<button class="reveal" onclick="location.href=\'reveal://open\'">Reveal</button>' : ''}
     </div>

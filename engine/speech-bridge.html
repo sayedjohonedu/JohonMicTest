@@ -146,6 +146,9 @@
                     lastResultTime = Date.now();
                     restartCount = 0;
                     armSilenceTimer();
+                    if (ws && ws.readyState === WebSocket.OPEN) {
+                        ws.send(JSON.stringify({ type: 'status', message: 'network-restored' }));
+                    }
                 }
 
                 // Always broadcast interim for live waveform/typing effect
@@ -159,6 +162,12 @@
             r.onerror = (event) => {
                 // 'no-speech' just means silence — not an error, keep counting towards 15s timeout
                 if (event.error === 'no-speech') return;
+                console.warn('[MicTab] SpeechRecognition error:', event.error);
+                if (event.error === 'network' || !navigator.onLine) {
+                    if (ws && ws.readyState === WebSocket.OPEN) {
+                        ws.send(JSON.stringify({ type: 'status', message: 'network-error' }));
+                    }
+                }
                 // All other errors, let onend handle the restart
             };
 
@@ -526,6 +535,18 @@
         // Expose for Puppeteer just in case
         window.startRecognition = startListening;
         window.stopRecognition = stopListening;
+
+        window.addEventListener('offline', () => {
+            if (isActive && ws && ws.readyState === WebSocket.OPEN) {
+                ws.send(JSON.stringify({ type: 'status', message: 'network-error' }));
+            }
+        });
+
+        window.addEventListener('online', () => {
+            if (isActive && ws && ws.readyState === WebSocket.OPEN) {
+                ws.send(JSON.stringify({ type: 'status', message: 'network-restored' }));
+            }
+        });
 
         setupWebSocket();
     </script>

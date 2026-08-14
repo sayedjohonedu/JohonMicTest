@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MicTab Popup & Notification Showcase</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: #090a0f;
+      color: #e2e8f0;
+      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Segoe UI", system-ui, sans-serif;
+      min-height: 100vh;
+      padding: 32px 24px 64px;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    header {
+      max-width: 1280px;
+      margin: 0 auto 32px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: rgba(245, 158, 11, 0.12);
+      border: 1px solid rgba(245, 158, 11, 0.28);
+      color: #fbbf24;
+      border-radius: 20px;
+      padding: 4px 12px;
+      font-size: 12px;
+      font-weight: 600;
+      width: fit-content;
+    }
+
+    h1 {
+      font-size: 26px;
+      font-weight: 700;
+      color: #ffffff;
+      letter-spacing: -0.02em;
+    }
+
+    p.subtitle {
+      font-size: 14px;
+      color: #94a3b8;
+      line-height: 1.5;
+    }
+
+    .grid {
+      max-width: 1280px;
+      margin: 0 auto;
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(370px, 1fr));
+      gap: 28px;
+    }
+
+    .preview-card {
+      background: rgba(18, 19, 26, 0.6);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 18px;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      box-shadow: 0 12px 32px rgba(0, 0, 0, 0.4);
+      transition: border-color 0.2s ease, transform 0.2s ease;
+    }
+
+    .preview-card:hover {
+      border-color: rgba(255, 255, 255, 0.16);
+      transform: translateY(-2px);
+    }
+
+    .card-meta {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 0 4px;
+    }
+
+    .card-title {
+      font-size: 13px;
+      font-weight: 600;
+      color: #f1f5f9;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .card-size {
+      font-size: 11px;
+      color: #64748b;
+      font-family: ui-monospace, monospace;
+      background: rgba(255, 255, 255, 0.04);
+      padding: 2px 6px;
+      border-radius: 4px;
+    }
+
+    .frame-wrap {
+      width: 100%;
+      height: 390px;
+      border-radius: 12px;
+      overflow: hidden;
+      background: #0b0c10;
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      position: relative;
+    }
+
+    .frame-wrap.large-frame {
+      height: 590px;
+    }
+
+    iframe {
+      width: 100%;
+      height: 100%;
+      border: none;
+      display: block;
+      background: transparent;
+    }
+
+    .open-btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      background: rgba(255, 255, 255, 0.06);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      color: #94a3b8;
+      text-decoration: none;
+      border-radius: 8px;
+      padding: 7px 12px;
+      font-size: 11.5px;
+      font-weight: 600;
+      transition: all 0.15s ease;
+    }
+
+    .open-btn:hover {
+      background: rgba(255, 255, 255, 0.12);
+      color: #ffffff;
+      border-color: rgba(255, 255, 255, 0.2);
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <div class="badge">✦ MicTab UI Showcase</div>
+    <h1>Notification, Popup, Error &amp; Lock System</h1>
+    <p class="subtitle">Live interactive preview of all 11 standalone dialog windows. Each card runs in its exact layout with zero overflow, specular obsidian borders, and modular vector icons.</p>
+  </header>
+
+  <main class="grid">
+
+    <!-- 1. Lens Locked -->
+    <div class="preview-card">
+      <div class="card-meta">
+        <span class="card-title">1. MicTab Lens Locked</span>
+        <span class="card-size">360 × 375</span>
+      </div>
+      <div class="frame-wrap" style="height: 375px;">
+        <iframe src="lens-locked-popup.html"></iframe>
+      </div>
+      <a class="open-btn" href="lens-locked-popup.html" target="_blank">Open Standalone ↗</a>
+    </div>
+
+    <!-- 2. Screen Recorder Locked -->
+    <div class="preview-card">
+      <div class="card-meta">
+        <span class="card-title">2. Screen Recorder Locked</span>
+        <span class="card-size">360 × 375</span>
+      </div>
+      <div class="frame-wrap" style="height: 375px;">
+        <iframe src="screen-recorder-locked-popup.html"></iframe>
+      </div>
+      <a class="open-btn" href="screen-recorder-locked-popup.html" target="_blank">Open Standalone ↗</a>
+    </div>
+
+    <!-- 3. Translator Locked -->
+    <div class="preview-card">
+      <div class="card-meta">
+        <span class="card-title">3. Translator Locked</span>
+        <span class="card-size">360 × 335</span>
+      </div>
+      <div class="frame-wrap" style="height: 335px;">
+        <iframe src="translator-locked-popup.html"></iframe>
+      </div>
+      <a class="open-btn" href="translator-locked-popup.html" target="_blank">Open Standalone ↗</a>
+    </div>
+
+    <!-- 4. Whisper API Locked -->
+    <div class="preview-card">
+      <div class="card-meta">
+        <span class="card-title">4. Whisper API Locked</span>
+        <span class="card-size">360 × 315</span>
+      </div>
+      <div class="frame-wrap" style="height: 315px;">
+        <iframe src="whisper-api-locked-popup.html"></iframe>
+      </div>
+      <a class="open-btn" href="whisper-api-locked-popup.html" target="_blank">Open Standalone ↗</a>
+    </div>
+
+    <!-- 5. Offline Mode Locked -->
+    <div class="preview-card">
+      <div class="card-meta">
+        <span class="card-title">5. Offline Mode Locked</span>
+        <span class="card-size">360 × 315</span>
+      </div>
+      <div class="frame-wrap" style="height: 315px;">
+        <iframe src="offline-locked-popup.html"></iframe>
+      </div>
+      <a class="open-btn" href="offline-locked-popup.html" target="_blank">Open Standalone ↗</a>
+    </div>
+
+    <!-- 6. AI Trial Expired -->
+    <div class="preview-card">
+      <div class="card-meta">
+        <span class="card-title">6. AI Trial Expired</span>
+        <span class="card-size">360 × 315</span>
+      </div>
+      <div class="frame-wrap" style="height: 315px;">
+        <iframe src="ai-trial-popup.html"></iframe>
+      </div>
+      <a class="open-btn" href="ai-trial-popup.html" target="_blank">Open Standalone ↗</a>
+    </div>
+
+    <!-- 7. License Expired -->
+    <div class="preview-card">
+      <div class="card-meta">
+        <span class="card-title">7. License Expired</span>
+        <span class="card-size">360 × 305</span>
+      </div>
+      <div class="frame-wrap" style="height: 305px;">
+        <iframe src="license-popup.html"></iframe>
+      </div>
+      <a class="open-btn" href="license-popup.html" target="_blank">Open Standalone ↗</a>
+    </div>
+
+    <!-- 8. License Celebration -->
+    <div class="preview-card">
+      <div class="card-meta">
+        <span class="card-title">8. License Activated</span>
+        <span class="card-size">360 × 340</span>
+      </div>
+      <div class="frame-wrap" style="height: 340px;">
+        <iframe src="license-celebration.html"></iframe>
+      </div>
+      <a class="open-btn" href="license-celebration.html" target="_blank">Open Standalone ↗</a>
+    </div>
+
+    <!-- 9. Update Available -->
+    <div class="preview-card">
+      <div class="card-meta">
+        <span class="card-title">9. Update Available</span>
+        <span class="card-size">360 × 335</span>
+      </div>
+      <div class="frame-wrap" style="height: 335px;">
+        <iframe src="update-reminder-popup.html"></iframe>
+      </div>
+      <a class="open-btn" href="update-reminder-popup.html" target="_blank">Open Standalone ↗</a>
+    </div>
+
+    <!-- 10. Daily Word Limit -->
+    <div class="preview-card">
+      <div class="card-meta">
+        <span class="card-title">10. Daily Word Limit</span>
+        <span class="card-size">360 × 325</span>
+      </div>
+      <div class="frame-wrap" style="height: 325px;">
+        <iframe src="wordlimit-popup.html"></iframe>
+      </div>
+      <a class="open-btn" href="wordlimit-popup.html" target="_blank">Open Standalone ↗</a>
+    </div>
+
+    <!-- 11. Bridge Error -->
+    <div class="preview-card" style="grid-column: 1 / -1; max-width: 540px; margin: 0 auto; width: 100%;">
+      <div class="card-meta">
+        <span class="card-title">11. Bridge Unavailable / Error</span>
+        <span class="card-size">520 × 580</span>
+      </div>
+      <div class="frame-wrap" style="height: 580px;">
+        <iframe src="bridge-error.html"></iframe>
+      </div>
+      <a class="open-btn" href="bridge-error.html" target="_blank">Open Standalone ↗</a>
+    </div>
+
+  </main>
+
+</body>
+</html>

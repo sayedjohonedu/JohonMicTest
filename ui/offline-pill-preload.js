@@ -32,5 +32,9 @@ contextBridge.exposeInMainWorld('offlineAPI', {
 
   // Whisper AI Polish mode state — shows/hides the ✦ badge
   onWhisperAiMode:   (cb) => onChannel('whisper-ai-mode-pill', (_, on) => cb(on)),
+
+  // Whisper Error Retry & Dismiss
+  retryAudio:        () => ipcRenderer.send('whisper-retry-last-audio'),
+  dismissError:      () => ipcRenderer.send('whisper-dismiss-error'),
 });
 

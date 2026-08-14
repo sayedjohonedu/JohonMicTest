@@ -3,7 +3,7 @@ const { autoUpdater } = require('electron-updater');
 const fs = require('fs');
 const path = require('path');
 const store = require('../../store/config');
-const { verifyLicense } = require('./licensing');
+const { verifyLicense, FREE_DAILY_WORD_LIMIT } = require('./licensing');
 const { applyOverlaySize, getOverlayWindow, getSettingsWindow, OV, closeLicensePopup, closeWordLimitPopup, closeTranslatorLockedPopup, closeAiTrialPopup, showAiTrialExpiredPopup, showWhisperApiLockedPopup, closeWhisperApiLockedPopup, showLicenseCelebration, closeLicenseCelebration, closeScreenRecorderLockedPopup, closeLensLockedPopup } = require('./window-manager');
 const { uIOhook } = require('uiohook-napi');
 const { setupFloatingBrowserIpc } = require('./floating-browser-manager');
@@ -29,12 +29,27 @@ function setupIpcHandlers(toggleListening, registerHotkeys, getWsClient, resetSi
       // Block if trial is expired
       const trial = checkAiTrialExpiry();
       if (trial.expired) {
-        config.aiModeEnabled = false; // Force-disable
+        showAiTrialExpiredPopup();
+        return; // Don't save enabled=true
       }
     }
 
+    // ── Whisper API Trial enforcement ──
+    if (config.whisperApiEnabled === true) {
+      const { checkWhisperApiTrialExpiry } = require('./licensing');
+      if (!store.get('whisperApiFirstEnabledDate')) {
+        store.set('whisperApiFirstEnabledDate', Date.now());
+      }
+      const trial = checkWhisperApiTrialExpiry();
+      if (trial.expired) {
+        showWhisperApiLockedPopup();
+        return;
+      }
+    }
 
-    store.set(config);
+    for (const [key, value] of Object.entries(config)) {
+      store.set(key, value);
+    }
     registerHotkeys(toggleListening);
 
     if (config.autoLaunch !== undefined) {
@@ -64,6 +79,7 @@ function setupIpcHandlers(toggleListening, registerHotkeys, getWsClient, resetSi
     langUsage:     store.get('statsLangUsage') || {},
     firstDate:     store.get('statsFirstDate') || 0,
     freeDailyWords: store.get('freeDailyWords') || 0,
+    freeDailyLimit: FREE_DAILY_WORD_LIMIT,
   }));
 
   ipcMain.handle('get-license-info', () => ({
@@ -71,6 +87,7 @@ function setupIpcHandlers(toggleListening, registerHotkeys, getWsClient, resetSi
     licenseActivatedDate: store.get('licenseActivatedDate') || 0,
     freeDailyWords:       store.get('freeDailyWords')       || 0,
     freeDailyReset:       store.get('freeDailyReset')       || 0,
+    freeDailyLimit:       FREE_DAILY_WORD_LIMIT,
     licensePurchase:      store.get('licensePurchase')      || {},
   }));
 
@@ -611,6 +628,14 @@ function setupIpcHandlers(toggleListening, registerHotkeys, getWsClient, resetSi
   /* ── Whisper API (Cloud) IPC ────────────────────────────────────── */
   const whisperApiEngine = require('./whisper-api-engine');
   const whisperApiManager = require('./whisper-api-manager');
+
+  ipcMain.on('whisper-retry-last-audio', () => {
+    whisperApiManager.retryLastAudio();
+  });
+
+  ipcMain.on('whisper-dismiss-error', () => {
+    whisperApiManager.dismissError();
+  });
 
   ipcMain.handle('whisper-api-enable', (event, enabled) => {
     if (enabled === true) {

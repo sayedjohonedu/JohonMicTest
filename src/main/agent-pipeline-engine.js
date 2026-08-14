@@ -821,10 +821,16 @@ class AgentPipelineEngine {
       if (process.platform === 'darwin') {
         robot.keyTap('c', 'command');
       } else {
+        robot.setKeyboardDelay(5);
         robot.keyToggle('control', 'down');
-        robot.keyToggle('c', 'down');
-        robot.keyToggle('c', 'up');
-        robot.keyToggle('control', 'up');
+        await new Promise(r => setTimeout(r, 20));
+        try {
+          robot.keyToggle('c', 'down');
+          await new Promise(r => setTimeout(r, 20));
+          robot.keyToggle('c', 'up');
+        } finally {
+          robot.keyToggle('control', 'up');
+        }
       }
 
       // 3. Wait for OS clipboard to settle (~150ms)

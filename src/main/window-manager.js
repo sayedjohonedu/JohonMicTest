@@ -198,7 +198,7 @@ function showLicensePopup() {
 
   licensePopupWindow = new BrowserWindow({
     width: 360,
-    height: 265,
+    height: 305,
     transparent: true,
     frame: false,
     alwaysOnTop: true,
@@ -233,7 +233,7 @@ function showWordLimitPopup() {
   }
   wordLimitPopupWindow = new BrowserWindow({
     width: 360,
-    height: 280,
+    height: 325,
     transparent: true,
     frame: false,
     alwaysOnTop: true,
@@ -265,7 +265,7 @@ function showTranslatorLockedPopup() {
   }
   translatorLockedPopupWindow = new BrowserWindow({
     width: 360,
-    height: 290,
+    height: 335,
     transparent: true,
     frame: false,
     alwaysOnTop: true,
@@ -297,7 +297,7 @@ function showAiTrialExpiredPopup() {
   }
   aiTrialPopupWindow = new BrowserWindow({
     width: 360,
-    height: 280,
+    height: 315,
     transparent: true,
     frame: false,
     alwaysOnTop: true,
@@ -329,7 +329,7 @@ function showOfflineLockedPopup() {
   }
   offlineLockedPopupWindow = new BrowserWindow({
     width: 360,
-    height: 290,
+    height: 315,
     transparent: true,
     frame: false,
     alwaysOnTop: true,
@@ -361,7 +361,7 @@ function showWhisperApiLockedPopup() {
   }
   whisperApiLockedPopupWindow = new BrowserWindow({
     width: 360,
-    height: 290,
+    height: 315,
     transparent: true,
     frame: false,
     alwaysOnTop: true,
@@ -393,7 +393,7 @@ function showUpdateReminderPopup() {
   }
   updateReminderPopupWindow = new BrowserWindow({
     width: 360,
-    height: 310,
+    height: 335,
     transparent: true,
     frame: false,
     alwaysOnTop: true,
@@ -429,7 +429,7 @@ function showLicenseCelebration() {
   }
   licenseCelebrationWindow = new BrowserWindow({
     width: 360,
-    height: 320,
+    height: 340,
     transparent: true,
     frame: false,
     alwaysOnTop: true,
@@ -461,7 +461,7 @@ function showScreenRecorderLockedPopup() {
   }
   screenRecorderLockedPopupWindow = new BrowserWindow({
     width: 360,
-    height: 310,
+    height: 375,
     transparent: true,
     frame: false,
     alwaysOnTop: true,
@@ -493,7 +493,7 @@ function showLensLockedPopup() {
   }
   lensLockedPopupWindow = new BrowserWindow({
     width: 360,
-    height: 310,
+    height: 375,
     transparent: true,
     frame: false,
     alwaysOnTop: true,
@@ -524,7 +524,7 @@ function createOfflinePill() {
 
   const isMac = process.platform === 'darwin';
   offlinePillWindow = new BrowserWindow({
-    width: 240,
+    width: 280,
     height: 38,
     transparent: true,
     frame: false,

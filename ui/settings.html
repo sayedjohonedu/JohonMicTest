@@ -1110,19 +1110,26 @@
 <!-- ── Import Merge/Replace Modal ─────────────────────────────────── -->
 <div id="import-modal">
   <div class="import-modal-content">
-    <div style="font-size:20px; margin-bottom:4px; color: var(--text);">📥 Import Replacements</div>
-    <p style="font-size:13px; color:var(--muted); margin:8px 0 20px; line-height:1.6;">
+    <div style="font-size:16px; font-weight:700; margin-bottom:4px; color: var(--text); display:flex; align-items:center; gap:8px;">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+      Import Replacements
+    </div>
+    <p style="font-size:12.5px; color:var(--muted); margin:8px 0 18px; line-height:1.55;">
       Found <strong id="import-modal-count" style="color:var(--accent);">0</strong> replacements in the file.<br>
       How would you like to import them?
     </p>
-    <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:18px;">
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:16px;">
       <button onclick="confirmImport('merge')" class="import-opt-btn">
-        <div style="font-size:20px; margin-bottom:4px;">🔀</div>
+        <div style="display:flex; justify-content:center; margin-bottom:6px; color:var(--accent2);">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="18" r="3"/><circle cx="6" cy="6" r="3"/><path d="M6 9v12"/><path d="M6 9a9 9 0 0 0 9 9h3"/></svg>
+        </div>
         <div style="font-weight:600; font-size:13px; color: var(--text);">Merge</div>
         <div style="font-size:11px; color:var(--muted); margin-top:3px;">Add new entries,<br>skip duplicates</div>
       </button>
       <button onclick="confirmImport('replace')" class="import-opt-btn">
-        <div style="font-size:20px; margin-bottom:4px;">🗑️</div>
+        <div style="display:flex; justify-content:center; margin-bottom:6px; color:#f43f5e;">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+        </div>
         <div style="font-weight:600; font-size:13px; color: var(--text);">Replace All</div>
         <div style="font-size:11px; color:var(--muted); margin-top:3px;">Overwrite your<br>current list</div>
       </button>
@@ -1164,7 +1171,7 @@
         font-size:12.5px; font-family:var(--font); transition:background 0.15s;
       " onmouseover="this.style.background='rgba(255,255,255,0.04)'" onmouseout="this.style.background='transparent'">Cancel</button>
       <button onclick="confirmDupRename()" style="
-        flex:2; background:linear-gradient(135deg, var(--accent), #9C6FFF);
+        flex:2; background:linear-gradient(135deg, var(--accent), var(--accent2));
         border:none; border-radius:9px; padding:9px;
         cursor:pointer; color:white; font-size:12.5px; font-weight:600;
         font-family:var(--font); box-shadow:0 4px 14px rgba(var(--accent-rgb),0.35);

@@ -46,10 +46,15 @@ class MsEdgeTTSManager {
         
         return new Promise((resolve, reject) => {
           const writeStream = fs.createWriteStream(filePath);
+          const chunks = [];
+          
+          audioStream.on('data', chunk => chunks.push(chunk));
           audioStream.pipe(writeStream);
           
           writeStream.on('finish', () => {
-            resolve({ filePath });
+            const buffer = Buffer.concat(chunks);
+            const dataUrl = `data:audio/mp3;base64,${buffer.toString('base64')}`;
+            resolve({ filePath, dataUrl });
           });
           
           writeStream.on('error', (err) => {

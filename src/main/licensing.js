@@ -223,7 +223,10 @@ function checkLensTrialExpiry() {
   return { expired: false, daysLeft: Math.ceil(15 - daysUsed) };
 }
 
+const FREE_DAILY_WORD_LIMIT = 2000;
+
 module.exports = {
+  FREE_DAILY_WORD_LIMIT,
   checkAuthStatus,
   verifyLicense,
   checkAndResetDailyWords,

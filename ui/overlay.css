@@ -144,6 +144,30 @@ html, body {
   flex: 1;
 }
 
+.status-warning-text {
+  color: #fb923c !important;
+  font-weight: 600;
+  letter-spacing: 0.2px;
+}
+
+[data-theme="light"] .status-warning-text,
+[data-theme="arctic"] .status-warning-text,
+[data-theme="glass"] .status-warning-text {
+  color: #c2410c !important;
+}
+
+#pulse-dot.pulse-warning {
+  background: #fb923c !important;
+  box-shadow: 0 0 10px #fb923c !important;
+}
+
+[data-theme="light"] #pulse-dot.pulse-warning,
+[data-theme="arctic"] #pulse-dot.pulse-warning,
+[data-theme="glass"] #pulse-dot.pulse-warning {
+  background: #c2410c !important;
+  box-shadow: 0 0 10px #c2410c !important;
+}
+
 /* ── Language pill ── */
 #lang-wrapper { position: relative; flex-shrink: 0; -webkit-app-region: no-drag; }
 
@@ -262,6 +286,27 @@ html, body {
 #card.mini-mode #mini-appstore-btn { display: flex !important; }
 /* AI badge: visible in pill mode ONLY when AI is active */
 #card.mini-mode #mini-ai-badge.active { display: flex !important; }
+
+/* Network Error display in Pill / Mini Mode */
+#card.mini-mode.has-network-error #status-label {
+  display: flex !important;
+  align-items: center;
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  flex: 1;
+  margin-left: 2px;
+}
+
+#card.mini-mode.has-network-error #pulse-dot {
+  display: flex !important;
+}
+
+#card.mini-mode.has-network-error #mini-wave-wrap {
+  display: none !important;
+}
 
 #mini-wave-wrap {
   display: none;

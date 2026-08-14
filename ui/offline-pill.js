@@ -8,15 +8,18 @@
 const SPARKLE_SVG = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/><path d="M5 3v4"/><path d="M19 17v4"/><path d="M3 5h4"/><path d="M17 19h4"/></svg>`;
 const WARN_SVG    = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>`;
 const CHECK_SVG   = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>`;
+const RETRY_SVG   = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/><path d="M16 21h5v-5"/></svg>`;
+const DISMISS_SVG = `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>`;
 
 const STATUS_MAP = {
-  recording:    { icon: '',          text: 'Listening…' },
-  processing:   { icon: SPARKLE_SVG, text: 'Processing…' },
-  transcribing: { icon: SPARKLE_SVG, text: 'Transcribing…' },
-  polishing:    { icon: SPARKLE_SVG, text: 'AI Polishing…' },
-  done:         { icon: CHECK_SVG,   text: 'Done!' },
-  error:        { icon: WARN_SVG,    text: 'Error' },
-  learned:      { icon: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5Z"/></svg>`, text: 'Spelling Saved!' },
+  recording:     { icon: '',          text: 'Listening…' },
+  processing:    { icon: SPARKLE_SVG, text: 'Processing…' },
+  transcribing:  { icon: SPARKLE_SVG, text: 'Transcribing…' },
+  polishing:     { icon: SPARKLE_SVG, text: 'AI Polishing…' },
+  done:          { icon: CHECK_SVG,   text: 'Done!' },
+  error:         { icon: WARN_SVG,    text: 'Error' },
+  'error-retry': { icon: WARN_SVG,    text: 'API Error' },
+  learned:       { icon: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5Z"/></svg>`, text: 'Spelling Saved!' },
 };
 
 const iconEl = document.getElementById('status-icon');
@@ -24,6 +27,8 @@ const textEl = document.getElementById('status-text');
 const canvas = document.getElementById('mini-wave');
 const ctx = canvas.getContext('2d');
 const dotClose = document.getElementById('dot-close');
+const btnRetry = document.getElementById('btn-retry');
+const btnDismiss = document.getElementById('btn-dismiss');
 
 // ── Visualizer config — matches overlay.js exactly ──
 let visualizerType = 'wave';
@@ -433,6 +438,39 @@ if (dotClose) {
   });
 }
 
+// ── Retry and Dismiss action buttons (Whisper error recovery) ──
+if (btnRetry) {
+  const iconSpan = btnRetry.querySelector('.btn-icon');
+  if (iconSpan) iconSpan.innerHTML = RETRY_SVG;
+  btnRetry.addEventListener('mousedown', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    window.offlineAPI.retryAudio();
+  });
+}
+
+if (btnDismiss) {
+  const iconSpan = btnDismiss.querySelector('.btn-icon');
+  if (iconSpan) iconSpan.innerHTML = DISMISS_SVG;
+  btnDismiss.addEventListener('mousedown', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    window.offlineAPI.dismissError();
+  });
+}
+
+// Keyboard shortcuts during error-retry state: Enter to retry, Escape to dismiss
+window.addEventListener('keydown', (e) => {
+  if (!document.body.classList.contains('error-retry')) return;
+  if (e.key === 'Enter' || e.key === ' ') {
+    e.preventDefault();
+    window.offlineAPI.retryAudio();
+  } else if (e.key === 'Escape') {
+    e.preventDefault();
+    window.offlineAPI.dismissError();
+  }
+});
+
 // ── IPC Listeners ──
 window.offlineAPI.onStartRecording(() => {
   startRecording();
@@ -445,7 +483,7 @@ window.offlineAPI.onStopRecording(() => {
 window.offlineAPI.onPillState(({ state, detail, aiMode }) => {
   const info = STATUS_MAP[state] || { icon: '🎙', text: state };
   // Use classList instead of className to preserve ai-mode across state changes
-  const allStates = ['recording', 'processing', 'transcribing', 'polishing', 'done', 'error', 'learned'];
+  const allStates = ['recording', 'processing', 'transcribing', 'polishing', 'done', 'error', 'error-retry', 'learned'];
   document.body.classList.remove(...allStates);
   document.body.classList.add(state);
   // Apply ai-mode class from the payload — arrives with every state message

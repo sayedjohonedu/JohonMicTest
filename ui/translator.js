@@ -99,6 +99,7 @@ const btnPaste          = document.getElementById('btn-paste-output');
 const btnHumanize       = document.getElementById('btn-humanize');
 const btnToggleHumanize = document.getElementById('btn-toggle-humanize');
 const btnPlayAudio      = document.getElementById('btn-play-audio');
+const btnPlayDraftAudio = document.getElementById('btn-play-draft-audio');
 const btnTtsPrev        = document.getElementById('btn-tts-prev');
 const btnTtsNext        = document.getElementById('btn-tts-next');
 const btnTtsDownload    = document.getElementById('btn-tts-download');
@@ -1303,7 +1304,7 @@ function renderPresets() {
 }
 
 /* ─────────────────────────────────────────────────────────────
-   TEXT-TO-SPEECH (Web Speech API)
+   TEXT-TO-SPEECH (Edge Neural TTS + Web Speech Fallback)
 ───────────────────────────────────────────────────────────────*/
 const PLAY_ICON  = '<polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"/>';
 const PAUSE_ICON = '<rect x="6" y="4" width="4" height="16" rx="1"/><rect x="14" y="4" width="4" height="16" rx="1"/>';
@@ -1314,6 +1315,7 @@ const tts = {
   audio: null,
   isPlaying: false,
   isPaused: false,
+  activeSource: 'target', // 'target' | 'source'
   paragraphs: [],
   currentParaIdx: 0,
   selectedVoice: null,
@@ -1333,31 +1335,43 @@ const tts = {
   },
 
   getTargetLangCode() {
-    return tgtLang.value || 'en';
+    if (this.activeSource === 'source') {
+      const code = srcLang ? srcLang.value : 'en';
+      if (code && code !== 'auto') return code;
+      return 'en';
+    }
+    return (tgtLang ? tgtLang.value : 'en') || 'en';
   },
 
   async loadVoices() {
-    const webVoices = this.synth.getVoices().map(v => ({
-      name: v.name.includes('(System Voice)') ? v.name : v.name + ' (System Voice)',
-      lang: v.lang,
-      source: 'web',
-      original: v
-    }));
+    let webVoices = [];
+    try {
+      if (this.synth && this.synth.getVoices) {
+        webVoices = this.synth.getVoices().map(v => ({
+          name: v.name.includes('(System Voice)') ? v.name : v.name + ' (System Voice)',
+          lang: v.lang,
+          source: 'web',
+          original: v
+        }));
+      }
+    } catch (_) {}
 
     let edgeVoices = [];
     try {
       if (window.translatorAPI && window.translatorAPI.edgeTtsGetVoices) {
         const rawEdge = await window.translatorAPI.edgeTtsGetVoices();
-        edgeVoices = rawEdge.map(v => ({
-          name: v.Name.includes('(Microsoft Edge)') ? v.Name : v.Name + ' (Microsoft Edge)',
-          lang: v.Locale,
-          source: 'edge',
-          shortName: v.ShortName,
-          original: v
-        }));
+        if (Array.isArray(rawEdge)) {
+          edgeVoices = rawEdge.map(v => ({
+            name: v.Name ? (v.Name.includes('(Microsoft Edge)') ? v.Name : v.Name + ' (Microsoft Edge)') : (v.FriendlyName || 'Edge Voice'),
+            lang: v.Locale || 'en-US',
+            source: 'edge',
+            shortName: v.ShortName,
+            original: v
+          }));
+        }
       }
     } catch (err) {
-      console.warn('Failed to load edge voices', err);
+      console.warn('[TTS] Failed to load edge voices:', err);
     }
 
     this.voices = [...edgeVoices, ...webVoices];
@@ -1367,14 +1381,14 @@ const tts = {
   getVoicesForLang(langCode) {
     const prefix = this.langMap[langCode] || langCode;
     const matches = this.voices.filter(v => {
-      const vl = v.lang.toLowerCase();
+      const vl = (v.lang || '').toLowerCase();
       const pl = prefix.toLowerCase();
       return vl === pl || vl.startsWith(pl + '-') || vl.startsWith(pl + '_');
     });
     if (matches.length === 0 && prefix.includes('-')) {
       const base = prefix.split('-')[0];
       return this.voices.filter(v => {
-        const vl = v.lang.toLowerCase();
+        const vl = (v.lang || '').toLowerCase();
         return vl === base || vl.startsWith(base + '-') || vl.startsWith(base + '_');
       });
     }
@@ -1394,50 +1408,71 @@ const tts = {
         return saved;
       }
     }
-    const premium = langVoices.find(v => /neural|enhanced|premium|siri/i.test(v.name));
+    // Prefer high quality Edge Neural voices first, then system natural/neural voices
+    const edgeNeural = langVoices.find(v => v.source === 'edge');
+    if (edgeNeural) return edgeNeural;
+
+    const premium = langVoices.find(v => /neural|natural|enhanced|premium|siri|online/i.test(v.name));
     return premium || langVoices[0] || null;
   },
 
   getTextToSpeak() {
-    const start = outputArea.selectionStart;
-    const end = outputArea.selectionEnd;
-    if (start !== end) {
-      return outputArea.value.substring(start, end);
+    if (this.activeSource === 'source') {
+      if (draftArea.selectionStart !== draftArea.selectionEnd) {
+        return draftArea.value.substring(draftArea.selectionStart, draftArea.selectionEnd);
+      }
+      return draftArea.value || '';
     }
-    return outputArea.value;
+    if (outputArea.selectionStart !== outputArea.selectionEnd) {
+      return outputArea.value.substring(outputArea.selectionStart, outputArea.selectionEnd);
+    }
+    return outputArea.value || '';
   },
 
   splitParagraphs(text) {
     return text.split(/\n+/).filter(p => p.trim().length > 0);
   },
 
+  getActivePlayBtn() {
+    return this.activeSource === 'source' ? btnPlayDraftAudio : btnPlayAudio;
+  },
+
   setPlayIcon() {
-    const svg = btnPlayAudio.querySelector('svg');
-    if (svg) svg.innerHTML = PLAY_ICON;
-    btnPlayAudio.title = 'Play Audio';
+    [btnPlayAudio, btnPlayDraftAudio].forEach(btn => {
+      if (!btn) return;
+      const svg = btn.querySelector('svg');
+      if (svg) svg.innerHTML = PLAY_ICON;
+      btn.title = btn === btnPlayDraftAudio ? 'Read Aloud' : 'Play Audio';
+    });
   },
 
   setPauseIcon() {
-    const svg = btnPlayAudio.querySelector('svg');
-    if (svg) svg.innerHTML = PAUSE_ICON;
-    btnPlayAudio.title = 'Pause';
+    const activeBtn = this.getActivePlayBtn();
+    if (activeBtn) {
+      const svg = activeBtn.querySelector('svg');
+      if (svg) svg.innerHTML = PAUSE_ICON;
+      activeBtn.title = 'Pause';
+    }
   },
 
   showControls() {
-    btnPlayAudio.classList.add('tts-active');
+    const activeBtn = this.getActivePlayBtn();
+    if (activeBtn) activeBtn.classList.add('tts-active');
     this.setPauseIcon();
-    btnTtsPrev.style.display = '';
-    btnTtsNext.style.display = '';
-    btnTtsDownload.style.display = '';
+    if (btnTtsPrev) btnTtsPrev.style.display = '';
+    if (btnTtsNext) btnTtsNext.style.display = '';
+    if (btnTtsDownload) btnTtsDownload.style.display = '';
   },
 
   hideControls() {
-    btnPlayAudio.classList.remove('tts-active');
+    [btnPlayAudio, btnPlayDraftAudio].forEach(btn => {
+      if (btn) btn.classList.remove('tts-active');
+    });
     this.setPlayIcon();
-    btnTtsPrev.style.display = 'none';
-    btnTtsNext.style.display = 'none';
-    btnTtsDownload.style.display = 'none';
-    ttsVoiceDropdown.classList.remove('open');
+    if (btnTtsPrev) btnTtsPrev.style.display = 'none';
+    if (btnTtsNext) btnTtsNext.style.display = 'none';
+    if (btnTtsDownload) btnTtsDownload.style.display = 'none';
+    if (ttsVoiceDropdown) ttsVoiceDropdown.classList.remove('open');
     this.voiceDropdownOpen = false;
   },
 
@@ -1456,7 +1491,9 @@ const tts = {
     this.isPaused = false;
 
     this._skipOnEnd = true;
-    this.synth.cancel();
+    if (this.synth) {
+      try { this.synth.cancel(); } catch (_) {}
+    }
     if (this.audio) {
       this.audio.pause();
       this.audio = null;
@@ -1472,11 +1509,15 @@ const tts = {
 
     if (voice && voice.source === 'edge') {
       try {
-        const { filePath } = await window.translatorAPI.edgeTtsSynthesize(text, voice.shortName);
+        const result = await window.translatorAPI.edgeTtsSynthesize(text, voice.shortName);
         if (this._currentTtsId !== ttsId) return; // a new request started
         if (!this.isPlaying || this._skipOnEnd) return; // stopped while downloading
         
-        this.audio = new Audio('file://' + filePath);
+        // Priority 1: In-memory base64 dataUrl (seamless across Windows, Mac, Linux)
+        // Priority 2: Normalized file URL with forward slashes
+        const audioSrc = (result && result.dataUrl) ? result.dataUrl : ('file:///' + ((result && result.filePath) || '').replace(/\\/g, '/'));
+        
+        this.audio = new Audio(audioSrc);
         this.audio.onended = () => {
           if (this._skipOnEnd) {
              this._skipOnEnd = false;
@@ -1488,52 +1529,89 @@ const tts = {
             this.stop();
           }
         };
-        this.audio.play();
+        this.audio.onerror = (err) => {
+          console.warn('[TTS] Edge audio playback error, falling back to Web Speech:', err);
+          this._speakWebSpeech(text, langCode, voice, ttsId);
+        };
+        await this.audio.play();
       } catch (err) {
         console.error('Edge TTS Error:', err);
-        showToast('TTS network error. Falling back.');
-        this.stop();
+        showToast('TTS network error. Falling back to system voice.');
+        this._speakWebSpeech(text, langCode, voice, ttsId);
       }
     } else {
-      // Fallback to Web Speech
-      const utt = new SpeechSynthesisUtterance(text);
-      utt.lang = this.langMap[langCode] || langCode;
-      if (voice) utt.voice = voice.original;
-      utt.rate = 1;
-      utt.pitch = 1;
-
-      utt.onend = () => {
-        if (this._skipOnEnd) {
-          this._skipOnEnd = false;
-          return;
-        }
-        if (this.isPlaying && this.currentParaIdx < this.paragraphs.length - 1) {
-          this.speakParagraph(this.currentParaIdx + 1);
-        } else {
-          this.stop();
-        }
-      };
-      utt.onerror = (e) => {
-        if (e.error === 'canceled' || e.error === 'interrupted') return;
-        this.stop();
-      };
-
-      this.utterance = utt;
-      setTimeout(() => {
-        if (this._currentTtsId !== ttsId) return;
-        if (!this._skipOnEnd) this.synth.speak(utt);
-      }, 50);
+      this._speakWebSpeech(text, langCode, voice, ttsId);
     }
   },
 
-  play() {
+  _speakWebSpeech(text, langCode, voice, ttsId) {
+    if (!this.synth) {
+      showToast('Speech synthesis not supported on this system');
+      this.stop();
+      return;
+    }
+
+    try {
+      this.synth.cancel();
+      this.synth.resume();
+    } catch (_) {}
+
+    const utt = new SpeechSynthesisUtterance(text);
+    utt.lang = this.langMap[langCode] || langCode;
+    if (voice && voice.original) utt.voice = voice.original;
+    utt.rate = 1;
+    utt.pitch = 1;
+
+    utt.onend = () => {
+      if (this._skipOnEnd) {
+        this._skipOnEnd = false;
+        return;
+      }
+      if (this.isPlaying && this.currentParaIdx < this.paragraphs.length - 1) {
+        this.speakParagraph(this.currentParaIdx + 1);
+      } else {
+        this.stop();
+      }
+    };
+    utt.onerror = (e) => {
+      if (e.error === 'canceled' || e.error === 'interrupted') return;
+      console.warn('[WebSpeech] error:', e);
+      this.stop();
+    };
+
+    this.utterance = utt;
+    setTimeout(() => {
+      if (this._currentTtsId !== ttsId) return;
+      if (!this._skipOnEnd) {
+        try {
+          this.synth.speak(utt);
+        } catch (e) {
+          console.error('[WebSpeech] speak failed:', e);
+          this.stop();
+        }
+      }
+    }, 40);
+  },
+
+  play(source = 'target') {
+    if (this.isPlaying && this.activeSource !== source) {
+      this.stop();
+    }
+    this.activeSource = source;
+
     const text = this.getTextToSpeak().trim();
-    if (!text) { showToast('Nothing to speak'); return; }
+    if (!text) {
+      showToast(source === 'source' ? 'No draft text to read aloud' : 'No translated text to read aloud');
+      return;
+    }
 
     this.loadVoices(); // re-init voices
     this.selectedVoice = null; // getBestVoice will use prefs
     this.paragraphs = this.splitParagraphs(text);
-    if (this.paragraphs.length === 0) { showToast('Nothing to speak'); return; }
+    if (this.paragraphs.length === 0) {
+      showToast('Nothing to speak');
+      return;
+    }
 
     this.isPlaying = true;
     this.isPaused = false;
@@ -1545,28 +1623,32 @@ const tts = {
   pause() {
     if (this.audio) {
       this.audio.pause();
-    } else {
+    } else if (this.synth) {
       this.synth.pause();
     }
     this.isPaused = true;
     this.setPlayIcon();
-    btnPlayAudio.title = 'Resume';
+    const activeBtn = this.getActivePlayBtn();
+    if (activeBtn) activeBtn.title = 'Resume';
   },
 
   resume() {
     if (this.audio) {
       this.audio.play();
-    } else {
+    } else if (this.synth) {
       this.synth.resume();
     }
     this.isPaused = false;
     this.setPauseIcon();
-    btnPlayAudio.title = 'Pause';
+    const activeBtn = this.getActivePlayBtn();
+    if (activeBtn) activeBtn.title = 'Pause';
   },
 
   stop() {
     this._skipOnEnd = true;
-    this.synth.cancel();
+    if (this.synth) {
+      try { this.synth.cancel(); } catch (_) {}
+    }
     if (this.audio) {
       this.audio.pause();
       this.audio = null;
@@ -1608,6 +1690,7 @@ const tts = {
   renderVoiceDropdown() {
     const langCode = this.getTargetLangCode();
     const langVoices = this.getVoicesForLang(langCode);
+    if (!ttsVoiceDropdown) return;
     ttsVoiceDropdown.innerHTML = '';
 
     if (langVoices.length === 0) {
@@ -1639,79 +1722,101 @@ const tts = {
 
   toggleVoiceDropdown() {
     this.voiceDropdownOpen = !this.voiceDropdownOpen;
-    ttsVoiceDropdown.classList.toggle('open', this.voiceDropdownOpen);
+    if (ttsVoiceDropdown) ttsVoiceDropdown.classList.toggle('open', this.voiceDropdownOpen);
   },
 };
 
 // Load voices (they may load async)
 tts.loadVoices();
-if (tts.synth.onvoiceschanged !== undefined) {
+if (tts.synth && tts.synth.onvoiceschanged !== undefined) {
   tts.synth.onvoiceschanged = () => tts.loadVoices();
 }
 
-// Play / Pause / Resume toggle
+// Play / Pause / Resume toggle for Target panel
 btnPlayAudio.addEventListener('click', () => {
-  if (tts.isPlaying && !tts.isPaused) {
-    tts.pause();
-  } else if (tts.isPlaying && tts.isPaused) {
-    tts.resume();
-  } else {
-    tts.play();
-  }
-});
-
-btnTtsPrev.addEventListener('click', () => tts.prevParagraph());
-btnTtsNext.addEventListener('click', () => tts.nextParagraph());
-btnTtsVoice.addEventListener('click', () => tts.toggleVoiceDropdown());
-
-btnTtsDownload.addEventListener('click', async () => {
-  const langCode = tts.getTargetLangCode();
-  const voice = tts.getBestVoice(langCode);
-  if (!voice || voice.source !== 'edge') {
-    showToast('Download is only available for Microsoft Edge voices.');
-    return;
-  }
-  
-  const text = tts.getTextToSpeak().trim();
-  if (!text) {
-    showToast('Nothing to download.');
-    return;
-  }
-  
-  const originalSvg = btnTtsDownload.innerHTML;
-  btnTtsDownload.style.opacity = '0.5';
-  btnTtsDownload.style.pointerEvents = 'none';
-  showToast('Preparing download...', 2000);
-  
-  try {
-    const savedPath = await window.translatorAPI.edgeTtsDownload(text, voice.shortName);
-    if (savedPath) {
-      showToast('✓ Voiceover downloaded successfully!', 3000);
+  if (tts.isPlaying && tts.activeSource === 'target') {
+    if (!tts.isPaused) {
+      tts.pause();
+    } else {
+      tts.resume();
     }
-  } catch (err) {
-    console.error('Download error:', err);
-    showToast('Failed to download voiceover.');
-  } finally {
-    btnTtsDownload.style.opacity = '';
-    btnTtsDownload.style.pointerEvents = '';
+  } else {
+    tts.play('target');
   }
 });
+
+// Play / Pause / Resume toggle for Source / Draft panel
+if (btnPlayDraftAudio) {
+  btnPlayDraftAudio.addEventListener('click', () => {
+    if (tts.isPlaying && tts.activeSource === 'source') {
+      if (!tts.isPaused) {
+        tts.pause();
+      } else {
+        tts.resume();
+      }
+    } else {
+      tts.play('source');
+    }
+  });
+}
+
+if (btnTtsPrev) btnTtsPrev.addEventListener('click', () => tts.prevParagraph());
+if (btnTtsNext) btnTtsNext.addEventListener('click', () => tts.nextParagraph());
+if (btnTtsVoice) btnTtsVoice.addEventListener('click', () => tts.toggleVoiceDropdown());
+
+if (btnTtsDownload) {
+  btnTtsDownload.addEventListener('click', async () => {
+    const langCode = tts.getTargetLangCode();
+    const voice = tts.getBestVoice(langCode);
+    if (!voice || voice.source !== 'edge') {
+      showToast('Download is only available for Microsoft Edge voices.');
+      return;
+    }
+    
+    const text = tts.getTextToSpeak().trim();
+    if (!text) {
+      showToast('Nothing to download.');
+      return;
+    }
+    
+    btnTtsDownload.style.opacity = '0.5';
+    btnTtsDownload.style.pointerEvents = 'none';
+    showToast('Preparing download...', 2000);
+    
+    try {
+      const savedPath = await window.translatorAPI.edgeTtsDownload(text, voice.shortName);
+      if (savedPath) {
+        showToast('✓ Voiceover downloaded successfully!', 3000);
+      }
+    } catch (err) {
+      console.error('Download error:', err);
+      showToast('Failed to download voiceover.');
+    } finally {
+      btnTtsDownload.style.opacity = '';
+      btnTtsDownload.style.pointerEvents = '';
+    }
+  });
+}
 
 // Close voice dropdown when clicking outside
 document.addEventListener('click', (e) => {
   if (tts.voiceDropdownOpen && !e.target.closest('#tts-voice-wrapper')) {
-    ttsVoiceDropdown.classList.remove('open');
+    if (ttsVoiceDropdown) ttsVoiceDropdown.classList.remove('open');
     tts.voiceDropdownOpen = false;
   }
 });
 
 // Stop TTS when language is swapped
-tgtLang.addEventListener('change', () => {
-  if (tts.isPlaying) tts.stop();
-});
-srcLang.addEventListener('change', () => {
-  if (tts.isPlaying) tts.stop();
-});
+if (tgtLang) {
+  tgtLang.addEventListener('change', () => {
+    if (tts.isPlaying) tts.stop();
+  });
+}
+if (srcLang) {
+  srcLang.addEventListener('change', () => {
+    if (tts.isPlaying) tts.stop();
+  });
+}
 
 /* ─────────────────────────────────────────────────────────────
    WINDOW CONTROLS

@@ -32,7 +32,7 @@ function injectDictationText(text, options = {}) {
 const { createOverlay, showSettings, showLicensePopup, showWordLimitPopup, showTranslatorLockedPopup, showAiTrialExpiredPopup, applyOverlaySize, getOverlayWindow, getSettingsWindow, showUpdateReminderPopup, getUpdateReminderPopupWindow, createOfflinePill } = require('./src/main/window-manager');
 const { onOverlayShow, onOverlayHide, toggleFloatingBrowser } = require('./src/main/floating-browser-manager');
 const { registerHotkeys, stopUiohook, setTranslatorCtx, setAiSendNow, setAiModeToggle, setWhisperApiCallbacks, setWhisperAiModeToggle, setLensCaptureCallback, setAppStoreCallback, setBrowserToggleCallback, setGetIsListening, setHasPendingText, isPttSessionActive, isPttGraceActive, clearPttGrace } = require('./src/main/hotkey-manager');
-const { checkAuthStatus, checkAndResetDailyWords, checkAiTrialExpiry } = require('./src/main/licensing');
+const { checkAuthStatus, checkAndResetDailyWords, checkAiTrialExpiry, FREE_DAILY_WORD_LIMIT } = require('./src/main/licensing');
 const { setupUpdater } = require('./src/main/updater');
 const { setupIpcHandlers, aiDictationManager } = require('./src/main/ipc-handlers');
 const { createTray, updateTrayMenu, setCaptureAction, setTranslatorAction,
@@ -455,7 +455,7 @@ function toggleListening(forceLang = null, fromTranslator = false, forceStart = 
     if (status === 'free') {
       checkAndResetDailyWords();
       const used = store.get('freeDailyWords') || 0;
-      if (used >= 500) {
+      if (used >= FREE_DAILY_WORD_LIMIT) {
         showWordLimitPopup();
         return;
       }
@@ -634,7 +634,7 @@ function toggleListening(forceLang = null, fromTranslator = false, forceStart = 
     }
 
     // Show word limit popup at session end if free-tier user has hit today's limit
-    if (store.get('licenseStatus') === 'free' && (store.get('freeDailyWords') || 0) >= 500) {
+    if (store.get('licenseStatus') === 'free' && (store.get('freeDailyWords') || 0) >= FREE_DAILY_WORD_LIMIT) {
       setTimeout(() => showWordLimitPopup(), 400);
     }
   }
@@ -948,7 +948,16 @@ function setupWebSocketServer(server) {
           }
         }
       } else if (data.type === 'status') {
-        if (data.message === 'silence-timeout' && isListening) {
+        if (data.message === 'network-error' || data.message === 'network-restored') {
+          const overlayWindow = getOverlayWindow();
+          if (overlayWindow && !overlayWindow.isDestroyed() && overlayWindow.isVisible()) {
+            overlayWindow.webContents.send('overlay-status', data.message);
+          }
+          if (sttMode === 'translator') {
+            const tw = translatorManager.getTranslatorWindow();
+            if (tw && !tw.isDestroyed()) tw.webContents.send('translator-status', data.message);
+          }
+        } else if (data.message === 'silence-timeout' && isListening) {
           // In translator mode, only auto-stop if the translator silence timer is enabled
           if (sttMode === 'translator' && !store.get('translatorSilenceEnabled')) {
             // Silence timer is disabled for translator — re-arm and continue listening
