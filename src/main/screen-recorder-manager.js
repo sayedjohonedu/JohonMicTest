@@ -25,6 +25,7 @@ const { exec } = require('child_process');
 const store  = require('../../store/config');
 const { openGallery } = require('./gallery-manager');
 const { uIOhook } = require('uiohook-napi');
+const { getActiveDisplay, matchScreenSource } = require('./screen-helper');
 
 /* ── NOTE on native cursor in screen capture ─────────────────
    The OS (both macOS and Windows) composites the native cursor
@@ -166,14 +167,14 @@ function showRegionOverlay() {
     regionOverlay.close(); regionOverlay = null;
   }
 
-  const primaryDisplay = screen.getPrimaryDisplay();
-  const { width, height } = primaryDisplay.size;
+  const targetDisplay = getActiveDisplay();
+  const bounds = targetDisplay.bounds;
 
   regionOverlay = new BrowserWindow({
-    x: primaryDisplay.bounds.x,
-    y: primaryDisplay.bounds.y,
-    width,
-    height,
+    x: bounds.x,
+    y: bounds.y,
+    width: bounds.width,
+    height: bounds.height,
     frame: false,
     transparent: true,
     alwaysOnTop: true,
@@ -189,10 +190,11 @@ function showRegionOverlay() {
     },
   });
 
+  regionOverlay.setBounds(bounds);
+
   if (process.platform === 'darwin') {
     regionOverlay.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
     regionOverlay.setAlwaysOnTop(true, 'screen-saver');
-    regionOverlay.setSimpleFullScreen(true);
   } else {
     regionOverlay.setFullScreen(true);
   }
@@ -206,9 +208,9 @@ function showRegionOverlay() {
    ─────────────────────────────────────────────────────── */
 
 function showSavedToast(filePath, filename, errorMsg) {
-  const primaryDisplay = screen.getPrimaryDisplay();
-  const { width: sw } = primaryDisplay.size;
-  const bounds = primaryDisplay.bounds;
+  const targetDisplay = getActiveDisplay();
+  const { width: sw } = targetDisplay.size;
+  const bounds = targetDisplay.bounds;
   const toastW = 340;
   const toastH = 70;
 
@@ -295,17 +297,17 @@ async function openControlBar(region, fullscreen, settings = {}) {
     controlBar.close(); controlBar = null;
   }
 
-  const primaryDisplay = screen.getPrimaryDisplay();
-  const { width: sw, height: sh } = primaryDisplay.size;
-  const sf = primaryDisplay.scaleFactor || 1;
-  const bounds = primaryDisplay.bounds;
+  const targetDisplay = getActiveDisplay();
+  const { width: sw, height: sh } = targetDisplay.size;
+  const sf = targetDisplay.scaleFactor || 1;
+  const bounds = targetDisplay.bounds;
 
   // Determine the capture source
   const sources = await desktopCapturer.getSources({
     types: ['screen'],
     thumbnailSize: { width: 1, height: 1 },
   });
-  const screenSource = sources[0];
+  const screenSource = matchScreenSource(sources, targetDisplay) || sources[0];
 
   // Multiply by scaleFactor to capture at native Retina resolution
   const fullW = Math.round(sw * sf);
@@ -321,7 +323,7 @@ async function openControlBar(region, fullscreen, settings = {}) {
         height: Math.round(region.height * sf),
       };
 
-  // Control bar: ultra-compact pill, centred at bottom of screen
+  // Control bar: ultra-compact pill, centred at bottom of active screen
   // (No content protection — bar may appear in recordings, so keep it tiny)
   const barW = 210;
   const barH = 32;
@@ -403,10 +405,9 @@ async function openControlBar(region, fullscreen, settings = {}) {
     // Start mouse position broadcast at 60 fps for the animated cursor overlay
     startMouseBroadcast();
     // Start cursor position logging (10Hz) for editor zoom feature
-    const display = screen.getPrimaryDisplay();
     startCursorTracking(fullscreen
-      ? { x: 0, y: 0, width: display.size.width, height: display.size.height }
-      : { x: region ? region.x : 0, y: region ? region.y : 0, width: region ? region.width : display.size.width, height: region ? region.height : display.size.height }
+      ? { x: bounds.x, y: bounds.y, width: targetDisplay.size.width, height: targetDisplay.size.height }
+      : { x: (region ? region.x : 0) + bounds.x, y: (region ? region.y : 0) + bounds.y, width: region ? region.width : targetDisplay.size.width, height: region ? region.height : targetDisplay.size.height }
     );
     // Auto-open camera if user toggled it on in the capture overlay
     // Delay slightly more to let the recording pipeline fully initialize
@@ -450,16 +451,20 @@ async function openControlBar(region, fullscreen, settings = {}) {
 function openCameraWindow() {
   if (cameraWindow && !cameraWindow.isDestroyed()) return; // already open
 
-  const primaryDisplay = screen.getPrimaryDisplay();
-  const { width: sw } = primaryDisplay.size;
-  const bounds = primaryDisplay.bounds;
+  const targetDisplay = getActiveDisplay();
+  const { width: sw } = targetDisplay.size;
+  const bounds = targetDisplay.bounds;
 
-  // Restore saved position, or default to top-right corner
+  // Restore saved position, or default to top-right corner of active display
   const savedCamPos = store.get('srecCameraPosition') || {};
   const camW = savedCamPos.w || 240;
   const camH = savedCamPos.h || 240;
-  const camX = savedCamPos.x != null ? savedCamPos.x : bounds.x + sw - camW - 24;
-  const camY = savedCamPos.y != null ? savedCamPos.y : bounds.y + 24;
+  let camX = savedCamPos.x;
+  let camY = savedCamPos.y;
+  if (camX == null || camY == null) {
+    camX = bounds.x + sw - camW - 24;
+    camY = bounds.y + 24;
+  }
 
   cameraWindow = new BrowserWindow({
     x: camX,

@@ -437,10 +437,11 @@ class AgentPipelineEngine {
         }
 
         try {
-          const { desktopCapturer, screen } = require('electron');
+          const { desktopCapturer } = require('electron');
           const Tesseract = require('tesseract.js');
+          const { getActiveDisplay, matchScreenSource } = require('./screen-helper');
 
-          const display = screen.getPrimaryDisplay();
+          const display = getActiveDisplay();
           const { width, height } = display.size;
           const sf = display.scaleFactor || 1;
 
@@ -449,12 +450,13 @@ class AgentPipelineEngine {
             thumbnailSize: { width: Math.round(width * sf), height: Math.round(height * sf) },
           });
 
-          if (!sources.length) {
+          const source = matchScreenSource(sources, display);
+          if (!source) {
             console.warn('[AgentEngine] Active Window: no screen source available');
             break;
           }
 
-          const dataUrl = sources[0].thumbnail.toDataURL();
+          const dataUrl = source.thumbnail.toDataURL();
           const ocrWorker = await Tesseract.createWorker('eng');
           const { data: { text } } = await ocrWorker.recognize(dataUrl);
           await ocrWorker.terminate();

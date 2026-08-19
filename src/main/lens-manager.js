@@ -1,30 +1,24 @@
 'use strict';
 
-const { BrowserWindow, screen, desktopCapturer, ipcMain, nativeImage, clipboard, app, dialog } = require('electron');
+const { BrowserWindow, ipcMain, nativeImage, clipboard, app, dialog } = require('electron');
 const path = require('path');
 const fs   = require('fs');
+const { getActiveDisplay, captureDisplay } = require('./screen-helper');
 
-let captureOverlay = null;
-let editorWindow   = null;
-let capturedImage  = null;  // NativeImage of full screen
-let editorDirty    = false; // Track if annotations were made since last save
+let captureOverlay       = null;
+let editorWindow         = null;
+let capturedImage        = null;  // NativeImage of active screen
+let activeCaptureDisplay = null;  // Display targeted during active capture session
+let editorDirty          = false; // Track if annotations were made since last save
 
 /* ────────────────────────────────────────────
    1.  SCREEN CAPTURE
    ──────────────────────────────────────────── */
 
-async function captureScreen() {
-  const primaryDisplay = screen.getPrimaryDisplay();
-  const { width, height } = primaryDisplay.size;
-  const sf = primaryDisplay.scaleFactor || 1;
-
-  const sources = await desktopCapturer.getSources({
-    types: ['screen'],
-    thumbnailSize: { width: Math.round(width * sf), height: Math.round(height * sf) },
-  });
-
-  if (!sources.length) return null;
-  return sources[0].thumbnail;  // NativeImage
+async function captureScreen(targetDisplay) {
+  const result = await captureDisplay(targetDisplay);
+  if (!result || !result.thumbnail) return null;
+  return result.thumbnail;  // NativeImage
 }
 
 /* ────────────────────────────────────────────
@@ -66,21 +60,23 @@ async function showCaptureOverlay() {
     }
   }
 
-  // Grab the screen first (before the overlay appears)
-  capturedImage = await captureScreen();
+  // Identify monitor where user cursor is located
+  activeCaptureDisplay = getActiveDisplay();
+
+  // Grab the target screen first (before the overlay appears)
+  capturedImage = await captureScreen(activeCaptureDisplay);
   if (!capturedImage) {
-    console.error('[Lens] Could not capture screen');
+    console.error('[Lens] Could not capture screen for display:', activeCaptureDisplay.id);
     return;
   }
 
-  const primaryDisplay = screen.getPrimaryDisplay();
-  const { width, height } = primaryDisplay.size;
+  const bounds = activeCaptureDisplay.bounds;
 
   captureOverlay = new BrowserWindow({
-    x: primaryDisplay.bounds.x,
-    y: primaryDisplay.bounds.y,
-    width,
-    height,
+    x: bounds.x,
+    y: bounds.y,
+    width: bounds.width,
+    height: bounds.height,
     frame: false,
     transparent: true,
     alwaysOnTop: true,
@@ -96,13 +92,15 @@ async function showCaptureOverlay() {
     },
   });
 
-  // macOS: make the window appear above everything including menu bar
+  // Explicitly ensure bounds on target display across macOS and Windows
+  captureOverlay.setBounds(bounds);
+
+  // macOS & Windows: make the window appear above everything including menu bar/taskbar
   if (process.platform === 'darwin') {
     captureOverlay.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
     captureOverlay.setAlwaysOnTop(true, 'screen-saver');
-    captureOverlay.setSimpleFullScreen(true);
   } else {
-    captureOverlay.setFullScreen(true);
+    captureOverlay.setAlwaysOnTop(true, 'screen-saver');
   }
 
   captureOverlay.loadFile(path.join(__dirname, '..', '..', 'ui', 'lens-capture.html'));
@@ -120,7 +118,7 @@ async function showCaptureOverlay() {
    3.  EDITOR WINDOW
    ──────────────────────────────────────────── */
 
-function showEditor(croppedDataUrl, region) {
+function showEditor(croppedDataUrl, region, targetDisplay) {
   // Force-close previous editor if still alive
   if (editorWindow && !editorWindow.isDestroyed()) {
     editorWindow.destroy();
@@ -129,20 +127,27 @@ function showEditor(croppedDataUrl, region) {
 
   editorDirty = false;
 
-  const primaryDisplay = screen.getPrimaryDisplay();
-  const { width: sw, height: sh } = primaryDisplay.workAreaSize;
+  const display = targetDisplay || activeCaptureDisplay || getActiveDisplay();
+  const { x: dx, y: dy, width: dw, height: dh } = display.workArea;
 
-  const maxW = Math.round(sw * 0.9);
-  const maxH = Math.round(sh * 0.9);
-  const edW  = Math.min(region.width + 340 + 80, maxW);
-  const edH  = Math.min(region.height + 140, maxH);
+  const maxW = Math.round(dw * 0.95);
+  const maxH = Math.round(dh * 0.95);
+  const regW = (region && region.width) ? region.width : 800;
+  const regH = (region && region.height) ? region.height : 600;
+
+  const edW  = Math.min(Math.max(regW + 340 + 80, 1160), maxW);
+  const edH  = Math.min(Math.max(regH + 140, 560), maxH);
+
+  const edX = dx + Math.round((dw - edW) / 2);
+  const edY = dy + Math.round((dh - edH) / 2);
 
   editorWindow = new BrowserWindow({
-    width: Math.max(edW, 1160),
-    height: Math.max(edH, 560),
-    minWidth: 1160,
-    minHeight: 560,
-    center: true,
+    x: edX,
+    y: edY,
+    width: edW,
+    height: edH,
+    minWidth: Math.min(1160, dw),
+    minHeight: Math.min(560, dh),
     frame: false,
     transparent: false,
     resizable: true,
@@ -178,14 +183,30 @@ function setupLensIpc() {
   ipcMain.on('lens-region-selected', (_, region) => {
     if (!capturedImage) return;
 
-    const primaryDisplay = screen.getPrimaryDisplay();
-    const sf = primaryDisplay.scaleFactor || 1;
+    const display = activeCaptureDisplay || getActiveDisplay();
+    const imgSize = capturedImage.getSize();
+    const bounds = display.bounds;
+
+    // Calculate dynamic scaling ratios from actual captured buffer vs logical display bounds (handles fractional Windows DPI 125%, 150%, 175%)
+    const scaleX = (bounds.width > 0 && imgSize.width > 0) ? (imgSize.width / bounds.width) : (display.scaleFactor || 1);
+    const scaleY = (bounds.height > 0 && imgSize.height > 0) ? (imgSize.height / bounds.height) : (display.scaleFactor || 1);
+
+    // Bounded coordinates preventing any out-of-bounds error on high-DPI Windows displays
+    const rawX = Math.round(region.x * scaleX);
+    const rawY = Math.round(region.y * scaleY);
+    const rawW = Math.round(region.width * scaleX);
+    const rawH = Math.round(region.height * scaleY);
+
+    const cropX = Math.max(0, Math.min(rawX, imgSize.width - 1));
+    const cropY = Math.max(0, Math.min(rawY, imgSize.height - 1));
+    const cropW = Math.max(1, Math.min(rawW, imgSize.width - cropX));
+    const cropH = Math.max(1, Math.min(rawH, imgSize.height - cropY));
 
     const cropped = capturedImage.crop({
-      x: Math.round(region.x * sf),
-      y: Math.round(region.y * sf),
-      width: Math.round(region.width * sf),
-      height: Math.round(region.height * sf),
+      x: cropX,
+      y: cropY,
+      width: cropW,
+      height: cropH,
     });
 
     const croppedDataUrl = cropped.toDataURL();
@@ -194,7 +215,7 @@ function setupLensIpc() {
       captureOverlay.close();
     }
 
-    showEditor(croppedDataUrl, region);
+    showEditor(croppedDataUrl, region, display);
   });
 
   // Full-screen screenshot — bypass region selection
@@ -202,9 +223,9 @@ function setupLensIpc() {
     if (!capturedImage) return;
     const croppedDataUrl = capturedImage.toDataURL();
     if (captureOverlay && !captureOverlay.isDestroyed()) captureOverlay.close();
-    const primaryDisplay = screen.getPrimaryDisplay();
-    const { width, height } = primaryDisplay.size;
-    showEditor(croppedDataUrl, { x: 0, y: 0, width, height });
+    const display = activeCaptureDisplay || getActiveDisplay();
+    const { width, height } = display.bounds;
+    showEditor(croppedDataUrl, { x: 0, y: 0, width, height }, display);
   });
 
   // Cancel capture (Escape key)
@@ -328,7 +349,7 @@ function setupLensIpc() {
 }
 
 /* ────────────────────────────────────────────
-   EXPORTS
+   5.  HELPERS & EXPORTS
    ──────────────────────────────────────────── */
 
 function isCaptureOverlayOpen() {
@@ -357,19 +378,23 @@ function showEditorFromGallery(dataUrl, originFilePath, size) {
   }
   editorDirty = false;
 
-  const primaryDisplay = screen.getPrimaryDisplay();
-  const { width: sw, height: sh } = primaryDisplay.workAreaSize;
-  const maxW = Math.round(sw * 0.9);
-  const maxH = Math.round(sh * 0.9);
-  const edW  = Math.min((size.width || 800) + 340 + 80, maxW);
-  const edH  = Math.min((size.height || 600) + 140, maxH);
+  const display = getActiveDisplay();
+  const { x: dx, y: dy, width: dw, height: dh } = display.workArea;
+  const maxW = Math.round(dw * 0.95);
+  const maxH = Math.round(dh * 0.95);
+  const edW  = Math.min(Math.max(((size && size.width) || 800) + 340 + 80, 1160), maxW);
+  const edH  = Math.min(Math.max(((size && size.height) || 600) + 140, 560), maxH);
+
+  const edX = dx + Math.round((dw - edW) / 2);
+  const edY = dy + Math.round((dh - edH) / 2);
 
   editorWindow = new BrowserWindow({
-    width:  Math.max(edW, 1160),
-    height: Math.max(edH, 560),
-    minWidth: 1160,
-    minHeight: 560,
-    center: true,
+    x: edX,
+    y: edY,
+    width:  edW,
+    height: edH,
+    minWidth: Math.min(1160, dw),
+    minHeight: Math.min(560, dh),
     frame: false,
     transparent: false,
     resizable: true,
@@ -408,14 +433,14 @@ async function captureFullscreen() {
     editorWindow = null;
     editorDirty = false;
   }
-  const img = await captureScreen();
+  const display = getActiveDisplay();
+  const img = await captureScreen(display);
   if (!img) {
     console.error('[Lens] captureFullscreen: could not capture screen');
     return;
   }
-  const primaryDisplay = screen.getPrimaryDisplay();
-  const { width, height } = primaryDisplay.size;
-  showEditor(img.toDataURL(), { x: 0, y: 0, width, height });
+  const { width, height } = display.bounds;
+  showEditor(img.toDataURL(), { x: 0, y: 0, width, height }, display);
 }
 
 module.exports = { showCaptureOverlay, showEditorFromGallery, setupLensIpc, isCaptureOverlayOpen, closeCaptureOverlay, captureFullscreen };

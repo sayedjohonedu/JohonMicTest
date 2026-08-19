@@ -88,9 +88,10 @@ function showProgressToast(title, subtitle, progress) {
   }
 
   // ── First call: create the window and load the HTML once ──
-  const primaryDisplay = screen.getPrimaryDisplay();
-  const { width: sw } = primaryDisplay.size;
-  const bounds = primaryDisplay.bounds;
+  const { getActiveDisplay } = require('./screen-helper');
+  const targetDisplay = getActiveDisplay();
+  const { width: sw } = targetDisplay.size;
+  const bounds = targetDisplay.bounds;
   const toastW = 380;
   const toastH = 80;
 

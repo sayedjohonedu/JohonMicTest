@@ -359,12 +359,13 @@ function triggerUIConfirmation(say, replace) {
       if (savedPos && typeof savedPos.x === 'number' && typeof savedPos.y === 'number') {
         pill.setPosition(savedPos.x, savedPos.y);
       } else {
-        const { screen } = require('electron');
-        const display = screen.getPrimaryDisplay();
-        const { width } = display.workAreaSize;
+        const { getActiveDisplay } = require('./screen-helper');
+        const display = getActiveDisplay();
+        const { x: dx, y: dy, width: dw } = display.workArea;
         const pillWidth = 240;
-        const x = Math.round((width - pillWidth) / 2);
-        pill.setPosition(x, 60);
+        const x = dx + Math.round((dw - pillWidth) / 2);
+        const y = dy + 60;
+        pill.setPosition(x, y);
       }
       
       pill.showInactive();

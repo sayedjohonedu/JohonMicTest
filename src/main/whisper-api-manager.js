@@ -583,17 +583,18 @@ class WhisperApiManager {
     this._pillWindow.webContents.send('offline-pill-state', { state, aiMode });
     this._pillWindow.showInactive();
 
-    // Restore saved position, or default to centered near top of screen
+    // Restore saved position, or default to centered near top of active screen
     const savedPos = store.get('offlinePillPosition');
     if (savedPos && typeof savedPos.x === 'number' && typeof savedPos.y === 'number') {
       this._pillWindow.setPosition(savedPos.x, savedPos.y);
     } else {
-      const { screen } = require('electron');
-      const display = screen.getPrimaryDisplay();
-      const { width } = display.workAreaSize;
+      const { getActiveDisplay } = require('./screen-helper');
+      const display = getActiveDisplay();
+      const { x: dx, y: dy, width: dw } = display.workArea;
       const pillWidth = 240;
-      const x = Math.round((width - pillWidth) / 2);
-      this._pillWindow.setPosition(x, 60);
+      const x = dx + Math.round((dw - pillWidth) / 2);
+      const y = dy + 60;
+      this._pillWindow.setPosition(x, y);
     }
   }
 
