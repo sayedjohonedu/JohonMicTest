@@ -21,3 +21,6 @@ MicTab is an Electron-based desktop productivity application offering AI-powered
    - Updated `lens-manager.js` so screenshot capture overlays and the editor window immediately appear on whichever monitor the mouse cursor is located on, with DPI-aware scaling.
    - Updated `screen-recorder-manager.js` (region selector, control bar, camera window, saved toast) to target the active monitor.
    - Updated `agent-pipeline-engine.js` active-window OCR and `ffmpeg-manager.js` toast positioning to be multi-monitor aware. Bumped version to 2.0.8.
+2. **Fix Settings Auto-Appearing When Using Sub-Apps (2026-09-03)**:
+   - Removed automatic 1-second `setTimeout(() => showSettings(), 1000)` on app boot in `main.js`. Settings now only appears when intentionally opened via the tray menu or the overlay settings gear icon.
+   - Updated `src/main/window-manager.js` in `maybRevertToAccessory()` to check `settingsWindow.isVisible()` so the macOS activation policy cleanly reverts to accessory when interactive windows close or hide.

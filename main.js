@@ -1377,13 +1377,4 @@ app.whenReady().then(() => {
       }
     });
   }
-
-  setTimeout(() => {
-    if (process.platform === 'darwin') app.setActivationPolicy('regular');
-    const win = showSettings();
-    if (win && !win.isDestroyed()) {
-      win.show();
-      win.focus();
-    }
-  }, 1000);
 });

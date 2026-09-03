@@ -1,3 +1,12 @@
+# MicTab v2.0.9 🎙️✨
+
+### 🔧 Fixes & Polish
+* **Silent Background Startup**: Removed the automatic startup popup timer. MicTab now launches silently into your menu bar tray as intended without opening the Settings window on system boot.
+* **Window Layering & Sub-App Fix**: Resolved an issue on macOS where opening or closing sub-apps (Clipboard Manager, Floating Browser, Lens Screenshot) would pull the main Settings window to the front. 
+* **Activation Policy Cleanup**: Improved macOS accessory policy restoration so the app seamlessly reverts to background mode when all interactive windows are dismissed.
+
+---
+
 # MicTab v1.3.37 🎙️✨
 
 ### 🔧 macOS Gatekeeper Patch

@@ -24,8 +24,8 @@ let voiceAgentsWindow = null;
  */
 function maybRevertToAccessory() {
   if (process.platform !== 'darwin') return;
-  // Check if any interactive window is still alive
-  const hasSettings  = settingsWindow && !settingsWindow.isDestroyed();
+  // Check if any interactive window is still alive and visible
+  const hasSettings  = settingsWindow && !settingsWindow.isDestroyed() && settingsWindow.isVisible();
   // Clipboard window can't be checked via local ref — use BrowserWindow.getAllWindows
   const hasInteractive = hasSettings || BrowserWindow.getAllWindows().some(w => {
     if (w === overlayWindow) return false; // overlay is non-activating, skip
